@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+</head>
+<div class="topnav">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/search">Database Search</a>
+    <a href="/logout">Logout</a>
+</div>
+<body>
+    <h1>Welcome, {{ session['user']['email'] }}!</h1>
+    <p>What would you like to do?</p>
+    <a href="/upload">Upload</a>
+    <br>
+    <a href="/change">Change entry</a>
+    <br>
+    <a href="/search">Database Search</a>
+</body>
+</html>

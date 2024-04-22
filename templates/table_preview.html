@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Display Tables</title>
+</head>
+<div class="topnav">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/search">Database Search</a>
+    <a href="/logout">Logout</a>
+</div>
+<body>
+    <!-- <a href="{{ url_for('table_preview', type= result) }}">  Back </a> -->
+    <form action="/search" method="post">
+        <button type="submit" name="back" value="back" class="btn-link">Back</button>
+    </form>
+    <p>{{ table_name }}</p>
+    
+    {% for table_html in tables %}
+        {{ table_html|safe }}
+    {% endfor %}
+    
+</body>
+</html>

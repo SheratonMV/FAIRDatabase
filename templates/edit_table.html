@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ name }}</title>
+</head>
+<form method="POST" action="/update_a_row">
+    {% for row in data %}
+        {% for header, value in row.items() %}
+            <label for="{{ header }}">{{ header }}</label>
+            <input type="text" id="{{ header }}" name="{{ header }}" value="{{ value }}">
+        {% endfor %}
+        <input type="submit" value="Update">
+    {% endfor %}
+</form>
+</html>

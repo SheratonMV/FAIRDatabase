@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Display Tables</title>
+</head>
+<div class="topnav">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/search">Database Search</a>
+    <a href="/logout">Logout</a>
+</div>
+<body>
+      
+    <h1>Search Tables</h1>
+    <form action="/search" method="post" id="search">
+        <input type="text" id = "search" name="search" placeholder="Enter sequence" required>
+        <input type="checkbox" name="value1"/><label>Active</label>
+        <input type="checkbox" name="value0"/><label>Non-active</label>
+        <input type="submit" value="Search" >
+        <!-- {% if search_results %}
+            <input type="submit" value="Download">
+        {% endif %} -->
+        
+        {% if table_names %}
+            <h1>Table Names</h1>
+            <ul>
+                {% for table_name in table_names %}
+                <li><a href="{{ url_for('table_preview', type= result) }}"> {{ table_name }} </a></li>
+                {% endfor %}
+            </ul>
+     
+        {% endif %}
+        
+    
+
+    {% if search_results %}
+        <h1>Search Results</h1>
+        <ul>
+            {% for result in search_results %}
+                <li><a href="{{ url_for('table_preview', type= result) }}"> {{ result }} </a></li>
+            {% endfor %}
+        </ul>
+        <input type="submit" name="Download" value="Download" formnovalidate>
+    {% endif %}         
+   
+    </form>
+</body>
+</html>

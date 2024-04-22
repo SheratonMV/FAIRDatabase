@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Upload</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    #progress-bar {
+      width: 100%;
+      height: 30px;
+      background-color: #f2f2f2;
+      border-radius: 5px;
+    }
+    #progress {
+      width: 0%;
+      height: 100%;
+      background-color: #4CAF50;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Upload Page</h1>
+  <form method="POST" enctype="multipart/form-data" id="upload-form">
+    <label for="origin">Reference to work:</label>
+    <input type="text" name="origin" required><br><br>
+    <label for="description">Description of data:</label>
+    <input type="text" name="description" required><br><br>
+
+    <input type="file" name="file" id="file-input">
+    <input type="submit" value="Upload">
+  </form>
+  <div id="progress-bar">
+    <div id="progress"></div>
+  </div>
+  <p id="progress-message"></p>
+  <script>
+    $(document).ready(function() {
+      $("#upload-form").submit(function(e) {
+        e.preventDefault();
+        var formData = new FormData(this);
+        $.ajax({
+          url: '/upload',
+          type: 'POST',
+          data: formData,
+          processData: false,
+          contentType: false,
+          xhr: function() {
+            var xhr = new window.XMLHttpRequest();
+            xhr.upload.addEventListener("progress", function(evt) {
+              if (evt.lengthComputable) {
+                var progress = Math.round((evt.loaded / evt.total) * 100);
+                $("#progress").css("width", progress + "%");
+                $("#progress-message").text("Creating table:" + progress + "% . Waiting to finalize...");
+              }
+            }, false);
+            return xhr;
+          },
+          success: function(response) {
+            $("#progress-message").text("File uploaded successfully.");
+          },
+          error: function(error) {
+            $("#progress-message").text("Error uploading file.");
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>
