@@ -26,7 +26,7 @@ app = Flask(__name__)
 app.secret_key = os.urandom(1)
 
 SUPABASE_URL = 'http://localhost:8000'
-SUPABASE_PUBLIC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzA2NjU1NjAwLAogICJleHAiOiAxODY0NTA4NDAwCn0.PHF4l_DdAyeJFZ6CMtpnbkFOmphH_cQ9sPO0McFJya0'
+SUPABASE_PUBLIC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogInNlcnZpY2Vfcm9sZSIsCiAgImlzcyI6ICJzdXBhYmFzZSIsCiAgImlhdCI6IDE3MTM5MDk2MDAsCiAgImV4cCI6IDE4NzE2NzYwMDAKfQ.wP8HCMgL0X8aS0qkkpWUL3CRTftRaRBwDFHkonsa8oQ'
 
 supabase = create_client(SUPABASE_URL, SUPABASE_PUBLIC_KEY)
 client: Client = supabase
@@ -42,11 +42,15 @@ def home():
         return render_template('dashboard.html')
     return render_template('login.html')
 
+@app.route('/build')
+def build():
+    return render_template('build.html')
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    email_user = request.form['email'] #sheraton@metahealth
-    password_user = request.form['password'] #vivek
+    email_user = request.form['email'] 
+    password_user = request.form['password'] 
 
     user = client.auth.sign_in_with_password({ "email": email_user, "password": password_user })
     if 'error' not in user: 
