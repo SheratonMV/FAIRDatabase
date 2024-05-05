@@ -1,5 +1,8 @@
-<!DOCTYPE html>
-<html>
+{% extends "layout.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
 <head>
   <title>Upload</title>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -18,9 +21,10 @@
     }
   </style>
 </head>
+<div class="row justify-content-center">
+<br>
 
-<body>
-  <h1>Upload Page</h1>
+<h1>Upload Page</h1>
   <form method="POST" enctype="multipart/form-data" id="upload-form">
     <label for="origin">Reference to work:</label>
     <input type="text" name="origin" required><br><br>
@@ -66,5 +70,14 @@
       });
     });
   </script>
+</div>
+{% endblock %}
+
+
+
+
+
+<body>
+  
 </body>
 </html>

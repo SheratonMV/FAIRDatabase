@@ -1,13 +1,11 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Dashboard</title>
-</head>
-<div class="topnav">
-    <a href="/dashboard">Dashboard</a>
-    <a href="/search">Database Search</a>
-    <a href="/logout">Logout</a>
-</div>
+{% extends "layout.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<br>
+
 <body>
     <h1>Welcome, {{ session['user']['email'] }}!</h1>
     <p>What would you like to do?</p>
@@ -17,4 +15,6 @@
     <br>
     <a href="/search">Database Search</a>
 </body>
-</html>
+</div>
+{% endblock %}
+

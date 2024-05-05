@@ -1,26 +1,31 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Update Value</title>
-</head>
-<div class="topnav">
-    <a href="/dashboard">Dashboard</a>
-    <a href="/search">Database Search</a>
-    <a href="/logout">Logout</a>
+{% extends "layout.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <head>
+        <title>Update Value</title>
+    </head>
+
+    <body>
+        <h1>Update Value</h1>
+        <form method="POST">
+            <label for="row_id">Row ID:</label><br>
+            <input type="text" id="row_id" name="row_id">
+            <br>
+            <label for="column_name">Column Name:</label><br>
+            <input type="text" id="column_name" name="column_name">
+            <br>
+            <label for="new_value">New Value:</label><br>
+            <input type="text" id="new_value" name="new_value">
+            <br><br>
+            <input type="submit" value="Update">
+        </form>
+    </body>
 </div>
-<body>
-    <h1>Update Value</h1>
-    <form method="POST">
-        <label for="row_id">Row ID:</label><br>
-        <input type="text" id="row_id" name="row_id">
-        <br>
-        <label for="column_name">Column Name:</label><br>
-        <input type="text" id="column_name" name="column_name">
-        <br>
-        <label for="new_value">New Value:</label><br>
-        <input type="text" id="new_value" name="new_value">
-        <br><br>
-        <input type="submit" value="Update">
-    </form>
-</body>
-</html>
+{% endblock %}
+
+
+
+

@@ -30,23 +30,24 @@
         #sticky-footer {
             flex-shrink: none;
         }
-        #sticky-footer {
-            flex-shrink: none;
-        }
+
         .custom-footer {
-      background-color: #276c66; /* Your custom color */
-      color: white; /* Text color to ensure readability */
-      padding: 20px 0; /* Adjust padding as needed */
-    }
+            background-color: #276c66;
+            /* Your custom color */
+            color: white;
+            /* Text color to ensure readability */
+            padding: 20px 0;
+            /* Adjust padding as needed */
+        }
     </style>
 </head>
 
-<body class="d-flex flex-column">
+<body class="d-flex flex-column" style="background-color: #f8f8f8;">
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-light" style="background-color: #276c66; color: white;" >
+    <nav class="navbar navbar-expand-lg navbar-light" style="background-color: #276c66; color: white;">
         <!-- Navbar brand -->
-        <a class="navbar-brand me-2" href="https://mdbgo.com/">
-            <img src="https://upload.wikimedia.org/wikipedia/en/7/78/University_of_Amsterdam_logo.svg" height="35" alt="MDB Logo" loading="lazy" style="margin-top: -1px;">
+        <a class="navbar-brand me-2" href="\dashboard">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Amsterdamuniversitylogo.svg/1920px-Amsterdamuniversitylogo.svg.png" height="35" alt="MDB Logo" loading="lazy" style="margin-top: -1px;">
         </a>
 
         <!-- Collapsible wrapper -->
@@ -54,20 +55,21 @@
             <!-- Navbar links -->
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <li class="nav-item">
-                    <a class="nav-link active" aria-current="page" href="#" style="color: white;">Home</a>
+                    <a class="nav-link active" aria-current="page" href="/dashboard" style="color: white;">Dashboard</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#" style="color: white;">placeholder</a>
+                    <a class="nav-link" href="/search" style="color: white;">Database search</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#" style="color: white;">placeholder</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" style="color: white;">placeholder</a>
+                    <a class="nav-link active" aria-current="page" href="/upload" style="color: white;">Upload</a>
                 </li>
             </ul>
-            
-
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" href="\logout" style="color: white;">Logout</a>
+                </li>
+            </ul>
+        </div>
         <!-- Collapsible wrapper -->
     </nav>
     <!-- Navbar -->
@@ -79,8 +81,6 @@
             {% endblock %}
         </div>
     </div>
-
-
 
     <!-- Footer -->
     <footer class="footer custom-footer">
