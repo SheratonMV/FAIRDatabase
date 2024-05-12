@@ -26,7 +26,7 @@ app = Flask(__name__)
 app.secret_key = os.urandom(1)
 
 SUPABASE_URL = 'http://localhost:8000'
-SUPABASE_PUBLIC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogInNlcnZpY2Vfcm9sZSIsCiAgImlzcyI6ICJzdXBhYmFzZSIsCiAgImlhdCI6IDE3MTM5MDk2MDAsCiAgImV4cCI6IDE4NzE2NzYwMDAKfQ.wP8HCMgL0X8aS0qkkpWUL3CRTftRaRBwDFHkonsa8oQ'
+SUPABASE_PUBLIC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzE0ODYwMDAwLAogICJleHAiOiAxODcyNjI2NDAwCn0.87CKUUqmCE6oZhyExthSKEDCGBnuZqhTdOUbgQtxsCE'
 
 supabase = create_client(SUPABASE_URL, SUPABASE_PUBLIC_KEY)
 client: Client = supabase
@@ -54,6 +54,7 @@ def login():
 
     user = client.auth.sign_in_with_password({ "email": email_user, "password": password_user })
     if 'error' not in user: 
+        session['email'] = email_user
         print (dir(session), session.update({"user":1}))
         users_table = client.table('users')
         user = users_table.select().eq('email', email_user).single()
@@ -101,7 +102,9 @@ def register():
 @app.route('/dashboard')
 def dashboard():
     if 'user' in session:
-        return render_template('dashboard.html')
+        user_email = session['email']
+
+        return render_template('dashboard.html', user_email=user_email)
     else:
         return redirect('/')
 
@@ -135,7 +138,7 @@ def upload():
                     file_name = str(secure_filename(uploaded_file.filename)).rsplit('.', 1)[0] + time_c_text
                     
                     # Connect to database
-                    database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="4ssEP7M09t7g1PM5Y6U3")
+                    database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="7sJYfI5dHJs27zie2Cpy")
                     cursor_database = database_connection.cursor()
 
                     # Set column limit to 1200, leaving space for adding columns
@@ -236,7 +239,7 @@ def search():
         if request.method == 'GET':
             upload_timer = time.time()
             # Connect to database
-            database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="4ssEP7M09t7g1PM5Y6U3")
+            database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="7sJYfI5dHJs27zie2Cpy")
             cursor_database = database_connection.cursor()
             
             # Get table names
@@ -309,7 +312,7 @@ def display():
             search_term = session.get("search_term")
 
             # Database connection
-            database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="4ssEP7M09t7g1PM5Y6U3")
+            database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="7sJYfI5dHJs27zie2Cpy")
             cursor_database = database_connection.cursor()
             
             # Get tables where search term is part of
@@ -441,7 +444,7 @@ def table_preview():
             table_name = request.args.get('type')
             
             # Database connection
-            database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="4ssEP7M09t7g1PM5Y6U3")
+            database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="7sJYfI5dHJs27zie2Cpy")
             cursor_database = database_connection.cursor()
 
             query_tables = f"SELECT table_name FROM _realtime.metadata_tables WHERE main_table = '{table_name}'"
