@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 
-{% block title %}Login{% endblock %}
+{% block title %}Upload{% endblock %}
 
 {% block content %}
 <head>
@@ -24,16 +24,36 @@
 <div class="row justify-content-center">
 <br>
 
-<h1>Upload Page</h1>
-  <form method="POST" enctype="multipart/form-data" id="upload-form">
-    <label for="origin">Reference to work:</label>
-    <input type="text" name="origin" required><br><br>
-    <label for="description">Description of data:</label>
-    <input type="text" name="description" required><br><br>
+<h1>
+ Upload
+  <!-- <small class="text-muted">What would you like to do?</small> -->
+</h1>
+<form method="POST" enctype="multipart/form-data" id="upload-form">
+  <div class="input-group mb-3">
+    <div class="input-group-prepend">
+      <span class="input-group-text" id="basic-addon1">Reference</span>
+    </div>
+    <input type="text" class="form-control" name="origin" placeholder="Reference to work" aria-label="Username" aria-describedby="basic-addon1" required>
+  </div>
 
-    <input type="file" name="file" id="file-input">
-    <input type="submit" value="Upload">
-  </form>
+  <div class="input-group">
+    <div class="input-group-prepend">
+      <span class="input-group-text">Description</span>
+    </div>
+    <textarea class="form-control" name="description" aria-label="With textarea" placeholder="Description of data" required></textarea>
+  </div>
+<br>
+  <div class="input-group mb-3">
+    <div class="custom-file">
+      <input type="file" class="custom-file-input" id="file-input" name="file">
+      <label class="custom-file-label" for="file-input">Choose file</label>
+    </div>
+    <div class="input-group-append">
+      <button class="btn btn-custom" type="submit">Upload</button>
+    </div>
+  </div>
+</form>
+
   <div id="progress-bar">
     <div id="progress"></div>
   </div>

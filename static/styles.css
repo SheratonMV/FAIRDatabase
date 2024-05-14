@@ -1,74 +1,86 @@
+/* Custom button */
 .btn-custom {
   background-color: #309398;
   color: #fff;
 }
-.btn-custom:hover, .btn-custom:focus {
-color: #fff;
-background-color: #61C8CD;
-border-color: #267579; /*set the color you want here*/
+.btn-custom:hover,
+.btn-custom:focus {
+  color: #fff;
+  background-color: #61c8cd;
+  border-color: #267579; 
 }
 
-.btn-custom:active .btn-custom.active, .open>.dropdown-toggle.btn-custom{
+.btn-custom:active .btn-custom.active,
+.open > .dropdown-toggle.btn-custom {
   background-color: #267579;
 }
-  /* Sticky footer styles */
-  html,
-  body {
-      height: 100%;
-  }
-  #page-content {
-      flex: 1 0 auto;
-      margin-left: 250px; /* Changed to 250px to keep sidebar expanded */
-      transition: margin-left 0.3s ease; /* Add transition for smooth animation */
-  }
-  #sticky-footer {
-      flex-shrink: none;
-  }
-  .custom-footer {
-      background-color: #ffffff; /* Your custom color */
-      color: white; /* Text color to ensure readability */
-      padding: 20px 0; /* Adjust padding as needed */
-  }
-  /* Sidebar styles */
-  .sidebar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      height: 100%;
-      width: 250px;
-      background-color: #01191a; /* Your sidebar background color */
-      color: white;
-      padding-top: 60px; /* Adjust top padding to make space for the navbar */
-      transition: width 0.3s ease; /* Add transition for smooth animation */
-  }
-  /* Hide text of navigation links when sidebar is collapsed */
-  #body.collapsed .nav-link .sidebar-text {
-      display: none;
-  }
-  .sidebar button {
-      position: absolute; /* Position the button absolutely */
-      top: 10px; /* Adjust the top position as needed */
-      right: 10px; /* Keep it positioned at the right */
-  }
-  .navbar-nav .nav-link {
-      transition: all 0.3s ease;
-      border-radius: 5px; /* Add rounded corners to all nav links */
-      padding: 10px 20px; /* Add padding around the text */
-  }
-  .navbar-nav .nav-link:hover {
-      background-color: #263d3d; /* Change background color on hover */
-      border-radius: 8px; /* Increase border radius on hover for rounded effect */
-  }
-  .sidebar ul.navbar-nav li.nav-item {
-      padding: 10px 15px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  }
-  .sidebar ul.navbar-nav li.nav-item:last-child {
-      border-bottom: none;
-  }
-  .sidebar ul.navbar-nav li.nav-item a.nav-link {
-      color: white;
-  }
-  .sidebar ul.navbar-nav li.nav-item a.nav-link:hover {
-      color: #fff; /* Change color on hover if desired */
-  }
+
+/* Sticky footer */
+html,
+body {
+  height: 100%;
+}
+#page-content {
+  flex: 1 0 auto;
+  margin-left: 250px; 
+  transition: margin-left 0.3s ease; 
+}
+#sticky-footer {
+  flex-shrink: none;
+}
+.custom-footer {
+  background-color: #ffffff; 
+  color: black; 
+  padding: 20px 0; 
+}
+
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 250px;
+  background-color: #01191a; 
+  color: white;
+  padding-top: 60px; 
+  transition: width 0.3s ease; 
+}
+
+#body.collapsed .nav-link .sidebar-text {
+  display: none;
+}
+.sidebar button {
+  position: absolute; 
+  top: 10px; 
+  right: 10px; 
+}
+.navbar-nav .nav-link {
+  transition: all 0.3s ease;
+  border-radius: 5px; 
+  padding: 10px 20px; 
+}
+.navbar-nav .nav-link:hover {
+  background-color: #263d3d; 
+  border-radius: 8px; 
+}
+.sidebar ul.navbar-nav li.nav-item {
+  padding: 10px 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.sidebar ul.navbar-nav li.nav-item:last-child {
+  border-bottom: none;
+}
+.sidebar ul.navbar-nav li.nav-item a.nav-link {
+  color: white;
+}
+.sidebar ul.navbar-nav li.nav-item a.nav-link:hover {
+  color: #fff; 
+}
+
+/* Browse button upload */
+.custom-file-input {
+  background-color: #D8F1F3;
+  outline: #263d3d;
+}
+

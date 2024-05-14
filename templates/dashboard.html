@@ -1,51 +1,47 @@
 {% extends "layout.html" %}
 
-{% block title %}Login{% endblock %}
+{% block title %}Dashboard{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
-<br>
-
-
-<body>
-    <h1>
-        Welcome, {{ user_email }}!
-        <small class="text-muted">What would you like to do?</small>
-      </h1>
-      <div></div>
-      <div class="card-group">
-        <div class="card">
-          <img src="static/img/upload.jpg" class="card-img-top" alt="...">
-          <div class="card-body">
-            <h5 class="card-title">Card title</h5>
-            <p class="card-text">This is a wider card with supporting text below as a natural lead-in to additional content. This content is a little bit longer.</p>
-          </div>
-          <div class="card-footer">
-            <a href="\upload" role="button" class="btn btn-custom">Upload</a>
+    <br>
+    <body>
+        <h1>Welcome, {{ user_email }}!
+            <small class="text-muted">What would you like to do?</small>
+        </h1>
+        <div></div>
+        <div class="card-group">
+            <div class="card">
+                <img src="static/img/search.jpg" class="card-img-top" alt="...">
+                <div class="card-body">
+                    <h5 class="card-title">Search</h5>
+                    <p class="card-text">Head straight into the search function.</p>
+                </div>
+                <div class="card-footer">
+                    <a href="\search" role="button" class="btn btn-custom">Search</a>
+                </div>
+            </div>
+            <div class="card">
+                <img src="static/img/upload.jpg" class="card-img-top" alt="...">
+                <div class="card-body">
+                    <h5 class="card-title">Upload</h5>
+                    <p class="card-text">Head to the upload function. </p>
+                </div>
+                <div class="card-footer">
+                    <a href="\upload" role="button" class="btn btn-custom">Upload</a>
+                </div>
+            </div>
+            <div class="card">
+                <img src="static/img/change.jpg" class="card-img-top" alt="...">
+                <div class="card-body">
+                    <h5 class="card-title">Update Entry</h5>
+                    <p class="card-text">Go here to update an entry in the database.</p>
+                </div>
+                <div class="card-footer">
+                    <a href="\change" role="button" class="btn btn-custom">Update entry</a>
+                </div>
+            </div>
         </div>
-        </div>
-        <div class="card">
-          <img src="static/img/change.jpg" class="card-img-top" alt="...">
-          <div class="card-body">
-            <h5 class="card-title">Card title</h5>
-            <p class="card-text">This card has supporting text below as a natural lead-in to additional content.</p>
-          </div>
-          <div class="card-footer">
-            <a href="\change" role="button" class="btn btn-custom">Change entry</a>
-        </div>
-        </div>
-        <div class="card">
-          <img src="static/img/search.jpg" class="card-img-top" alt="...">
-          <div class="card-body">
-            <h5 class="card-title">Card title</h5>
-            <p class="card-text">This is a wider card with supporting text below as a natural lead-in to additional content. This card has even longer content than the first to show that equal height action.</p>
-          </div>
-          <div class="card-footer">
-            <a href="\search" role="button" class="btn btn-custom">Search</a>
-        </div>
-        </div>
-    </div>
-</body>
+    </body>
 </div>
 {% endblock %}
-

@@ -1,27 +1,50 @@
 {% extends "layout.html" %}
 
-{% block title %}Login{% endblock %}
+{% block title %}Update entry{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
-    <head>
-        <title>Update Value</title>
-    </head>
+
 
     <body>
-        <h1>Update Value</h1>
+        <h1>Update entry</h1>
         <form method="POST">
-            <label for="row_id">Row ID:</label><br>
-            <input type="text" id="row_id" name="row_id">
-            <br>
-            <label for="column_name">Column Name:</label><br>
-            <input type="text" id="column_name" name="column_name">
-            <br>
-            <label for="new_value">New Value:</label><br>
-            <input type="text" id="new_value" name="new_value">
-            <br><br>
-            <input type="submit" value="Update">
-        </form>
+            <div class="container">
+                <div class="row">
+                    <div class="col-8">
+                        <div class="input-group mb-3">
+                            <div class="input-group-prepend">
+                              <span class="input-group-text" id="basic-addon1">Row ID</span>
+                            </div>
+                            <input type="text" class="form-control" id="row_id" name="row_id" placeholder="Enter row ID" aria-label="Row ID" aria-describedby="basic-addon1">
+                          </div>
+                        
+                          <div class="input-group mb-3">
+                            <div class="input-group-prepend">
+                              <span class="input-group-text" id="basic-addon2">Column Name</span>
+                            </div>
+                            <input type="text" class="form-control" id="column_name" name="column_name" placeholder="Enter column name" aria-label="Column Name" aria-describedby="basic-addon2">
+                          </div>
+                        
+                          <div class="input-group mb-3">
+                            <div class="input-group-prepend">
+                              <span class="input-group-text" id="basic-addon3">New Value</span>
+                            </div>
+                            <input type="text" class="form-control" id="new_value" name="new_value" placeholder="Enter new value" aria-label="New Value" aria-describedby="basic-addon3">
+                          </div>
+                    </div>
+                    <div class="col">
+                    </div>
+                  </div>
+            </div>
+            <div class="container">
+                <div class="col"></div>
+                <div class="col"></div>
+            </div>
+            <input type="submit" value="Update" class="btn btn-custom">
+
+          </form>
+          
     </body>
 </div>
 {% endblock %}
