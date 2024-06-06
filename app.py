@@ -239,26 +239,15 @@ def search():
         if request.method == 'GET':
             upload_timer = time.time()
             # Connect to database
-            database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="7sJYfI5dHJs27zie2Cpy")
+            database_connection = psycopg2.connect(host="localhost", port="5432", database="", user="postgres", password="7sJYfI5dHJs27zie2Cpy")
             cursor_database = database_connection.cursor()
-            
-            # Get table names
-            sql_query = "SELECT DISTINCT main_table FROM _realtime.metadata_tables WHERE table_name IN (SELECT table_name FROM information_schema.tables WHERE table_schema = '_realtime')"
-            cursor_database.execute(sql_query)  #query execute
-            table_names = cursor_database.fetchall()
-            table_names = [table[0] for table in table_names]
-            # hidden_tables = ['schema_migrations','tenants','extensions','metadata_tables']
-            # for hidden_table in hidden_tables:
-            #     table_names.remove(hidden_table)
-            
-            
-            sql_query = "SELECT DISTINCT main_table FROM _realtime.metadata_tables WHERE table_name IN (SELECT table_name FROM information_schema.tables WHERE table_schema = '_realtime')"
-            cursor_database.execute(sql_query)  #query execute
-            table_names = cursor_database.fetchall()
-            table_names = [table[0] for table in table_names]
-            
 
-            
+            # Get table names from the 'public' schema
+            sql_query = "SELECT DISTINCT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+            cursor_database.execute(sql_query)
+            table_names = cursor_database.fetchall()
+            table_names = [table[0] for table in table_names]
+
             database_connection.close()
 
             # Render template with table names
@@ -272,34 +261,98 @@ def search():
                     search_term = request.form.get('search')
                     seq_na = request.form.get('value0')
                     seq_a = request.form.get('value1')
-                    session["search_term"] = [search_term,seq_a,seq_na]
+                    session["search_term"] = [search_term, seq_a, seq_na]
 
-                
                 search_term = session['search_term'][0]
-                
+
                 print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
                 print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
                 # Connect to database
-                database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="postgres")
+                database_connection = psycopg2.connect(host="localhost", port="5432", database="", user="postgres", password="7sJYfI5dHJs27zie2Cpy")
                 cursor_database = database_connection.cursor()
-                
-                
-                sql_query = f"SELECT DISTINCT main_table FROM _realtime.metadata_tables WHERE table_name IN (SELECT table_name FROM information_schema.columns WHERE column_name like '%{search_term}%')"
+
+                sql_query = f"SELECT DISTINCT table_name FROM information_schema.columns WHERE column_name LIKE '%{search_term}%' AND table_schema = 'public'"
                 cursor_database.execute(sql_query)  # Get the search term from the form
                 search_results = cursor_database.fetchall()
                 print(search_results)
-                return render_template('search.html',search_results=search_results, search_term=search_term)
-            
-            
+                return render_template('search.html', search_results=search_results, search_term=search_term)
+
             if 'Download' in request.form:
                 print("=============================================================================")
                 print("=============================================================================")
                 print(session.get("search_term"))
                 return redirect(url_for('display'))
-            
-            
+
     else:
         return redirect('/')
+
+# @app.route('/search', methods=['GET', 'POST'])
+# def search():
+#     if 'user' in session:
+#         if request.method == 'GET':
+#             upload_timer = time.time()
+#             # Connect to database
+#             database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="7sJYfI5dHJs27zie2Cpy")
+#             cursor_database = database_connection.cursor()
+            
+#             # Get table names
+#             sql_query = "SELECT DISTINCT main_table FROM _realtime.metadata_tables WHERE table_name IN (SELECT table_name FROM information_schema.tables WHERE table_schema = '_realtime')"
+#             cursor_database.execute(sql_query)  #query execute
+#             table_names = cursor_database.fetchall()
+#             table_names = [table[0] for table in table_names]
+#             # hidden_tables = ['schema_migrations','tenants','extensions','metadata_tables']
+#             # for hidden_table in hidden_tables:
+#             #     table_names.remove(hidden_table)
+            
+            
+#             sql_query = "SELECT DISTINCT main_table FROM _realtime.metadata_tables WHERE table_name IN (SELECT table_name FROM information_schema.tables WHERE table_schema = '_realtime')"
+#             cursor_database.execute(sql_query)  #query execute
+#             table_names = cursor_database.fetchall()
+#             table_names = [table[0] for table in table_names]
+            
+
+            
+#             database_connection.close()
+
+#             # Render template with table names
+#             upload_timer = str(round(time.time() - upload_timer, 2))
+#             print(f"--- {upload_timer.replace('.', ',')[:5]} seconds, ")
+#             return render_template('search.html', table_names=table_names)
+
+#         elif request.method == 'POST':
+#             if 'Download' not in request.form:
+#                 if request.form.get('search') is not None:
+#                     search_term = request.form.get('search')
+#                     seq_na = request.form.get('value0')
+#                     seq_a = request.form.get('value1')
+#                     session["search_term"] = [search_term,seq_a,seq_na]
+
+                
+#                 search_term = session['search_term'][0]
+                
+#                 print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+#                 print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+#                 # Connect to database
+#                 database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="7sJYfI5dHJs27zie2Cpy")
+#                 cursor_database = database_connection.cursor()
+                
+                
+#                 sql_query = f"SELECT DISTINCT main_table FROM _realtime.metadata_tables WHERE table_name IN (SELECT table_name FROM information_schema.columns WHERE column_name like '%{search_term}%')"
+#                 cursor_database.execute(sql_query)  # Get the search term from the form
+#                 search_results = cursor_database.fetchall()
+#                 print(search_results)
+#                 return render_template('search.html',search_results=search_results, search_term=search_term)
+            
+            
+#             if 'Download' in request.form:
+#                 print("=============================================================================")
+#                 print("=============================================================================")
+#                 print(session.get("search_term"))
+#                 return redirect(url_for('display'))
+            
+            
+#     else:
+#         return redirect('/')
     
 
 @app.route('/display', methods=['GET', 'POST'])
@@ -435,39 +488,73 @@ def change():
     else:
         return redirect("/")
 
+# @app.route('/table_preview', methods=['GET', 'POST'])
+# def table_preview():
+#     if 'user' in session:
+#         if request.method == 'GET':
+#             search_term = session.get("search_term")
+            
+#             table_name = request.args.get('type')
+            
+#             # Database connection
+#             database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="7sJYfI5dHJs27zie2Cpy")
+#             cursor_database = database_connection.cursor()
+
+#             query_tables = f"SELECT table_name FROM _realtime.metadata_tables WHERE main_table = '{table_name}'"
+#             cursor_database.execute(query_tables)
+#             tables = cursor_database.fetchall()
+#             tables = [table[0] for table in tables]
+
+#             dfs = []
+#             for table in tables:
+#                 query_columns = f"SELECT column_name FROM information_schema.columns WHERE table_schema = '_realtime' AND table_name = '{table}'"
+#                 cursor_database.execute(query_columns)
+#                 columns = cursor_database.fetchall()
+
+#                 query_rows = f"Select * FROM _realtime.{table}"
+#                 cursor_database.execute(query_rows)
+#                 rows = cursor_database.fetchall()
+                
+#                 columns = [column[0] for column in columns]
+#                 df = pd.DataFrame(list(rows),columns=columns)
+#                 df = df.iloc[:15, : 8]
+#                 dfs.append(df)
+
+#         return render_template('table_preview.html', tables = [df.to_html(classes='data', header="true") for df in dfs], table_name=table_name,search_term=search_term)
 @app.route('/table_preview', methods=['GET', 'POST'])
 def table_preview():
     if 'user' in session:
         if request.method == 'GET':
-            search_term = session.get("search_term")
-            
+            # Retrieve search term from session, with a default value if not found
+            search_term = session.get("search_term", "")
+
             table_name = request.args.get('type')
             
             # Database connection
-            database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="7sJYfI5dHJs27zie2Cpy")
+            database_connection = psycopg2.connect(host="localhost", port="5432", database="", user="postgres", password="7sJYfI5dHJs27zie2Cpy")
             cursor_database = database_connection.cursor()
 
-            query_tables = f"SELECT table_name FROM _realtime.metadata_tables WHERE main_table = '{table_name}'"
+            query_tables = f"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '{table_name}'"
             cursor_database.execute(query_tables)
             tables = cursor_database.fetchall()
             tables = [table[0] for table in tables]
 
             dfs = []
             for table in tables:
-                query_columns = f"SELECT column_name FROM information_schema.columns WHERE table_schema = '_realtime' AND table_name = '{table}'"
+                query_columns = f"SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '{table}'"
                 cursor_database.execute(query_columns)
                 columns = cursor_database.fetchall()
 
-                query_rows = f"Select * FROM _realtime.{table}"
+                query_rows = f"SELECT * FROM {table}"
                 cursor_database.execute(query_rows)
                 rows = cursor_database.fetchall()
                 
                 columns = [column[0] for column in columns]
-                df = pd.DataFrame(list(rows),columns=columns)
-                df = df.iloc[:15, : 8]
+                df = pd.DataFrame(list(rows), columns=columns)
+                df = df.iloc[:15, :8]
                 dfs.append(df)
 
-        return render_template('table_preview.html', tables = [df.to_html(classes='data', header="true") for df in dfs], table_name=table_name,search_term=search_term)
+        return render_template('table_preview.html', tables=[df.to_html(classes='data', header="true") for df in dfs], table_name=table_name, search_term=search_term)
 
 @app.route('/logout')
 def logout():
