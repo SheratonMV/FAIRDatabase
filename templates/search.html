@@ -1,32 +1,77 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Display Tables</title>
-</head>
-<div class="topnav">
-    <a href="/dashboard">Dashboard</a>
-    <a href="/search">Database Search</a>
-    <a href="/logout">Logout</a>
-</div>
+{% extends "layout.html" %}
+
+{% block title %}Search{% endblock %}
+
+{% block content %}
+
 <body>
       
-    <h1>Search Tables</h1>
+    <!-- <h1>Search tables</h1> -->
     <form action="/search" method="post" id="search">
-        <input type="text" id = "search" name="search" placeholder="Enter sequence" required>
-        <input type="checkbox" name="value1"/><label>Active</label>
-        <input type="checkbox" name="value0"/><label>Non-active</label>
-        <input type="submit" value="Search" >
-        <!-- {% if search_results %}
-            <input type="submit" value="Download">
-        {% endif %} -->
+        <div class="row">
+            <div class="col-md-3"></div>
+            <div class="col-md-6">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h2 class="card-title">Search tables</h2>
+                        <br>
+                        <div class="d-flex justify-content-center align-items-center mb-3">
+                            <div class="form-check me-3">
+                                <input class="form-check-input" type="checkbox" name="value1" id="flexCheckActive">
+                                <label class="form-check-label" for="flexCheckActive">
+                                    Active
+                                </label>
+                            </div>
+                            <div class="form-check me-3">
+                                <input class="form-check-input" type="checkbox" name="value0" id="flexCheckNonActive1">
+                                <label class="form-check-label" for="flexCheckNonActive1">
+                                    Non-active
+                                </label>
+                            </div>
+                        </div>
+                        <div class="input-group w-100">
+                            <input id="search-focus" type="search" name="search" class="form-control" placeholder="Enter sequence" required />
+                            <button type="submit" value="Search" class="btn btn-primary">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3"></div>
+        </div>
+        
+        
+
+
+        
         
         {% if table_names %}
-            <h1>Table Names</h1>
+            <!-- <h1>Table names</h1>
             <ul>
                 {% for table_name in table_names %}
                 <li><a href="{{ url_for('table_preview', type= result) }}"> {{ table_name }} </a></li>
                 {% endfor %}
-            </ul>
+            </ul> -->
+            <div class="container mt-5">
+                <!-- <h2>Table Names</h2> -->
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Table</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for table_name in table_names %}
+                        <tr>
+                            <th scope="row">{{ loop.index }}</th>
+                            <td><a href="{{ url_for('table_preview', type=table_name) }}">{{ table_name }}</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
      
         {% endif %}
         
@@ -44,4 +89,4 @@
    
     </form>
 </body>
-</html>
+{% endblock %}

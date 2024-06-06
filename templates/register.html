@@ -1,20 +1,102 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register</title>
+    <link rel="icon" type="image/svg+xml" href="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Amsterdamuniversitylogo.svg/1920px-Amsterdamuniversitylogo.svg.png">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+        integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+        integrity="sha512-X2dK5ue7ZTMSkpxrxbjNJXTvDz5iYb1CbpqFqQs/Hg5/7ab8LqtF/0fZBy4G43f9t2zQW5nkBwJ6xN28bQz0Cg=="
+        crossorigin="anonymous" />
+    <!-- MDB -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.6.0/mdb.min.css" rel="stylesheet" />
+    <style>
+        /* Sticky footer styles */
+        html,
+        body {
+            height: 100%;
+        }
+
+        #page-content {
+            flex: 1 0 auto;
+        }
+
+        #sticky-footer {
+            flex-shrink: none;
+        }
+        .custom-footer {
+      background-color: #276c66; /* Your custom color */
+      color: white; /* Text color to ensure readability */
+      padding: 20px 0; /* Adjust padding as needed */
+    }
+    </style>
 </head>
-<body>
-    <h1>Register</h1>
-    {% if error_message %}
-    <p>{{ error_message }}</p>
-    {% endif %}
-    <form method="post" action="/register">
-        <label>Email:</label><br>
-        <input type="email" name="email" required><br><br>
-        <label>Password:</label><br>
-        <input type="password" name="password" required><br><br>
-        <input type="submit" value="Register">
-        <input type="submit" name="Login" value="Login" formnovalidate>
-    </form>
+
+<body class="d-flex flex-column"  style="background-color: #f8f8f8;">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light" style="background-color: #276c66; color: white;" >
+        <!-- Navbar brand -->
+        <a class="navbar-brand me-2" href="www.uva.nl">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Amsterdamuniversitylogo.svg/1920px-Amsterdamuniversitylogo.svg.png" height="35" alt="MDB Logo" loading="lazy" style="margin-top: -1px;">
+        </a>
+
+    </nav>
+    <!-- Navbar -->
+
+    <!-- Page content -->
+
+    <div id="page-content">
+        <div class="container mt-4">
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header" style="background-color: #024d52; color: white;">Register</div>
+                        <div class="card-body">
+                            <form method="post" action="/register">
+                                <div class="form-group">
+                                    <label for="email">Email:</label><br>
+                                    <input type="email" name="email" required><br><br>
+                                </div>
+                                <div class="form-group">
+                                    <label for="password">Password:</label><br>
+                                    <input type="password" name="password" required><br><br>
+                                </div>
+                                <input type="submit" value="Register" class="btn btn-primary" style="background-color: #024d52; color: white;">
+                                <input type="submit" name="Login" value="Login" class="btn btn-primary" style="background-color: #024d52; color: white;" formnovalidate>
+                            </form>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer custom-footer">
+        <div class="container text-center">
+            <small>FAIRDatabase</small>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+        integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"
+        integrity="sha384-NtNfyJWJgY1cGutxw0gP5ZCpD+Ete1dj7N0IzeoDQOmopzb84E2Z9I+oosYyIsF5"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"
+        integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO"
+        crossorigin="anonymous"></script>
+    <!-- MDB JS -->
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.6.0/mdb.min.js"></script>
 </body>
+
 </html>

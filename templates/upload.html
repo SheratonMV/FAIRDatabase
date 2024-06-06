@@ -2,62 +2,48 @@
 
 {% block title %}Upload{% endblock %}
 
-{% block content %}
-<head>
-  <title>Upload</title>
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <style>
-    #progress-bar {
-      width: 100%;
-      height: 30px;
-      background-color: #f2f2f2;
-      border-radius: 5px;
-    }
-    #progress {
-      width: 0%;
-      height: 100%;
-      background-color: #4CAF50;
-      border-radius: 5px;
-    }
-  </style>
-</head>
-<div class="row justify-content-center">
-<br>
+{% block content %} 
 
-<h1>
- Upload
-  <!-- <small class="text-muted">What would you like to do?</small> -->
-</h1>
-<form method="POST" enctype="multipart/form-data" id="upload-form">
-  <div class="input-group mb-3">
-    <div class="input-group-prepend">
-      <span class="input-group-text" id="basic-addon1">Reference</span>
-    </div>
-    <input type="text" class="form-control" name="origin" placeholder="Reference to work" aria-label="Username" aria-describedby="basic-addon1" required>
-  </div>
 
-  <div class="input-group">
-    <div class="input-group-prepend">
-      <span class="input-group-text">Description</span>
-    </div>
-    <textarea class="form-control" name="description" aria-label="With textarea" placeholder="Description of data" required></textarea>
-  </div>
-<br>
-  <div class="input-group mb-3">
-    <div class="custom-file">
-      <input type="file" class="custom-file-input" id="file-input" name="file">
-      <label class="custom-file-label" for="file-input">Choose file</label>
-    </div>
-    <div class="input-group-append">
-      <button class="btn btn-custom" type="submit">Upload</button>
-    </div>
-  </div>
-</form>
-
+        <h1>Upload </h1>
+        <form method="POST" enctype="multipart/form-data" id="upload-form">
+          <div class="input-group mb-3">
+            <div class="input-group-prepend">
+              <span class="input-group-text" id="basic-addon1">Reference</span>
+            </div>
+            <input type="text" class="form-control" name="origin" placeholder="Reference to work" aria-label="Username" aria-describedby="basic-addon1" required>
+          </div>
+        
+          <div class="input-group">
+            <div class="input-group-prepend">
+              <span class="input-group-text">Description</span>
+            </div>
+            <textarea class="form-control" name="description" aria-label="With textarea" placeholder="Description of data" required></textarea>
+          </div>
+        <br>
+          <div class="input-group mb-3">
+            <input type="file" name="file" id="file-input">
+            <input type="submit" value="Upload">
+          </div>
+        </form>
   <div id="progress-bar">
     <div id="progress"></div>
   </div>
   <p id="progress-message"></p>
+
+
+  <!-- Bootstrap JS and dependencies -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js" integrity="sha384-NtNfyJWJgY1cGutxw0gP5ZCpD+Ete1dj7N0IzeoDQOmopzb84E2Z9I+oosYyIsF5" crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous"></script>
+  
+  <!-- MDB JS -->
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.6.0/mdb.min.js"></script>
+  <!-- Font Awesome JS -->
+  <script src="https://kit.fontawesome.com/f09ae2d1c7.js" crossorigin="anonymous"></script>
+  <!-- Custom CSS -->
+  <script src="static/script.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script>
     $(document).ready(function() {
       $("#upload-form").submit(function(e) {
@@ -79,7 +65,7 @@
               }
             }, false);
             return xhr;
-          },
+          }, 
           success: function(response) {
             $("#progress-message").text("File uploaded successfully.");
           },
@@ -90,14 +76,9 @@
       });
     });
   </script>
-</div>
+</body>
 {% endblock %}
 
 
-
-
-
-<body>
-  
-</body>
 </html>
+ 

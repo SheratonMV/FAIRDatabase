@@ -1,18 +1,18 @@
 /* Custom button */
 .btn-custom {
-  background-color: #309398;
+  background-color: #1E5B5E;
   color: #fff;
 }
 .btn-custom:hover,
 .btn-custom:focus {
   color: #fff;
-  background-color: #61c8cd;
-  border-color: #267579; 
+  background-color: #70999C;
+  border-color: #1A4B4F; 
 }
 
 .btn-custom:active .btn-custom.active,
 .open > .dropdown-toggle.btn-custom {
-  background-color: #267579;
+  background-color: #164346;
 }
 
 /* Sticky footer */

@@ -14,7 +14,30 @@
         <link href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.6.0/mdb.min.css" rel="stylesheet" />
         <!-- Custom CSS -->
         <link rel="stylesheet" href="static/styles.css">
-
+        
+        <style>
+            .flip-horizontal {
+                transform: scaleX(-1);
+            }
+        </style>
+        <style>
+            #progress-bar {
+              width: 100%;
+              height: 30px;
+              background-color: #f2f2f2;
+              border-radius: 5px;
+            }
+            #progress {
+              width: 0%;
+              height: 100%;
+              background-color: #4CAF50;
+              border-radius: 5px;
+            }
+            #test{
+              background-color: aqua;
+              color: #4CAF50;
+            }
+          </style>
     </head>
     <body class="d-flex flex-column" style="background-color: #ebeff3;" id="body">
         <!-- Sidebar -->
@@ -60,7 +83,7 @@
                 </ul>
             </div>
         </div>
-
+        
         <!-- Page content -->
         <div class="main-content" id="page-content">
             <!-- Navbar -->
@@ -79,6 +102,7 @@
                 <small>FAIRDatabase @ 2024</small>
             </div>
         </footer>
+        {% block scripts %}
         <!-- Bootstrap JS and dependencies -->
         <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
         <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js" integrity="sha384-NtNfyJWJgY1cGutxw0gP5ZCpD+Ete1dj7N0IzeoDQOmopzb84E2Z9I+oosYyIsF5" crossorigin="anonymous"></script>
@@ -90,7 +114,8 @@
         <script src="https://kit.fontawesome.com/f09ae2d1c7.js" crossorigin="anonymous"></script>
         <!-- Custom CSS -->
         <script src="static/script.js"></script>
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
-
+        {% endblock %}
     </body>
 </html>

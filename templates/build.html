@@ -1,54 +1,47 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bootstrap Sidebar Layout</title>
-    <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <style>
-        body {
-            background-color: #f2f2f2;
-        }
-        .sidebar {
-            background-color: #01191a;
-            color: #fff;
-            height: 100vh;
-        }
-        .sidebar a {
-            display: block;
-            padding: 10px 15px;
-            color: #fff;
-            text-decoration: none;
-        }
-        .sidebar a:hover {
-            background-color: rgba(255,255,255,0.1);
-        }
-    </style>
-</head>
-<body>
+{% extends "layout.html" %}
 
-<div class="container-fluid">
-    <div class="row">
-        <!-- Sidebar -->
-        <div class="col-3 sidebar">
-            <h2>Sidebar</h2>
-            <ul class="list-unstyled">
-                <li><a href="#"><i class="fas fa-home"></i> Home</a></li>
-                <li><a href="#"><i class="fas fa-user"></i> Profile</a></li>
-                <li><a href="#"><i class="fas fa-cog"></i> Settings</a></li>
-                <li><a href="#"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-            </ul>
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <br>
+    <body>
+        <h1>Welcome, {{ user_email }}!
+            <small class="text-muted">What would you like to do?</small>
+        </h1>
+        <div></div>
+        <div class="card-group">
+            <div class="card">
+                <img src="static/img/search.jpg" class="card-img-top" alt="...">
+                <div class="card-body">
+                    <h5 class="card-title">Search</h5>
+                    <p class="card-text">Head straight into the search function.</p>
+                </div>
+                <div class="card-footer">
+                    <a href="\search" role="button" class="btn btn-custom">Search</a>
+                </div>
+            </div>
+            <div class="card">
+                <img src="static/img/upload.jpg" class="card-img-top" alt="...">
+                <div class="card-body">
+                    <h5 class="card-title">Upload</h5>
+                    <p class="card-text">Head to the upload function. </p>
+                </div>
+                <div class="card-footer">
+                    <a href="\upload" role="button" class="btn btn-custom">Upload</a>
+                </div>
+            </div>
+            <div class="card">
+                <img src="static/img/change.jpg" class="card-img-top" alt="...">
+                <div class="card-body">
+                    <h5 class="card-title">Update Entry</h5>
+                    <p class="card-text">Go here to update an entry in the database.</p>
+                </div>
+                <div class="card-footer">
+                    <a href="\change" role="button" class="btn btn-custom">Update entry</a>
+                </div>
+            </div>
         </div>
-        <!-- Main Content -->
-        <div class="col">
-            <h2>Main Content</h2>
-            <p>This is the main content area.</p>
-        </div>
-    </div>
+    </body>
 </div>
-
-<!-- Font Awesome -->
-<script src="https://kit.fontawesome.com/a076d05399.js"></script>
-</body>
-</html>
+{% endblock %}

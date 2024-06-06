@@ -1,13 +1,9 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Display Tables</title>
-</head>
-<div class="topnav">
-    <a href="/dashboard">Dashboard</a>
-    <a href="/search">Database Search</a>
-    <a href="/logout">Logout</a>
-</div>
+{% extends "layout.html" %}
+
+{% block title %}Table preview{% endblock %}
+
+{% block content %}
+
 <body>
     <!-- <a href="{{ url_for('table_preview', type= result) }}">  Back </a> -->
     <form action="/search" method="post">
@@ -18,6 +14,5 @@
     {% for table_html in tables %}
         {{ table_html|safe }}
     {% endfor %}
-    
-</body>
-</html>
+
+{% endblock %}
