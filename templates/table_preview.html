@@ -1,18 +1,31 @@
 {% extends "layout.html" %}
 
-{% block title %}Table preview{% endblock %}
+{% block title %}FAIRMicrobiome | Table preview{% endblock %}
 
 {% block content %}
 
+<style>
+    .table thead th {
+        background-color: #D7EBED;
+    }
+</style>
 <body>
-    <!-- <a href="{{ url_for('table_preview', type= result) }}">  Back </a> -->
+    
     <form action="/search" method="post">
-        <button type="submit" name="back" value="back" class="btn-link">Back</button>
+
+
+        <div class="alert custom-alert-secondary d-flex justify-content-between align-items-center" role="alert" style="overflow: hidden;">
+            <span style="overflow: hidden; text-overflow: ellipsis;">Table preview for: <b>{{ table_name }}</b></span>
+            <a href="/search" class="btn btn-primary-custom">Back to search</a>
+        </div>
     </form>
-    <p>{{ table_name }}</p>
     
     {% for table_html in tables %}
+    <div class="table-responsive">
         {{ table_html|safe }}
+    </div>
     {% endfor %}
+
+</body>
 
 {% endblock %}

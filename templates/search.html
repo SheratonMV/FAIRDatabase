@@ -1,21 +1,18 @@
 {% extends "layout.html" %}
 
-{% block title %}Search{% endblock %}
+{% block title %}FAIRMicrobiome | Search{% endblock %}
 
 {% block content %}
-
 <body>
-      
-    <!-- <h1>Search tables</h1> -->
     <form action="/search" method="post" id="search">
         <div class="row">
-            <div class="col-md-3"></div>
-            <div class="col-md-6">
-                <div class="card text-center">
+            <div class="col-md-1"></div>
+            <div class="col-md-10" >
+                <div class="card text-center" style="background-color: white;" >
                     <div class="card-body">
-                        <h2 class="card-title">Search tables</h2>
-                        <br>
+                        <h1 class="display-3">Search tables</h1>
                         <div class="d-flex justify-content-center align-items-center mb-3">
+                            
                             <div class="form-check me-3">
                                 <input class="form-check-input" type="checkbox" name="value1" id="flexCheckActive">
                                 <label class="form-check-label" for="flexCheckActive">
@@ -31,62 +28,175 @@
                         </div>
                         <div class="input-group w-100">
                             <input id="search-focus" type="search" name="search" class="form-control" placeholder="Enter sequence" required />
-                            <button type="submit" value="Search" class="btn btn-primary">
+                            <button type="submit" value="Search" class="btn btn-primary-custom">
                                 <i class="fas fa-search"></i>
+                            </button>
+                            <button type="button" id="reset-button" class="btn btn-primary-custom">
+                                <i class="fa-solid fa-rotate-right"></i>
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3"></div>
+            <div class="col-md-1"></div>
         </div>
-        
-        
 
-
-        
-        
-        {% if table_names %}
-            <!-- <h1>Table names</h1>
-            <ul>
-                {% for table_name in table_names %}
-                <li><a href="{{ url_for('table_preview', type= result) }}"> {{ table_name }} </a></li>
-                {% endfor %}
-            </ul> -->
-            <div class="container mt-5">
-                <!-- <h2>Table Names</h2> -->
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th scope="col">#</th>
-                            <th scope="col">Table</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for table_name in table_names %}
-                        <tr>
-                            <th scope="row">{{ loop.index }}</th>
-                            <td><a href="{{ url_for('table_preview', type=table_name) }}">{{ table_name }}</a></td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-     
+        {% if search_term and not search_results %}
+        <br>
+        <div class="alert custom-alert-warning alert-dismissible fade show" role="alert">
+            No results found for: <strong>{{ search_term }}</strong>.
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close" style="outline: none;">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          
         {% endif %}
-        
-    
 
-    {% if search_results %}
-        <h1>Search Results</h1>
-        <ul>
-            {% for result in search_results %}
-                <li><a href="{{ url_for('table_preview', type= result) }}"> {{ result }} </a></li>
-            {% endfor %}
-        </ul>
-        <input type="submit" name="Download" value="Download" formnovalidate>
-    {% endif %}         
-   
+        {% if table_names and (not search_term or not search_results) %}
+        <div class="container mt-5">
+            <div class="table-responsive">
+            <table class="table table-hover" style="background-color: #f2f2f2;">
+                <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Table</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody" style="color: black;">
+                    {% for table_name in table_names %}
+                    <tr class="{% if loop.index > 10 %}hidden-row{% endif %}">
+                        <th scope="row">{{ loop.index }}</th>
+                        <td><a href="{{ url_for('table_preview', type=table_name) }}">{{ table_name }}</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot style="color: black;">
+                    <tr>
+                        <td colspan="2">
+                            <div class="row">
+                                <div class="col">
+                                    <div class="form-group">
+                                        <div class="d-flex align-items-center">
+                                            <label for="rowLimit" class="me-3">Rows to display:</label>
+                                            <select id="rowLimit" class="form-select" style="width: auto;">
+                                                <option value="10">10</option>
+                                                <option value="20">20</option>
+                                                <option value="50">50</option>
+                                                <option value="100">100</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col"></div>
+                                <div class="col">
+                                    {% if table_names|length > 10 %}
+                                    <button id="toggleRows" class="btn btn-primary-custom">Load More</button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        </div>
+        {% endif %}
+
+        {% if search_results %}
+      
+        <div class="container mt-5">
+            <div class="alert custom-alert-secondary d-flex justify-content-between align-items-center" role="alert">
+                <span>Search results for: <b>{{ search_term }}</b></span>
+                <button type="button" class="btn btn-primary-custom" id="downloadBtn">Download results</button>
+            </div>
+            
+            <!-- Confirmation dialog -->
+            <div class="modal" id="confirmationModal">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Confirmation</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            Are you sure you want to download the results?
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Back</button>
+                            <button type="button" class="btn btn-primary" id="confirmDownload">Yes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- <p></p> -->
+            <div class="table-responsive">
+
+            <table class="table table-hover" style="background-color: #f2f2f2;">
+                <thead >
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Table</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody" style="color: black;">
+                    {% for result in search_results %}
+                    <tr class="{% if loop.index > 10 %}hidden-row{% endif %}">
+                        <th scope="row">{{ loop.index }}</th>
+                        <td><a href="{{ url_for('table_preview', type=result) }}">{{ result }}</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot style="color: black;">
+                    <tr>
+                        <td colspan="2">
+                            <div class="row">
+                                <div class="col">
+                                    <div class="form-group">
+                                        <div class="d-flex align-items-center">
+                                            <label for="rowLimit" class="me-3">Rows to display:</label>
+                                            <select id="rowLimit" class="form-select" style="width: auto;">
+                                                <option value="10">10</option>
+                                                <option value="20">20</option>
+                                                <option value="50">50</option>
+                                                <option value="100">100</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col"></div>
+                                <div class="col">
+                                    {% if search_results|length > 10 %}
+                                    <button id="toggleRows" class="btn btn-primary-custom">Load More</button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        </div>
+        {% endif %}
     </form>
 </body>
+<script>
+    document.getElementById('downloadBtn').addEventListener('click', function() {
+        $('#confirmationModal').modal('show');
+    });
+
+    document.getElementById('confirmDownload').addEventListener('click', function() {
+        // Perform download action here
+        // For example, submit the form or trigger download
+        // document.getElementById('downloadForm').submit();
+        // or
+        // window.location.href = 'download_results_url';
+
+        // Close modal after action
+        $('#confirmationModal').modal('hide');
+    });
+</script>
 {% endblock %}

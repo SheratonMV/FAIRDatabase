@@ -7,16 +7,18 @@ import os
 import sys
 import re
 from supabase import create_client, Client
-from uploadfolder import demos
+# from uploadfolder import demos
 from supabase.lib.client_options import ClientOptions
 import asyncio
 
 
-SUPABASE_URL = demos.url
-SUPABASE_PUBLIC_KEY = demos.service
+SUPABASE_URL = 'http://localhost:8000'
+SUPABASE_PUBLIC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzE0ODYwMDAwLAogICJleHAiOiAxODcyNjI2NDAwCn0.87CKUUqmCE6oZhyExthSKEDCGBnuZqhTdOUbgQtxsCE'
+
+
 clientOptions = ClientOptions(postgrest_client_timeout=999999)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_PUBLIC_KEY, clientOptions)
-database_connection = psycopg2.connect(host="localhost", port="5432", database="", user="postgres", password=demos.POSTpw)
+database_connection = psycopg2.connect(host="localhost", port="5432", database="", user="postgres", password="7sJYfI5dHJs27zie2Cpy")
 cursor_database = database_connection.cursor()
 
 # SELECT *

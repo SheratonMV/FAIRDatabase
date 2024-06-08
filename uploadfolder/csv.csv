@@ -1,0 +1,72 @@
+﻿Requirement;Supported by
+The interface should be minimal and important features should be prominent on the screen. Less used functions should be hidden.;Users:
+;Researcher 1, Researcher 2, IT Administrator, Research Administrator, Public user
+;
+;Theoretical framework principles:
+; ‘Visibility’, ‘Minimalist Design’, ‘Learnability’, ‘Fitts’s Law’
+;
+;Existing solutions:
+;MicrobiomeDB, MDB: Microbiome Database, Human Microbiome Project Data Portal
+The user should be aware of its position within the interface, using breadcrumbs.;Users:
+;Researcher 2, Public user
+;
+;Theoretical framework principles:
+;‘Reduce short-term memory load’, ‘Explorable Interfaces’
+The colors used should be no distraction, and should be muted;Users:
+;Researcher 1, Research Administrator, Public user
+The interface should maintain a consistent scheme for buttons, icons, windows and other elements.;Theoretical framework principle:
+; ‘Consistency’
+The interface should contain feedback for actions to indicate success or warnings. The feedback notifications may not interfere with basic operations.;Users:
+;Researcher 1, Researcher 2, Research Administrator, Public user
+;
+;Theoretical framework principles:
+; ‘Feedback’, ‘Error messages should actually help’.
+;
+;Existing solutions:
+;MicrobiomeDB, MDB: Microbiome Database, Human Microbiome Project Data Portal
+The interface should contain a simple and effective navigation structure that can be collapsed to avoid distractions.;Users:
+;Researcher 1, Researcher 2, Public user
+The interface should be scalable when zooming in or out to allow for accessibility.;IT Administrator
+;
+;Theoretical framework principle:
+;‘Readability’,
+Elements in the interface should indicate how they are to be used.;Theoretical framework principles:
+; ‘Affordance’, ‘Mapping’
+The interface should contain a shortcut to important actions such as searching or uploading.;Theoretical framework principle:
+;‘Flexibility and Efficiency of use’
+The interface should be accessible to color-blind and visually impaired user.;User:
+;Public user
+;
+;Theoretical framework principles:
+; ‘Color’, ‘Seek universal usability’
+;
+;Existing solutions:
+;MicrobiomeDB, MDB: Microbiome Database, Human Microbiome Project Data Portal
+The users should not be able to break the database or interface;Theoretical framework principle:
+; ‘Prevent errors’
+The users need an emergency exit when performing actions to abort said action;Theoretical framework principle:
+;‘User Control and Freedom’
+The interface should contain documentation;Theoretical framework principle:
+; ‘Help and Documentation’
+The interface should contain tooltips to help the user with actions they might be unfamiliar with.;Theoretical framework principle:
+; ‘Help and Documentation’
+;
+;Existing solutions:
+;MicrobiomeDB, MDB: Microbiome Database, Human Microbiome Project Data Portal
+The interface should provide visualizations for the metadata;User:
+;Researcher 1
+;
+;Existing solutions:
+;MicrobiomeDB, MDB: Microbiome Database, Human Microbiome Project Data Portal
+Colors should be used to indicate meaning, such as red for warning and green for confirmation;User:
+;Researcher 1
+;
+;Theoretical framework principle:
+; ‘Color’
+;
+The interface should be accessible for different technical skill levels;Users:
+;Researcher 1, Researcher 2, Research Administrator, Public user
+;
+;Theoretical framework principle:
+;‘User Control and Freedom’
+The interface should contain a functionality with which search results can be saved.;Public user
