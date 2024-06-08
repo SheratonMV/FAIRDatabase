@@ -4,6 +4,9 @@
 
 {% block content %}
 <body>
+    {% if close_modal %}
+<h1>AAAAA</h1>
+    {% endif %}
     <form action="/search" method="post" id="search">
         <div class="row">
             <div class="col-md-1"></div>
@@ -107,31 +110,11 @@
         <div class="container mt-5">
             <div class="alert custom-alert-secondary d-flex justify-content-between align-items-center" role="alert">
                 <span>Search results for: <b>{{ search_term }}</b></span>
-                <button type="button" class="btn btn-primary-custom" id="downloadBtn">Download results</button>
+                <input type="submit" name="Download" value="Download results" formnovalidate class="btn btn-primary-custom">
             </div>
             
-            <!-- Confirmation dialog -->
-            <div class="modal" id="confirmationModal">
-                <div class="modal-dialog" role="document">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Confirmation</h5>
-                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                                <span aria-hidden="true">&times;</span>
-                            </button>
-                        </div>
-                        <div class="modal-body">
-                            Are you sure you want to download the results?
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Back</button>
-                            <button type="button" class="btn btn-primary" id="confirmDownload">Yes</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+
             
-            <!-- <p></p> -->
             <div class="table-responsive">
 
             <table class="table table-hover" style="background-color: #f2f2f2;">
@@ -182,21 +165,13 @@
         </div>
         {% endif %}
     </form>
+    {% if close_modal %}
+        <script>
+            // Close modal
+            $('#yourModalID').modal('hide');
+        </script>
+    {% endif %}
 </body>
-<script>
-    document.getElementById('downloadBtn').addEventListener('click', function() {
-        $('#confirmationModal').modal('show');
-    });
+</body>
 
-    document.getElementById('confirmDownload').addEventListener('click', function() {
-        // Perform download action here
-        // For example, submit the form or trigger download
-        // document.getElementById('downloadForm').submit();
-        // or
-        // window.location.href = 'download_results_url';
-
-        // Close modal after action
-        $('#confirmationModal').modal('hide');
-    });
-</script>
 {% endblock %}

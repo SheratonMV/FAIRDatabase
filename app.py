@@ -6,6 +6,9 @@
 # Open AI
 
 from flask import Flask, session, request, render_template, redirect, url_for, make_response
+import matplotlib.pyplot as plt
+
+import plotly.graph_objs as go
 from supabase import create_client, Client
 from werkzeug.utils import secure_filename
 from zipfile import ZipFile
@@ -20,7 +23,6 @@ import os
 import re
 import io
 import json
-
 
 app = Flask(__name__)
 app.secret_key = os.urandom(1)
@@ -428,6 +430,12 @@ def change():
     else:
         return redirect("/")
 
+
+import random
+from datetime import datetime, timedelta
+
+
+
 @app.route('/table_preview', methods=['GET', 'POST'])
 def table_preview():
     if 'user' in session:
@@ -457,13 +465,31 @@ def table_preview():
                 
                 columns = [column[0] for column in columns]
                 df = pd.DataFrame(list(rows), columns=columns)
+
+                # Create descriptives and visualisations
+                df_full = pd.DataFrame(list(rows), columns=columns)
+                shape = df_full.shape
+                stats_rows, stats_columns = shape[0], shape[1]
+                metadata_stats = df_full['metadata'].describe()
+                metadata_count = metadata_stats[0]
+                metadata_unique = metadata_stats[1]
+                metadata_top = metadata_stats[2]
+                metadata_frequency = metadata_stats[3]
+
+       
+
+
+
+
                 df = df.iloc[:15, :8]
                 dfs.append(df)
 
-        # Add 'table table-striped table-bordered' classes for Bootstrap
         tables_html = [df.to_html(classes='table table-bordered', header="true", index=False) for df in dfs]
 
-        return render_template('table_preview.html', tables=tables_html, table_name=table_name, search_term=search_term)
+        return render_template('table_preview.html', tables=tables_html, table_name=table_name, search_term=search_term,
+                               stats_rows=stats_rows, stats_columns=stats_columns, metadata_stats=metadata_stats, 
+                               metadata_count = metadata_count, metadata_unique = metadata_unique, metadata_top = metadata_top, 
+                               metadata_frequency = metadata_frequency)
 
 
 @app.route('/logout')
