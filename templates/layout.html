@@ -1,128 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}FAIRMicrobiome{% endblock %}</title>
-    <link rel="shortcut icon" href="{{ url_for('static', filename='img/uvalogo.png') }}">
-    
-    <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous" />
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
-    <!-- MDB -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.6.0/mdb.min.css" rel="stylesheet" />
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="static/styles.css">
-    
-    <style>
-        .flip-horizontal {
-            transform: scaleX(-1);
-        }
-    </style>
-    <style>
-        #progress-bar {
-          width: 100%;
-          height: 30px;
-          background-color: #f2f2f2;
-          border-radius: 5px;
-        }
-        #progress {
-          width: 0%;
-          height: 100%;
-          background-color: #4CAF50;
-          border-radius: 5px;
-        }
-        #test{
-          background-color: aqua;
-          color: #4CAF50;
-        }
-        .hidden-row {
-            display: none;
-        }
-    </style>
-</head>
-<body class="d-flex flex-column" style="background-color: #ebeff3;" id="body">
-    <!-- Sidebar -->
-    <div class="sidebar d-flex flex-column" id="sidebar">
-        <button class="btn mt-1 ml-auto" style="background-color: transparent; color: #fafafa;" type="button" onclick="toggleSidebar()">
-            <i id="collapseIcon" class="fas fa-chevron-left"></i>
-        </button>
-        <div class="profile text-center">
+   <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>{% block title %}FAIRMicrobiome{% endblock %}</title>
+      <link rel="shortcut icon" href="{{ url_for('static', filename='img/uvalogo.png') }}">
+      <!-- Bootstrap CSS, MDB CSS, Custom CSS, Font Awesome -->
+      <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous" />
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
+      <link href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.6.0/mdb.min.css" rel="stylesheet" />
+      <link rel="stylesheet" href="static/styles.css">
+   </head>
+   <body class="d-flex flex-column" style="background-color: #ebeff3;" id="body">
+      <!-- Sidebar -->
+      <div class="sidebar d-flex flex-column" id="sidebar">
+         <button class="btn mt-1 ml-auto" style="background-color: transparent; color: #fafafa;" type="button" onclick="toggleSidebar()">
+         <i id="collapseIcon" class="fas fa-chevron-left"></i>
+         </button>
+         <div class="profile text-center">
             <img id="profilePic" src="static/img/avatar1.png" alt="Profile Picture" class="rounded-circle mb-2" style="width: 80px; height: 80px;" />
             <p id="profileName" class="mb-0">{{ user_email }}</p>
-        </div>
-        <ul class="navbar-nav flex-grow-1">
+         </div>
+         <ul class="navbar-nav flex-grow-1">
             <li class="nav-item">
-                <a class="nav-link active" aria-current="page" href="/dashboard">
-                    <i class="fa-solid fa-house"></i>
-                    <span class="sidebar-text">Dashboard</span>
-                </a>
+               <a class="nav-link active" aria-current="page" href="/dashboard">
+               <i class="fa-solid fa-house"></i>
+               <span class="sidebar-text">Dashboard</span>
+               </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" href="/search">
-                    <i class="fas fa-search"></i>
-                    <span class="sidebar-text">Search</span>
-                </a>
+               <a class="nav-link" href="/search">
+               <i class="fas fa-search"></i>
+               <span class="sidebar-text">Search</span>
+               </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link active" aria-current="page" href="/upload">
-                    <i class="fas fa-upload"></i>
-                    <span class="sidebar-text">Upload</span>
-                </a>
+               <a class="nav-link active" aria-current="page" href="/upload">
+               <i class="fas fa-upload"></i>
+               <span class="sidebar-text">Upload</span>
+               </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link active" aria-current="page" href="/change">
-                    <i class="fa-solid fa-arrows-rotate"></i>
-                <span class="sidebar-text">Change entry</span>
-                </a>
+               <a class="nav-link active" aria-current="page" href="/change">
+               <i class="fa-solid fa-arrows-rotate"></i>
+               <span class="sidebar-text">Change entry</span>
+               </a>
             </li>
-        </ul>
-        <div class="mt-auto">
+         </ul>
+         <div class="mt-auto">
             <ul class="navbar-nav">
-                <li class="nav-item">
-                    <a class="nav-link" href="/logout"><i class="fas fa-sign-out-alt"></i> <span class="sidebar-text">Logout</span></a>
-                </li>
+               <li class="nav-item">
+                  <a class="nav-link" href="/logout"><i class="fas fa-sign-out-alt"></i> <span class="sidebar-text">Logout</span></a>
+               </li>
             </ul>
-        </div>
-    </div>
-    
-    <!-- Page content -->
-    <div class="main-content" id="page-content">
-        <!-- Navbar -->
-        <nav class="navbar navbar-expand-lg navbar-light bg-light">
+         </div>
+      </div>
+      <!-- Page content -->
+      <div class="main-content" id="page-content">
+         <!-- Navbar -->
+         <nav class="navbar navbar-expand-lg navbar-light bg-light">
             <div class="container">
-                <a class="navbar-brand me-2" href="\dashboard">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Amsterdamuniversitylogo.svg/1920px-Amsterdamuniversitylogo.svg.png" height="35" alt="MDB Logo" loading="lazy" style="margin-top: -1px;" />
-                </a>
-                <div class="collapse navbar-collapse" id="navbarSupportedContent"></div>
+               <a class="navbar-brand me-2" href="\dashboard">
+               <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Amsterdamuniversitylogo.svg/1920px-Amsterdamuniversitylogo.svg.png" height="35" alt="MDB Logo" loading="lazy" style="margin-top: -1px;" />
+               </a>
+               <div class="collapse navbar-collapse" id="navbarSupportedContent"></div>
             </div>
-        </nav>
-        <!-- Extended HTML goes here -->
-        <div class="container mt-4">{% block content %} {% endblock %}</div>
-    </div>
-    <!-- Footer -->
-    <footer class="footer custom-footer mt-auto">
-        <div class="container text-center">
+         </nav>
+         <!-- Extended HTML goes here -->
+         <div class="container mt-4">{% block content %} {% endblock %}</div>
+      </div>
+      <!-- Footer -->
+      <footer class="footer custom-footer mt-auto">
+         <div class="container text-center">
             <small>FAIRDatabase @ 2024</small>
-        </div>
-    </footer>
-        {% block scripts %}
-        <!-- Bootstrap JS and dependencies -->
-        <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
-        <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js" integrity="sha384-NtNfyJWJgY1cGutxw0gP5ZCpD+Ete1dj7N0IzeoDQOmopzb84E2Z9I+oosYyIsF5" crossorigin="anonymous"></script>
-        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous"></script>
-        <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx" crossorigin="anonymous"></script>
-        
-        <!-- MDB JS -->
-        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.6.0/mdb.min.js"></script>
-        <!-- Font Awesome JS -->
-        <script src="https://kit.fontawesome.com/f09ae2d1c7.js" crossorigin="anonymous"></script>
-        <!-- Custom CSS -->
-        <script src="static/script.js"></script>
-        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-        {% endblock %}
-    </body>
+         </div>
+      </footer>
+      {% block scripts %}
+      <!-- Bootstrap JS and dependencies -->
+      <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+      <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js" integrity="sha384-NtNfyJWJgY1cGutxw0gP5ZCpD+Ete1dj7N0IzeoDQOmopzb84E2Z9I+oosYyIsF5" crossorigin="anonymous"></script>
+      <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous"></script>
+      <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+      <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx" crossorigin="anonymous"></script>
+      <!-- MDB JS, Font Awesome JS, Custom JS -->
+      <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.6.0/mdb.min.js"></script>
+      <script src="https://kit.fontawesome.com/f09ae2d1c7.js" crossorigin="anonymous"></script>
+      <script src="static/script.js"></script>
+      <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+      {% endblock %}
+   </body>
 </html>
