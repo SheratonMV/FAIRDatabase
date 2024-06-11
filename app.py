@@ -44,10 +44,6 @@ def home():
         return render_template('dashboard.html')
     return render_template('login.html')
 
-@app.route('/build')
-def build():
-    return render_template('build.html')
-
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -75,26 +71,19 @@ def login():
 def register():
     if request.method == 'GET':
         return render_template('register.html')
-    
     if request.method == 'POST':
-        
         if 'Login' in request.form:
             return redirect('/')
-        
         else:
             email = request.form['email']
             password = request.form['password']
-
             resp = client.auth.sign_up(email, password)
             print("DIT IS DE RESPONSE: ", resp)
-            
             if 'error' not in resp:
                 user = resp['user']
                 user_id = user['id']
-
                 client.table('auth.users').update({'password': password}).eq('id', user_id).execute()
                 return redirect('/')
-            
             else:
                 if resp['code'] is not None:
                     return render_template('register.html', error_message=resp['msg'])
