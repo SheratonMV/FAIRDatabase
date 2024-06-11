@@ -1,5 +1,5 @@
+// Sidebar state storage
 document.addEventListener("DOMContentLoaded", function() {
-    // Check if there's a stored state for the sidebar
     const isCollapsed = localStorage.getItem("sidebarCollapsed") === "true";
     const body = document.getElementById("body");
     const sidebar = document.getElementById("sidebar");
@@ -8,19 +8,19 @@ document.addEventListener("DOMContentLoaded", function() {
     const profilePic = document.getElementById("profilePic");
     const name = document.getElementById("profileName");
 
-    // Apply the stored state or default state
     if (isCollapsed) {
         body.classList.add("collapsed");
         sidebar.style.width = "70px";
         pageContent.style.marginLeft = "70px";
         collapseIcon.classList.remove("fa-chevron-left");
         collapseIcon.classList.add("fa-chevron-right");
-        profilePic.style.width = "35px"; // Set collapsed width
-        profilePic.style.height = "35px"; // Set collapsed height
-        name.style.display = "none"; // Hide the name
+        profilePic.style.width = "35px";
+        profilePic.style.height = "35px"; 
+        name.style.display = "none"; 
     }
 });
 
+// Toggling of the sidebar
 function toggleSidebar() {
     const body = document.getElementById("body");
     const sidebar = document.getElementById("sidebar");
@@ -30,36 +30,34 @@ function toggleSidebar() {
     const name = document.getElementById("profileName");
     const isCollapsed = body.classList.contains("collapsed");
 
-    // Toggle the collapsed class
     body.classList.toggle("collapsed");
-
-    // Update the sidebar state in localStorage
     localStorage.setItem("sidebarCollapsed", !isCollapsed);
 
-    // Apply styles based on the current state
     if (!isCollapsed) {
         sidebar.style.width = "70px";
         pageContent.style.marginLeft = "70px";
         collapseIcon.classList.remove("fa-chevron-left");
         collapseIcon.classList.add("fa-chevron-right");
-        profilePic.style.width = "35px"; // Set collapsed width
-        profilePic.style.height = "35px"; // Set collapsed height
-        name.style.display = "none"; // Hide the name
+        profilePic.style.width = "35px"; 
+        profilePic.style.height = "35px";
+        name.style.display = "none"; 
     } else {
         sidebar.style.width = "250px";
         pageContent.style.marginLeft = "250px";
         collapseIcon.classList.remove("fa-chevron-right");
         collapseIcon.classList.add("fa-chevron-left");
-        profilePic.style.width = "80px"; // Set original width
-        profilePic.style.height = "80px"; // Set original height
-        name.style.display = "block"; // Show the name
+        profilePic.style.width = "80px"; 
+        profilePic.style.height = "80px"; 
+        name.style.display = "block";
     }
 }
 
+// For Bootstrap alerts
 document.addEventListener('DOMContentLoaded', () => {
     $('.alert').alert()
 });
 
+// Load more function for search
 document.addEventListener('DOMContentLoaded', function () {
     const rowLimitSelect = document.getElementById('rowLimit');
     const tableBody = document.getElementById('tableBody');
@@ -96,27 +94,29 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    // Bugfix for button color not working
     toggleRowsButton.addEventListener('mouseenter', function () {
-        this.style.backgroundColor = '#70999C'; // Set hover background color
-        this.style.borderColor = '#1A4B4F'; // Set hover border color
+        this.style.backgroundColor = '#70999C'; 
+        this.style.borderColor = '#1A4B4F'; 
     });
 
     toggleRowsButton.addEventListener('mouseleave', function () {
-        this.style.backgroundColor = '#1E5B5E'; // Set default background color
+        this.style.backgroundColor = '#1E5B5E'; 
     });
 
+    // Reset search field
     resetButton.addEventListener('click', function (event) {
         event.preventDefault();
         searchInput.value = '';
         activeCheckbox.checked = false;
         nonActiveCheckbox.checked = false;
-        window.location.href = '/search'; // Reload the page to reset the form and display table_names
+        window.location.href = '/search'; 
     });
 
     updateVisibleRows(currentLimit);
 });
 
-// validate form
+// Validate form upload
 function validateForm() {
     var reference = document.getElementById("reference").value;
     var description = document.getElementById("description").value;
@@ -155,7 +155,7 @@ function validateForm() {
     return true;
   }
 
-// close form and upload
+// Close form and upload
   function uploadAndCloseForm() {
   console.log("Function called");
 
@@ -180,11 +180,9 @@ function validateForm() {
     },
     success: function(response) {
       $("#progress-message").text("File uploaded successfully.");
-    //   $('#myModal').modal('hide');
     },
     error: function(error) {
       $("#progress-message").text("Error uploading file.");
-    //   $('#myModal').modal('hide');
     }
   });
 }
@@ -196,7 +194,45 @@ $(document).ready(function() {
   });
 });
 
-function closeForm() {
+// Close upload form
+function closeUploadForm() {
     $('#myModal').modal('hide');
 }
   
+
+// Validate update form
+function validateUpdateForm() {
+  var row_id = document.getElementById("row_id").value;
+  var column_name = document.getElementById("column_name").value;
+  var new_value = document.getElementById("new_value").value;
+  
+
+  if (row_id === "") {
+    $('#row_id-error').show();
+    return false;
+  } else {
+    $('#row_id-error').hide();
+  }
+
+  if (column_name === "") {
+    $('#column_name-error').show();
+    return false;
+  } else {
+    $('#column_name-error').hide();
+  }
+
+  if (new_value === "") {
+    $('#new_value-error').show();
+    return false;
+  } else {
+    $('#new_value-error').hide();
+  }
+
+  $('#updateModal').modal('show');
+  return true;
+}
+
+// Close update form
+function closeUpdateForm() {
+  $('#updateModal').modal('hide');
+}

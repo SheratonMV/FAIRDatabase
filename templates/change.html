@@ -1,54 +1,86 @@
 {% extends "layout.html" %}
-
 {% block title %}FAIRMicrobiome | Update entry{% endblock %}
-
 {% block content %}
-<div class="row justify-content-center">
-
-
-    <body>
-        <h1>Update entry</h1>
-        <form method="POST">
-            <div class="container">
-                <div class="row">
-                    <div class="col-8">
-                        <div class="input-group mb-3">
-                            <div class="input-group-prepend">
+<div class="row">
+   <div class="col-md-1"></div>
+   <div class="col-md-10">
+      <div class="card text-center" style="background-color: white;">
+         <div class="card-body">
+            <h1 class="display-3">Update entry</h1>
+            <br>
+            <form method="POST">
+               <div class="container">
+                  <div class="row">
+                     <div class="col-12">
+                        <div class="input-group">
+                           <div class="input-group-prepend">
                               <span class="input-group-text" id="basic-addon1">Row ID</span>
-                            </div>
-                            <input type="text" class="form-control" id="row_id" name="row_id" placeholder="Enter row ID" aria-label="Row ID" aria-describedby="basic-addon1">
-                          </div>
-                        
-                          <div class="input-group mb-3">
-                            <div class="input-group-prepend">
-                              <span class="input-group-text" id="basic-addon2">Column Name</span>
-                            </div>
-                            <input type="text" class="form-control" id="column_name" name="column_name" placeholder="Enter column name" aria-label="Column Name" aria-describedby="basic-addon2">
-                          </div>
-                        
-                          <div class="input-group mb-3">
-                            <div class="input-group-prepend">
-                              <span class="input-group-text" id="basic-addon3">New Value</span>
-                            </div>
-                            <input type="text" class="form-control" id="new_value" name="new_value" placeholder="Enter new value" aria-label="New Value" aria-describedby="basic-addon3">
-                          </div>
-                    </div>
-                    <div class="col">
-                    </div>
+                           </div>
+                           <textarea class="form-control" name="row_id" aria-label="With textarea" id="row_id" placeholder="Row ID" required></textarea>
+                           <div class="invalid-feedback" id="row_id-error" style="display: none;">Please enter a row id</div>
+                        </div>
+                        <br>
+                        <br>
+
+
+                        <div class="input-group">
+                           <div class="input-group-prepend">
+                              <span class="input-group-text" id="basic-addon2">Column name</span>
+                           </div>
+                           <textarea class="form-control" name="column_name" aria-label="With textarea" id="column_name" placeholder="Column name" required></textarea>
+                           <div class="invalid-feedback" id="column_name-error" style="display: none;">Please enter a column name</div>
+                        </div>
+                        <br>
+                        <br>
+
+                        <div class="input-group">
+                           <div class="input-group-prepend">
+                              <span class="input-group-text" id="basic-addon3">New value</span>
+                           </div>
+                           <textarea class="form-control" name="new_value" aria-label="With textarea" id="new_value" placeholder="New value" required></textarea>
+                           <div class="invalid-feedback" id="new_value-error" style="display: none;">Please enter a new value</div>
+                        </div>
+                        <br>
+                        <br>
+
+                     </div>
+                     <div class="col">
+                     </div>
                   </div>
-            </div>
-            <div class="container">
-                <div class="col"></div>
-                <div class="col"></div>
-            </div>
-            <input type="submit" value="Update" class="btn btn-custom">
-
-          </form>
-          
-    </body>
+               </div>
+               <div class="container">
+                  <div class="col"></div>
+                  <div class="col"></div>
+               </div>
+               <button type="button" value="Upload" class="btn btn-primary-custom" onclick="validateUpdateForm()">Update entry</button>
+               <div class="modal fade" id="updateModal">
+                  <div class="modal-dialog">
+                     <div class="modal-content">
+                        <div class="modal-header">
+                           <h4 class="modal-title">Confirmation</h4>
+                           <button type="button" class="btn-close" onclick="closeUpdateForm()" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                           Are you sure you want to update this entry?
+                        </div>
+                        <div class="modal-footer d-flex justify-content-center">
+                           <div>
+                              <!-- <button type="button" class="btn btn-primary-custom" onclick="updateAndCloseForm()">Update</button> -->
+                              <input type="submit" value="Update" class="btn btn-primary-custom">
+                              <button type="button" class="btn btn-primary-custom" onclick="closeUpdateForm()">Close</button>
+                           </div>
+                        </div>
+                        
+                     </div>
+                  </div>
+               </div>
+               
+            </form>
+         </div>
+      </div>
+   </div>
+   <div class="col-md-1"></div>
 </div>
+
+
 {% endblock %}
-
-
-
-

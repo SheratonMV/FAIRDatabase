@@ -36,7 +36,7 @@
                      <div class="modal-content">
                         <div class="modal-header">
                            <h4 class="modal-title">Confirmation</h4>
-                           <button type="button" class="btn-close" onclick="closeForm()" aria-label="Close"></button>
+                           <button type="button" class="btn-close" onclick="closeUploadForm()" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
                            Are you sure you want to upload?
@@ -44,7 +44,7 @@
                         <div class="modal-footer d-flex justify-content-center">
                            <div>
                               <button type="button" class="btn btn-primary-custom" onclick="uploadAndCloseForm()">Upload</button>
-                              <button type="button" class="btn btn-primary-custom" onclick="closeForm()">Close</button>
+                              <button type="button" class="btn btn-primary-custom" onclick="closeUploadForm()">Close</button>
                            </div>
                         </div>
                         <div class="d-flex flex-column align-items-center" style="width: 100%;">
@@ -62,4 +62,9 @@
    </div>
    <div class="col-md-1"></div>
 </div>
+<script>
+   function closeUploadForm() {
+    $('#myModal').modal('hide');
+}
+</script>
 {% endblock %}
