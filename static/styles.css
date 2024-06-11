@@ -49,6 +49,11 @@
 }
 
 
+.form-control:focus {
+  border-color: #1E5B5E !important;
+  border-width: 2px !important;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 8px rgba(0, 0, 0, 0.1) !important; 
+}
 
 
 
@@ -151,3 +156,24 @@ body {
   background-color: #B6DCDE; /* Default color, change as needed */
 }
 
+
+#progress-bar {
+  width: 100%;
+  height: 30px;
+  background-color: #f2f2f2;
+  border-radius: 5px;
+}
+#progress {
+  width: 0%;
+  height: 100%;
+  background-color: #B6DCDE;
+  border-radius: 5px;
+}
+
+.hidden-row {
+    display: none;
+}
+
+.table thead th {
+  background-color: #D7EBED;
+}

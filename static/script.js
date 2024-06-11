@@ -115,3 +115,88 @@ document.addEventListener('DOMContentLoaded', function () {
 
     updateVisibleRows(currentLimit);
 });
+
+// validate form
+function validateForm() {
+    var reference = document.getElementById("reference").value;
+    var description = document.getElementById("description").value;
+    var fileInput = document.getElementById("file-input");
+    var filePath = fileInput.value;
+    var allowedExtensions = /(\.csv)$/i;
+
+    if (reference === "") {
+      $('#reference-error').show();
+      return false;
+    } else {
+      $('#reference-error').hide();
+    }
+
+    if (description === "") {
+      $('#description-error').show();
+      return false;
+    } else {
+      $('#description-error').hide();
+    }
+
+    if (!filePath) {
+      $('#file-error').show();
+      return false;
+    } else {
+      $('#file-error').hide();
+    }
+
+    if (!allowedExtensions.exec(filePath)) {
+      alert("Please upload a file having extensions .csv only.");
+      fileInput.value = '';
+      return false;
+    }
+
+    $('#myModal').modal('show');
+    return true;
+  }
+
+// close form and upload
+  function uploadAndCloseForm() {
+  console.log("Function called");
+
+  var formData = new FormData($("#upload-form")[0]);
+
+  $.ajax({
+    url: '/upload',
+    type: 'POST',
+    data: formData,
+    processData: false,
+    contentType: false,
+    xhr: function() {
+      var xhr = new window.XMLHttpRequest();
+      xhr.upload.addEventListener("progress", function(evt) {
+        if (evt.lengthComputable) {
+          var progress = Math.round((evt.loaded / evt.total) * 100);
+          $("#progress").css("width", progress + "%");
+          $("#progress-message").text("Creating table:" + progress + "% . Waiting to finalize...");
+        }
+      }, false);
+      return xhr;
+    },
+    success: function(response) {
+      $("#progress-message").text("File uploaded successfully.");
+    //   $('#myModal').modal('hide');
+    },
+    error: function(error) {
+      $("#progress-message").text("Error uploading file.");
+    //   $('#myModal').modal('hide');
+    }
+  });
+}
+
+$(document).ready(function() {
+  $("#upload-form").submit(function(e) {
+    e.preventDefault();
+    uploadAndCloseForm();
+  });
+});
+
+function closeForm() {
+    $('#myModal').modal('hide');
+}
+  
