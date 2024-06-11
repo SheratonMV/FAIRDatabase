@@ -1,8 +1,7 @@
-/* Custom button */
+/* Custom primary button */
 .btn-primary-custom {
   background-color: #1E5B5E;
   color: #fff;
-  /* text-transform: none; */
 
 }
 .btn-primary-custom:hover,
@@ -17,11 +16,10 @@
   background-color: #164346;
 }
 
-/* Custom button */
+/* Custom secondary button */
 .btn-secondary-custom {
   background-color: #B6DCDE;
   color: black;
-  /* text-transform: none; */
 
 }
 .btn-secondary-custom:hover,
@@ -38,14 +36,14 @@
 
 .custom-alert-warning {
   background-color: #DECDB6;
-  border-color: #DECDB6; /* You can adjust the border color if needed */
-  color: black; /* Adjust text color for better readability */
+  border-color: #DECDB6; 
+  color: black;
 }
 
 .custom-alert-secondary{
   background-color: #B6DCDE;
-  border-color: #B6DCDE; /* You can adjust the border color if needed */
-  color: black; /* Adjust text color for better readability */
+  border-color: #B6DCDE; 
+  color: black; 
 }
 
 
@@ -54,8 +52,6 @@
   border-width: 2px !important;
   box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 8px rgba(0, 0, 0, 0.1) !important; 
 }
-
-
 
 /* Sticky footer */
 html,
@@ -142,21 +138,19 @@ body {
   margin-right: 0;
 }
 
-
 /* Browse button upload */
 .custom-file-input {
   background-color: #D8F1F3;
   outline: #263d3d;
 }
-
-
+/* Placehorder color boxes dashboard */
 .card-color-box {
   width: 100%;
-  height: 250px; /* Adjust the height as needed */
-  background-color: #B6DCDE; /* Default color, change as needed */
+  height: 250px; 
+  background-color: #B6DCDE; 
 }
 
-
+/* Progress bar */
 #progress-bar {
   width: 100%;
   height: 30px;
