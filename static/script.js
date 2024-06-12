@@ -157,7 +157,6 @@ function validateForm() {
 
 // Close form and upload
   function uploadAndCloseForm() {
-  console.log("Function called");
 
   var formData = new FormData($("#upload-form")[0]);
 
@@ -236,3 +235,23 @@ function validateUpdateForm() {
 function closeUpdateForm() {
   $('#updateModal').modal('hide');
 }
+
+// Close search form
+function closeSearchForm() {
+  $('#searchModal').modal('hide');
+}
+
+// Open search form
+function openSearchForm() {
+  $('#searchModal').modal('show');
+}
+
+// Close search form with delay
+function downloadAndCloseSearchForm() {
+  $('#searchModal').modal('show');
+  
+  setTimeout(function() {
+    $('#searchModal').modal('hide');
+  }, 200); 
+}
+

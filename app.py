@@ -102,14 +102,15 @@ def dashboard():
 @app.route('/upload', methods=['GET', 'POST'])
 def upload():
     if 'user' in session:
+        user_email = session['email']
         if request.method == 'POST':       
             
             uploaded_file = request.files['file']
             
             if uploaded_file.filename == '':
-                return render_template('upload.html', error_message='No file selected.')
+                return render_template('upload.html', error_message='No file selected.', user_email=user_email)
             elif not uploaded_file and uploaded_file.filename.endswith('.csv'):
-                return render_template('upload.html', error_message='Invalid file format. Please upload a .txt file.')
+                return render_template('upload.html', error_message='Invalid file format. Please upload a .txt file.', user_email=user_email)
         
             elif uploaded_file and uploaded_file.filename.endswith('.csv'):
                 upload_timer = time.time()
@@ -220,7 +221,7 @@ def upload():
 
                 return "File uploaded successfully."
         else:
-            return render_template('upload.html')
+            return render_template('upload.html', user_email=user_email)
     else:
         return redirect('/')
 
@@ -228,6 +229,7 @@ def upload():
 @app.route('/search', methods=['GET', 'POST'])
 def search():
     if 'user' in session:
+        user_email = session['email']
         if request.method == 'GET':
             upload_timer = time.time()
             # Connect to database
@@ -245,7 +247,7 @@ def search():
             # Render template with table names
             upload_timer = str(round(time.time() - upload_timer, 2))
             print(f"--- {upload_timer.replace('.', ',')[:5]} seconds, ")
-            return render_template('search.html', table_names=table_names)
+            return render_template('search.html', table_names=table_names, user_email=user_email)
 
         elif request.method == 'POST':
             if 'Download' not in request.form:
@@ -276,8 +278,7 @@ def search():
 
                 database_connection.close()
 
-                return render_template('search.html', search_results=search_results, search_term=search_term, table_names=table_names)
-
+                return render_template('search.html', search_results=search_results, search_term=search_term, table_names=table_names, user_email=user_email)
             if 'Download' in request.form:
                 return redirect(url_for('display'))
 
@@ -289,6 +290,7 @@ def search():
 @app.route('/display', methods=['GET', 'POST'])
 def display():
     if 'user' in session:
+        user_email = session['email']
         print(request.method, session.get("search_term"))
         upload_timer = time.time()
         if request.method == 'GET' and session.get("search_term") != None:
@@ -396,13 +398,15 @@ def display():
             return response
             
         else:
-            return render_template('search.html')         
+            return render_template('search.html', user_email = user_email)
+         
     else:
         return redirect('/')
     
-@app.route('/change', methods=['GET', 'POST'])
-def change():
+@app.route('/update', methods=['GET', 'POST'])
+def update():
     if 'user' in session:
+        user_email = session['email']
         if request.method == 'GET':
             # row_id = request.form['row_id']
             # column_name = request.form['column_name']
@@ -415,19 +419,14 @@ def change():
             # query = f"UPDATE _realtime. SET {column_name} = ? WHERE rowid = {row_id}]"
             # f"SELECT column_name FROM information_schema.columns WHERE table_schema = '_realtime' AND table_name = '{table}'"
             # f"SELECT table_name, column_name FROM information_schema.columns WHERE column_name like '%{search_term[0]}%'"
-            return render_template("change.html")
+            return render_template("update.html", user_email = user_email)
     else:
         return redirect("/")
-
-
-import random
-from datetime import datetime, timedelta
-
-
-
+    
 @app.route('/table_preview', methods=['GET', 'POST'])
 def table_preview():
     if 'user' in session:
+        user_email = session['email']
         if request.method == 'GET':
             search_term = session.get("search_term", "")
 
@@ -464,12 +463,7 @@ def table_preview():
                 metadata_unique = metadata_stats[1]
                 metadata_top = metadata_stats[2]
                 metadata_frequency = metadata_stats[3]
-
        
-
-
-
-
                 df = df.iloc[:15, :8]
                 dfs.append(df)
 
@@ -478,7 +472,7 @@ def table_preview():
         return render_template('table_preview.html', tables=tables_html, table_name=table_name, search_term=search_term,
                                stats_rows=stats_rows, stats_columns=stats_columns, metadata_stats=metadata_stats, 
                                metadata_count = metadata_count, metadata_unique = metadata_unique, metadata_top = metadata_top, 
-                               metadata_frequency = metadata_frequency)
+                               metadata_frequency = metadata_frequency, user_email = user_email)
 
 
 @app.route('/logout')

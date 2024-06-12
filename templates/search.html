@@ -27,9 +27,9 @@
                   <button type="submit" value="Search" class="btn btn-primary-custom">
                   <i class="fas fa-search"></i>
                   </button>
-                  <button type="button" id="reset-button" class="btn btn-primary-custom">
+                  <a type="button" href="\search" class="btn btn-primary-custom">
                   <i class="fa-solid fa-rotate-right"></i>
-                  </button>
+                  </a>
                </div>
             </div>
          </div>
@@ -98,7 +98,30 @@
    <div class="container mt-5">
       <div class="alert custom-alert-secondary d-flex justify-content-between align-items-center" role="alert">
          <span>Search results for: <b>{{ search_term }}</b></span>
-         <input type="submit" name="Download" value="Download results" formnovalidate class="btn btn-primary-custom">
+         <button type="button" value="Download" class="btn btn-primary-custom" onclick="openSearchForm()">Download results</button>
+         <!-- <input type="submit" name="Download" value="Download results" formnovalidate class="btn btn-primary-custom"> -->
+      </div>
+      <div class="modal fade" id="searchModal">
+         <div class="modal-dialog">
+            <div class="modal-content">
+               <div class="modal-header">
+                  <h4 class="modal-title">Confirmation</h4>
+                  <button type="button" class="btn-close" onclick="closeSearchForm()" aria-label="Close"></button>
+               </div>
+               <div class="modal-body">
+                  Are you sure you want to download these results?
+               </div>
+               <div class="modal-footer d-flex justify-content-center">
+                  <div>
+                     <button type="button" class="btn btn-cancel-custom" onclick="closeSearchForm()">Close</button>
+                     <input type="submit" name="Download" value="Download results" onclick="downloadAndCloseSearchForm()" formnovalidate class="btn btn-primary-custom">
+
+
+                  </div>
+               </div>
+               
+            </div>
+         </div>
       </div>
       <div class="table-responsive">
          <table class="table table-hover" style="background-color: #f2f2f2;">
