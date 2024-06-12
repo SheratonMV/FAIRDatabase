@@ -13,7 +13,7 @@
                   <div class="input-group-prepend">
                      <span class="input-group-text" id="basic-addon1">Reference</span>
                   </div>
-                  <input type="text" class="form-control" name="origin" id="reference" placeholder="Reference to work" aria-label="Username" aria-describedby="basic-addon1" required>
+                  <input type="text" class="form-control" name="origin" id="reference" placeholder="Reference to work" aria-label="Username" aria-describedby="basic-addon1" required style="height: 40px;">
                   <div class="invalid-feedback" id="reference-error" style="display: none;">Please enter a reference.</div>
                </div>
                <br>  
@@ -21,13 +21,13 @@
                   <div class="input-group-prepend">
                      <span class="input-group-text">Description</span>
                   </div>
-                  <textarea class="form-control" name="description" aria-label="With textarea" id="description" placeholder="Description of data" required></textarea>
+                  <textarea class="form-control" name="description" aria-label="With textarea" id="description" placeholder="Description of data" required style="height: 40px;"></textarea>
                   <div class="invalid-feedback" id="description-error" style="display: none;">Please enter a description.</div>
                </div>
                <br>
                <div class="mb-3">
                   <label for="formFile" class="form-label"></label>
-                  <input class="form-control" type="file" name="file" id="file-input" style="background-color: white; margin-bottom: 0.5cm;" accept=".csv">
+                  <input class="form-control" type="file" name="file" id="file-input" style="background-color: white; margin-bottom: 0.5cm;" accept=".csv" >
                   <div class="invalid-feedback" id="file-error" style="display: none;">Please select a CSV file.</div>
                </div>
                <button type="button" value="Upload" class="btn btn-primary-custom" onclick="validateForm()">Upload</button>
@@ -43,8 +43,8 @@
                         </div>
                         <div class="modal-footer d-flex justify-content-center">
                            <div>
+                              <button type="button" class="btn btn-cancel-custom" onclick="closeUploadForm()">Close</button>
                               <button type="button" class="btn btn-primary-custom" onclick="uploadAndCloseForm()">Upload</button>
-                              <button type="button" class="btn btn-primary-custom" onclick="closeUploadForm()">Close</button>
                            </div>
                         </div>
                         <div class="d-flex flex-column align-items-center" style="width: 100%;">
