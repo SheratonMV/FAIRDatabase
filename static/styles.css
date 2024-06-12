@@ -16,6 +16,23 @@
   background-color: #164346;
 }
 
+/* Custom cancel button */
+.btn-cancel-custom {
+  background-color: #99B8BB;
+  color: black;
+
+}
+.btn-cancel-custom:hover,
+.btn-cancel-custom:focus {
+  color: black;
+  background-color: #C2D7DA;
+}
+
+.btn-primary-custom:active .btn-primary-custom.active,
+.open > .dropdown-toggle.btn-primary-custom {
+  background-color: #164346;
+}
+
 /* Custom secondary button */
 .btn-secondary-custom {
   background-color: #B6DCDE;
@@ -170,4 +187,9 @@ body {
 
 .table thead th {
   background-color: #D7EBED;
+}
+
+/* Standard height for input boxes */
+.custom-textarea {
+  height: 1000px; 
 }

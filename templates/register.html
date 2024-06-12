@@ -1,14 +1,15 @@
 {% extends "login_layout.html" %}
 {% block title %}FAIRMicrobiome | Login{% endblock %}
 {% block content %}   
-
 <div class="row justify-content-center">
-   <div class="col-md-6">
-      <div class="card">
-        <div class="card-header" style="background-color: #01191a; color: white;">Register</div>
-        <div class="card-body">
-
-            <p>To register, please enter the following details: </p>
+   <div class="col-md-10"> 
+      <div class="container mt-5">
+         <div class="card">
+            <div class="card-header" style="background-color: #01191a; color: white;">Login</div>
+            <div class="card-body">
+               <div class="row">
+                  <div class="col-md-8"> 
+                     <p>To register, please enter the following details: </p>
             <form method="post" action="/register">
                <div class="form-group">
                   <label for="email">Email:</label><br>
@@ -18,17 +19,24 @@
                   <label for="password">Password:</label><br>
                   <input  class="form-control"type="password" name="password" required style="width: 80%;"><br>
                </div>
-               <p>And </p>
                <input type="submit" value="Register" class="btn btn-primary-custom">
 
+               <a type="button"  href="/login" class="btn btn-cancel-custom" formnovalidate >Login</a>
+               <br>
+               {% if error_message %}
+               <p style="color: red;">Error logging in: {{ error_message }}</p>
+               {% endif %}
+
             </form>
-            <a type="button"  href="/login" class="btn btn-primary-custom" formnovalidate >Login</a>
-            <br>
-            {% if error_message %}
-            <p style="color: red;">Error logging in: {{ error_message }}</p>
-            {% endif %}
+                  </div>
+                  <div class="col-md-4 d-flex align-items-center justify-content-center"> <!-- Centered the image -->
+                     <img src="static/img/metahealth_logo.svg" class="img-fluid bigger-image" alt="MetaHealth">
+                  </div>
+               </div>
+            </div>
          </div>
       </div>
    </div>
 </div>
+
 {% endblock %}
