@@ -120,7 +120,9 @@ document.addEventListener('DOMContentLoaded', function () {
 function validateForm() {
     var reference = document.getElementById("reference").value;
     var description = document.getElementById("description").value;
+    var relational = document.getElementById("relational").value;
     var fileInput = document.getElementById("file-input");
+    
     var filePath = fileInput.value;
     var allowedExtensions = /(\.csv)$/i;
 
@@ -137,6 +139,12 @@ function validateForm() {
     } else {
       $('#description-error').hide();
     }
+    if (relational === "") {
+      $('#relational-error').show();
+      return false;
+    } else {
+      $('#relational-error').hide();
+    }
 
     if (!filePath) {
       $('#file-error').show();
@@ -151,15 +159,14 @@ function validateForm() {
       return false;
     }
 
-    $('#myModal').modal('show');
+    $('#uploadModal').modal('show');
     return true;
   }
 
 // Close form and upload
   function uploadAndCloseForm() {
-
   var formData = new FormData($("#upload-form")[0]);
-
+  
   $.ajax({
     url: '/upload',
     type: 'POST',
@@ -195,7 +202,7 @@ $(document).ready(function() {
 
 // Close upload form
 function closeUploadForm() {
-    $('#myModal').modal('hide');
+    $('#uploadModal').modal('hide');
 }
   
 
@@ -255,3 +262,9 @@ function downloadAndCloseSearchForm() {
   }, 200); 
 }
 
+// Set focus search bar shortcut
+
+
+// Enable tooltips
+const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))

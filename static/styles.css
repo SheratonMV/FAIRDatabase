@@ -70,6 +70,21 @@
   box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 8px rgba(0, 0, 0, 0.1) !important; 
 }
 
+/* Navbar information icon */
+.navbar .info-icon {
+  font-size: 1.5rem;
+  color: #1E5B5E;
+  position: absolute;
+  right: 0.1px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+@media (min-width: 992px) {
+  .navbar .info-icon {
+     font-size: 2rem;
+  }
+}
+
 /* Sticky footer */
 html,
 body {
@@ -163,8 +178,19 @@ body {
 /* Placehorder color boxes dashboard */
 .card-color-box {
   width: 100%;
-  height: 250px; 
-  background-color: #B6DCDE; 
+  height: 250px;
+  background-color: #B6DCDE;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.card-color-box i {
+  font-size: 900%; 
+  color: #1E5B5E; 
+  /* border: 5px solid #1E5B5E; 
+  border-radius: 30%; 
+  padding: 35px;  */
 }
 
 /* Progress bar */

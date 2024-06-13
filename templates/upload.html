@@ -13,7 +13,7 @@
                   <div class="input-group-prepend">
                      <span class="input-group-text" id="basic-addon1">Reference</span>
                   </div>
-                  <input type="text" class="form-control" name="origin" id="reference" placeholder="Reference to work" aria-label="Username" aria-describedby="basic-addon1" required style="height: 40px;">
+                  <input type="text" class="form-control" name="origin" id="reference" placeholder="Reference to work" aria-label="Username" aria-describedby="basic-addon1" required>
                   <div class="invalid-feedback" id="reference-error" style="display: none;">Please enter a reference.</div>
                </div>
                <br>  
@@ -21,8 +21,16 @@
                   <div class="input-group-prepend">
                      <span class="input-group-text">Description</span>
                   </div>
-                  <textarea class="form-control" name="description" aria-label="With textarea" id="description" placeholder="Description of data" required style="height: 40px;"></textarea>
+                  <textarea class="form-control" name="description" aria-label="With textarea" id="description" placeholder="Description of data" required></textarea>
                   <div class="invalid-feedback" id="description-error" style="display: none;">Please enter a description.</div>
+               </div>
+               <br>
+               <div class="input-group">
+                  <div class="input-group-prepend">
+                     <span class="input-group-text">Relational column name</span>
+                  </div>
+                  <textarea class="form-control" name="relational" aria-label="With textarea" id="relational" placeholder="Relational column name" required></textarea>
+                  <div class="invalid-feedback" id="relational-error" style="display: none;">Please enter a relational column name</div>
                </div>
                <br>
                <div class="mb-3">
@@ -31,7 +39,7 @@
                   <div class="invalid-feedback" id="file-error" style="display: none;">Please select a CSV file.</div>
                </div>
                <button type="button" value="Upload" class="btn btn-primary-custom" onclick="validateForm()">Upload</button>
-               <div class="modal fade" id="myModal">
+               <div class="modal fade" id="uploadModal">
                   <div class="modal-dialog">
                      <div class="modal-content">
                         <div class="modal-header">
@@ -64,7 +72,7 @@
 </div>
 <script>
    function closeUploadForm() {
-    $('#myModal').modal('hide');
+    $('#uploadModal').modal('hide');
 }
 </script>
 {% endblock %}

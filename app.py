@@ -95,7 +95,7 @@ def dashboard():
     if 'user' in session:
         user_email = session['email']
 
-        return render_template('dashboard.html', user_email=user_email)
+        return render_template('dashboard.html', user_email=user_email,current_path=request.path)
     else:
         return redirect('/')
 
@@ -108,9 +108,9 @@ def upload():
             uploaded_file = request.files['file']
             
             if uploaded_file.filename == '':
-                return render_template('upload.html', error_message='No file selected.', user_email=user_email)
+                return render_template('upload.html', error_message='No file selected.', user_email=user_email, current_path=request.path)
             elif not uploaded_file and uploaded_file.filename.endswith('.csv'):
-                return render_template('upload.html', error_message='Invalid file format. Please upload a .txt file.', user_email=user_email)
+                return render_template('upload.html', error_message='Invalid file format. Please upload a .txt file.', user_email=user_email, current_path=request.path)
         
             elif uploaded_file and uploaded_file.filename.endswith('.csv'):
                 upload_timer = time.time()
@@ -221,7 +221,7 @@ def upload():
 
                 return "File uploaded successfully."
         else:
-            return render_template('upload.html', user_email=user_email)
+            return render_template('upload.html', user_email=user_email, current_path=request.path)
     else:
         return redirect('/')
 
@@ -247,7 +247,7 @@ def search():
             # Render template with table names
             upload_timer = str(round(time.time() - upload_timer, 2))
             print(f"--- {upload_timer.replace('.', ',')[:5]} seconds, ")
-            return render_template('search.html', table_names=table_names, user_email=user_email)
+            return render_template('search.html', table_names=table_names, user_email=user_email, current_path=request.path)
 
         elif request.method == 'POST':
             if 'Download' not in request.form:
@@ -278,7 +278,8 @@ def search():
 
                 database_connection.close()
 
-                return render_template('search.html', search_results=search_results, search_term=search_term, table_names=table_names, user_email=user_email)
+                return render_template('search.html', search_results=search_results, search_term=search_term, 
+                                       table_names=table_names, user_email=user_email, current_path=request.path)
             if 'Download' in request.form:
                 return redirect(url_for('display'))
 
@@ -419,7 +420,7 @@ def update():
             # query = f"UPDATE _realtime. SET {column_name} = ? WHERE rowid = {row_id}]"
             # f"SELECT column_name FROM information_schema.columns WHERE table_schema = '_realtime' AND table_name = '{table}'"
             # f"SELECT table_name, column_name FROM information_schema.columns WHERE column_name like '%{search_term[0]}%'"
-            return render_template("update.html", user_email = user_email)
+            return render_template("update.html", user_email = user_email, current_path=request.path)
     else:
         return redirect("/")
     
@@ -472,7 +473,7 @@ def table_preview():
         return render_template('table_preview.html', tables=tables_html, table_name=table_name, search_term=search_term,
                                stats_rows=stats_rows, stats_columns=stats_columns, metadata_stats=metadata_stats, 
                                metadata_count = metadata_count, metadata_unique = metadata_unique, metadata_top = metadata_top, 
-                               metadata_frequency = metadata_frequency, user_email = user_email)
+                               metadata_frequency = metadata_frequency, user_email = user_email, current_path=request.path)
 
 
 @app.route('/logout')
@@ -480,5 +481,32 @@ def logout():
     session.pop('user', None)
     return redirect('/')
 
+@app.route('/privacy_metrics')
+def privacy_metrics():
+    if 'user' in session:
+        user_email = session['email']
+
+        return render_template('privacy_metrics.html', user_email=user_email,current_path=request.path)
+    else:
+        return redirect('/')
+    
+@app.route('/federated_learning')
+def federated_learning():
+    if 'user' in session:
+        user_email = session['email']
+
+        return render_template('federated_learning.html', user_email=user_email,current_path=request.path)
+    else:
+        return redirect('/')
+
+@app.route('/documentation')
+def documentation():
+    if 'user' in session:
+        user_email = session['email']
+
+        return render_template('documentation.html', user_email=user_email,current_path=request.path)
+    else:
+        return redirect('/')
+    
 if __name__ == '__main__':
     app.run(debug=True)

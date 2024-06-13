@@ -38,11 +38,9 @@
    </div>
    {% if search_term and not search_results %}
    <br>
-   <div class="alert custom-alert-warning alert-dismissible fade show" role="alert">
+   <div class="alert alert-warning alert-dismissible fade show" role="alert">
       No results found for: <strong>{{ search_term }}</strong>.
-      <button type="button" class="close" data-dismiss="alert" aria-label="Close" style="outline: none;">
-      <span aria-hidden="true">&times;</span>
-      </button>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
    </div>
    {% endif %}
    {% if table_names and (not search_term or not search_results) %}
