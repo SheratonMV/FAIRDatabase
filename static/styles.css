@@ -1,0 +1,221 @@
+/* Custom primary button */
+.btn-primary-custom {
+  background-color: #1E5B5E;
+  color: #fff;
+
+}
+.btn-primary-custom:hover,
+.btn-primary-custom:focus {
+  color: #fff;
+  background-color: #70999C;
+  border-color: #1A4B4F; 
+}
+
+.btn-primary-custom:active .btn-primary-custom.active,
+.open > .dropdown-toggle.btn-primary-custom {
+  background-color: #164346;
+}
+
+/* Custom cancel button */
+.btn-cancel-custom {
+  background-color: #99B8BB;
+  color: black;
+
+}
+.btn-cancel-custom:hover,
+.btn-cancel-custom:focus {
+  color: black;
+  background-color: #C2D7DA;
+}
+
+.btn-primary-custom:active .btn-primary-custom.active,
+.open > .dropdown-toggle.btn-primary-custom {
+  background-color: #164346;
+}
+
+/* Custom secondary button */
+.btn-secondary-custom {
+  background-color: #B6DCDE;
+  color: black;
+
+}
+.btn-secondary-custom:hover,
+.btn-secondary-custom:focus {
+  color: #fff;
+  background-color: #CCE6E8;
+  border-color: #94B5B6; 
+}
+
+.btn-secondary-custom:active .btn-secondary-custom.active,
+.open > .dropdown-toggle.btn-secondary-custom {
+  background-color: #164346;
+}
+
+.custom-alert-warning {
+  background-color: #DECDB6;
+  border-color: #DECDB6; 
+  color: black;
+}
+
+.custom-alert-secondary{
+  background-color: #B6DCDE;
+  border-color: #B6DCDE; 
+  color: black; 
+}
+
+
+.form-control:focus {
+  border-color: #1E5B5E !important;
+  border-width: 2px !important;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 8px rgba(0, 0, 0, 0.1) !important; 
+}
+
+/* Navbar information icon */
+.navbar .info-icon {
+  font-size: 1.5rem;
+  color: #1E5B5E;
+  position: absolute;
+  right: 0.1px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+@media (min-width: 992px) {
+  .navbar .info-icon {
+     font-size: 2rem;
+  }
+}
+
+/* Sticky footer */
+html,
+body {
+  height: 100%;
+}
+#page-content {
+  flex: 1 0 auto;
+  margin-left: 250px; 
+  transition: margin-left 0.3s ease; 
+}
+#sticky-footer {
+  flex-shrink: none;
+}
+.custom-footer {
+  background-color: white; 
+  color: black; 
+  padding: 20px 0; 
+}
+
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 250px;
+  background-color: #061313; 
+  color: white;
+  padding-top: 60px; 
+  transition: width 0.3s ease; 
+}
+
+#body.collapsed .nav-link .sidebar-text {
+  display: none;
+}
+
+.sidebar button {
+  position: absolute; 
+  top: 10px; 
+  right: 10px; 
+}
+
+.navbar-nav .nav-link {
+  transition: all 0.3s ease;
+  border-radius: 5px; 
+  padding: 10px 20px; 
+  display: flex;
+  align-items: center;
+}
+
+.navbar-nav .nav-link i {
+  margin-right: 10px;
+}
+
+.navbar-nav .nav-link:hover {
+  background-color: #102F31; 
+  border-radius: 8px; 
+}
+
+.sidebar ul.navbar-nav li.nav-item {
+  padding: 10px 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar ul.navbar-nav li.nav-item:last-child {
+  border-bottom: none;
+}
+
+.sidebar ul.navbar-nav li.nav-item a.nav-link {
+  color: white;
+}
+
+.sidebar ul.navbar-nav li.nav-item a.nav-link:hover {
+  color: #fff; 
+}
+
+#body.collapsed .navbar-nav .nav-link {
+  justify-content: center;
+  padding: 10px 0;
+}
+
+#body.collapsed .navbar-nav .nav-link i {
+  margin-right: 0;
+}
+
+/* Browse button upload */
+.custom-file-input {
+  background-color: #D8F1F3;
+  outline: #263d3d;
+}
+/* Placehorder color boxes dashboard */
+.card-color-box {
+  width: 100%;
+  height: 250px;
+  background-color: #B6DCDE;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.card-color-box i {
+  font-size: 900%; 
+  color: #1E5B5E; 
+  /* border: 5px solid #1E5B5E; 
+  border-radius: 30%; 
+  padding: 35px;  */
+}
+
+/* Progress bar */
+#progress-bar {
+  width: 100%;
+  height: 30px;
+  background-color: #f2f2f2;
+  border-radius: 5px;
+}
+#progress {
+  width: 0%;
+  height: 100%;
+  background-color: #B6DCDE;
+  border-radius: 5px;
+}
+
+.hidden-row {
+    display: none;
+}
+
+.table thead th {
+  background-color: #D7EBED;
+}
+
+/* Standard height for input boxes */
+.custom-textarea {
+  height: 1000px; 
+}

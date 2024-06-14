@@ -6,6 +6,9 @@
 # Open AI
 
 from flask import Flask, session, request, render_template, redirect, url_for, make_response
+import matplotlib.pyplot as plt
+
+import plotly.graph_objs as go
 from supabase import create_client, Client
 from werkzeug.utils import secure_filename
 from zipfile import ZipFile
@@ -21,12 +24,11 @@ import re
 import io
 import json
 
-
 app = Flask(__name__)
 app.secret_key = os.urandom(1)
 
 SUPABASE_URL = 'http://localhost:8000'
-SUPABASE_PUBLIC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzA2NjU1NjAwLAogICJleHAiOiAxODY0NTA4NDAwCn0.PHF4l_DdAyeJFZ6CMtpnbkFOmphH_cQ9sPO0McFJya0'
+SUPABASE_PUBLIC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzE0ODYwMDAwLAogICJleHAiOiAxODcyNjI2NDAwCn0.87CKUUqmCE6oZhyExthSKEDCGBnuZqhTdOUbgQtxsCE'
 
 supabase = create_client(SUPABASE_URL, SUPABASE_PUBLIC_KEY)
 client: Client = supabase
@@ -45,11 +47,12 @@ def home():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    email_user = request.form['email'] #sheraton@metahealth
-    password_user = request.form['password'] #vivek
+    email_user = request.form['email'] 
+    password_user = request.form['password'] 
 
     user = client.auth.sign_in_with_password({ "email": email_user, "password": password_user })
     if 'error' not in user: 
+        session['email'] = email_user
         print (dir(session), session.update({"user":1}))
         users_table = client.table('users')
         user = users_table.select().eq('email', email_user).single()
@@ -68,26 +71,19 @@ def login():
 def register():
     if request.method == 'GET':
         return render_template('register.html')
-    
     if request.method == 'POST':
-        
         if 'Login' in request.form:
             return redirect('/')
-        
         else:
             email = request.form['email']
             password = request.form['password']
-
             resp = client.auth.sign_up(email, password)
             print("DIT IS DE RESPONSE: ", resp)
-            
             if 'error' not in resp:
                 user = resp['user']
                 user_id = user['id']
-
                 client.table('auth.users').update({'password': password}).eq('id', user_id).execute()
                 return redirect('/')
-            
             else:
                 if resp['code'] is not None:
                     return render_template('register.html', error_message=resp['msg'])
@@ -97,21 +93,24 @@ def register():
 @app.route('/dashboard')
 def dashboard():
     if 'user' in session:
-        return render_template('dashboard.html')
+        user_email = session['email']
+
+        return render_template('dashboard.html', user_email=user_email,current_path=request.path)
     else:
         return redirect('/')
 
 @app.route('/upload', methods=['GET', 'POST'])
 def upload():
     if 'user' in session:
+        user_email = session['email']
         if request.method == 'POST':       
             
             uploaded_file = request.files['file']
             
             if uploaded_file.filename == '':
-                return render_template('upload.html', error_message='No file selected.')
+                return render_template('upload.html', error_message='No file selected.', user_email=user_email, current_path=request.path)
             elif not uploaded_file and uploaded_file.filename.endswith('.csv'):
-                return render_template('upload.html', error_message='Invalid file format. Please upload a .txt file.')
+                return render_template('upload.html', error_message='Invalid file format. Please upload a .txt file.', user_email=user_email, current_path=request.path)
         
             elif uploaded_file and uploaded_file.filename.endswith('.csv'):
                 upload_timer = time.time()
@@ -131,7 +130,7 @@ def upload():
                     file_name = str(secure_filename(uploaded_file.filename)).rsplit('.', 1)[0] + time_c_text
                     
                     # Connect to database
-                    database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="4ssEP7M09t7g1PM5Y6U3")
+                    database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="7sJYfI5dHJs27zie2Cpy")
                     cursor_database = database_connection.cursor()
 
                     # Set column limit to 1200, leaving space for adding columns
@@ -222,82 +221,77 @@ def upload():
 
                 return "File uploaded successfully."
         else:
-            return render_template('upload.html')
+            return render_template('upload.html', user_email=user_email, current_path=request.path)
     else:
         return redirect('/')
+
 
 @app.route('/search', methods=['GET', 'POST'])
 def search():
     if 'user' in session:
+        user_email = session['email']
         if request.method == 'GET':
             upload_timer = time.time()
             # Connect to database
-            database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="4ssEP7M09t7g1PM5Y6U3")
+            database_connection = psycopg2.connect(host="localhost", port="5432", database="", user="postgres", password="7sJYfI5dHJs27zie2Cpy")
             cursor_database = database_connection.cursor()
-            
-            # Get table names
-            sql_query = "SELECT DISTINCT main_table FROM _realtime.metadata_tables WHERE table_name IN (SELECT table_name FROM information_schema.tables WHERE table_schema = '_realtime')"
-            cursor_database.execute(sql_query)  #query execute
-            table_names = cursor_database.fetchall()
-            table_names = [table[0] for table in table_names]
-            # hidden_tables = ['schema_migrations','tenants','extensions','metadata_tables']
-            # for hidden_table in hidden_tables:
-            #     table_names.remove(hidden_table)
-            
-            
-            sql_query = "SELECT DISTINCT main_table FROM _realtime.metadata_tables WHERE table_name IN (SELECT table_name FROM information_schema.tables WHERE table_schema = '_realtime')"
-            cursor_database.execute(sql_query)  #query execute
-            table_names = cursor_database.fetchall()
-            table_names = [table[0] for table in table_names]
-            
 
-            
+            # Get table names from the 'public' schema
+            sql_query = "SELECT DISTINCT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+            cursor_database.execute(sql_query)
+            table_names = cursor_database.fetchall()
+            table_names = [table[0] for table in table_names]
+
             database_connection.close()
 
             # Render template with table names
             upload_timer = str(round(time.time() - upload_timer, 2))
             print(f"--- {upload_timer.replace('.', ',')[:5]} seconds, ")
-            return render_template('search.html', table_names=table_names)
+            return render_template('search.html', table_names=table_names, user_email=user_email, current_path=request.path)
 
         elif request.method == 'POST':
             if 'Download' not in request.form:
-                if request.form.get('search') is not None:
-                    search_term = request.form.get('search')
-                    seq_na = request.form.get('value0')
-                    seq_a = request.form.get('value1')
-                    session["search_term"] = [search_term,seq_a,seq_na]
+                search_term = request.form.get('search', '')
+                seq_na = request.form.get('value0')
+                seq_a = request.form.get('value1')
+                session["search_term"] = [search_term, seq_a, seq_na]
 
-                
-                search_term = session['search_term'][0]
-                
-                print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-                print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
                 # Connect to database
-                database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="postgres")
+                database_connection = psycopg2.connect(host="localhost", port="5432", database="", user="postgres", password="7sJYfI5dHJs27zie2Cpy")
                 cursor_database = database_connection.cursor()
-                
-                
-                sql_query = f"SELECT DISTINCT main_table FROM _realtime.metadata_tables WHERE table_name IN (SELECT table_name FROM information_schema.columns WHERE column_name like '%{search_term}%')"
-                cursor_database.execute(sql_query)  # Get the search term from the form
+
+                sql_query = f"SELECT DISTINCT table_name FROM information_schema.columns WHERE column_name LIKE '%{search_term}%' AND table_schema = 'public'"
+                cursor_database.execute(sql_query)
                 search_results = cursor_database.fetchall()
-                print(search_results)
-                return render_template('search.html',search_results=search_results, search_term=search_term)
-            
-            
+                search_results = [result[0] for result in search_results]
+
+                database_connection.close()
+
+                # Retrieve the original table names to always display them
+                database_connection = psycopg2.connect(host="localhost", port="5432", database="", user="postgres", password="7sJYfI5dHJs27zie2Cpy")
+                cursor_database = database_connection.cursor()
+
+                sql_query = "SELECT DISTINCT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+                cursor_database.execute(sql_query)
+                table_names = cursor_database.fetchall()
+                table_names = [table[0] for table in table_names]
+
+                database_connection.close()
+
+                return render_template('search.html', search_results=search_results, search_term=search_term, 
+                                       table_names=table_names, user_email=user_email, current_path=request.path)
             if 'Download' in request.form:
-                print("=============================================================================")
-                print("=============================================================================")
-                print(session.get("search_term"))
                 return redirect(url_for('display'))
-            
-            
+
     else:
         return redirect('/')
+
     
 
 @app.route('/display', methods=['GET', 'POST'])
 def display():
     if 'user' in session:
+        user_email = session['email']
         print(request.method, session.get("search_term"))
         upload_timer = time.time()
         if request.method == 'GET' and session.get("search_term") != None:
@@ -305,7 +299,7 @@ def display():
             search_term = session.get("search_term")
 
             # Database connection
-            database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="4ssEP7M09t7g1PM5Y6U3")
+            database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="7sJYfI5dHJs27zie2Cpy")
             cursor_database = database_connection.cursor()
             
             # Get tables where search term is part of
@@ -405,13 +399,15 @@ def display():
             return response
             
         else:
-            return render_template('search.html')         
+            return render_template('search.html', user_email = user_email)
+         
     else:
         return redirect('/')
     
-@app.route('/change', methods=['GET', 'POST'])
-def change():
+@app.route('/update', methods=['GET', 'POST'])
+def update():
     if 'user' in session:
+        user_email = session['email']
         if request.method == 'GET':
             # row_id = request.form['row_id']
             # column_name = request.form['column_name']
@@ -424,48 +420,93 @@ def change():
             # query = f"UPDATE _realtime. SET {column_name} = ? WHERE rowid = {row_id}]"
             # f"SELECT column_name FROM information_schema.columns WHERE table_schema = '_realtime' AND table_name = '{table}'"
             # f"SELECT table_name, column_name FROM information_schema.columns WHERE column_name like '%{search_term[0]}%'"
-            return render_template("change.html")
+            return render_template("update.html", user_email = user_email, current_path=request.path)
     else:
         return redirect("/")
-
+    
 @app.route('/table_preview', methods=['GET', 'POST'])
 def table_preview():
     if 'user' in session:
+        user_email = session['email']
         if request.method == 'GET':
-            search_term = session.get("search_term")
-            
+            search_term = session.get("search_term", "")
+
             table_name = request.args.get('type')
             
             # Database connection
-            database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="4ssEP7M09t7g1PM5Y6U3")
+            database_connection = psycopg2.connect(host="localhost", port="5432", database="", user="postgres", password="7sJYfI5dHJs27zie2Cpy")
             cursor_database = database_connection.cursor()
 
-            query_tables = f"SELECT table_name FROM _realtime.metadata_tables WHERE main_table = '{table_name}'"
+            query_tables = f"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '{table_name}'"
             cursor_database.execute(query_tables)
             tables = cursor_database.fetchall()
             tables = [table[0] for table in tables]
 
             dfs = []
             for table in tables:
-                query_columns = f"SELECT column_name FROM information_schema.columns WHERE table_schema = '_realtime' AND table_name = '{table}'"
+                query_columns = f"SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '{table}'"
                 cursor_database.execute(query_columns)
                 columns = cursor_database.fetchall()
 
-                query_rows = f"Select * FROM _realtime.{table}"
+                query_rows = f"SELECT * FROM {table}"
                 cursor_database.execute(query_rows)
                 rows = cursor_database.fetchall()
                 
                 columns = [column[0] for column in columns]
-                df = pd.DataFrame(list(rows),columns=columns)
-                df = df.iloc[:15, : 8]
+                df = pd.DataFrame(list(rows), columns=columns)
+
+                # Create descriptives and visualisations
+                df_full = pd.DataFrame(list(rows), columns=columns)
+                shape = df_full.shape
+                stats_rows, stats_columns = shape[0], shape[1]
+                metadata_stats = df_full['metadata'].describe()
+                metadata_count = metadata_stats[0]
+                metadata_unique = metadata_stats[1]
+                metadata_top = metadata_stats[2]
+                metadata_frequency = metadata_stats[3]
+       
+                df = df.iloc[:15, :8]
                 dfs.append(df)
 
-        return render_template('table_preview.html', tables = [df.to_html(classes='data', header="true") for df in dfs], table_name=table_name,search_term=search_term)
+        tables_html = [df.to_html(classes='table table-bordered', header="true", index=False) for df in dfs]
+
+        return render_template('table_preview.html', tables=tables_html, table_name=table_name, search_term=search_term,
+                               stats_rows=stats_rows, stats_columns=stats_columns, metadata_stats=metadata_stats, 
+                               metadata_count = metadata_count, metadata_unique = metadata_unique, metadata_top = metadata_top, 
+                               metadata_frequency = metadata_frequency, user_email = user_email, current_path=request.path)
+
 
 @app.route('/logout')
 def logout():
     session.pop('user', None)
     return redirect('/')
 
+@app.route('/privacy_metrics')
+def privacy_metrics():
+    if 'user' in session:
+        user_email = session['email']
+
+        return render_template('privacy_metrics.html', user_email=user_email,current_path=request.path)
+    else:
+        return redirect('/')
+    
+@app.route('/federated_learning')
+def federated_learning():
+    if 'user' in session:
+        user_email = session['email']
+
+        return render_template('federated_learning.html', user_email=user_email,current_path=request.path)
+    else:
+        return redirect('/')
+
+@app.route('/documentation')
+def documentation():
+    if 'user' in session:
+        user_email = session['email']
+
+        return render_template('documentation.html', user_email=user_email,current_path=request.path)
+    else:
+        return redirect('/')
+    
 if __name__ == '__main__':
     app.run(debug=True)

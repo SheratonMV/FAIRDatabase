@@ -1,23 +1,42 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Display Tables</title>
-</head>
-<div class="topnav">
-    <a href="/dashboard">Dashboard</a>
-    <a href="/search">Database Search</a>
-    <a href="/logout">Logout</a>
+{% extends "layout.html" %}
+{% block title %}FAIRMicrobiome | Table preview{% endblock %}
+{% block content %}
+<form action="/search" method="post">
+   <!-- <div class="alert custom-alert-secondary d-flex justify-content-between align-items-center" role="alert" style="overflow: hidden;">
+      <span style="overflow: hidden; text-overflow: ellipsis;">Table preview for: <b>{{ table_name }}</b></span>
+      <a href="/search" class="btn btn-primary-custom">Back to search</a>
+   </div> -->
+   <div class="alert custom-alert-secondary " role="alert" style="overflow: hidden;">
+      <div class="row">
+         <div class="col">
+      <span style="overflow: hidden; text-overflow: ellipsis;">Table preview for: <b>{{ table_name }}</b></span>
+            
+         </div>
+       </div>
+       <hr>
+       <div class="row">
+         <div class="col">
+            <b>Dataset descriptives</b> <br>
+         Rows: {{ stats_rows }} <br>
+         Columns: {{ stats_columns }}
+         </div>
+         <div class="col"><b>Metadata</b>  <br>
+            Value count: {{  metadata_count  }}<br>
+            Number of unique variables: {{  metadata_unique  }}<br>
+            Most common variable: {{  metadata_top  }}<br>
+            Frequency of most common variable: {{  metadata_frequency  }}<br>
+         </div>
+         <!-- <div class="col"></div> -->
+       </div>      
+
+   </div>
+</form>
+{% for table_html in tables %}
+<div class="table-responsive">
+   {{ table_html|safe }}
 </div>
-<body>
-    <!-- <a href="{{ url_for('table_preview', type= result) }}">  Back </a> -->
-    <form action="/search" method="post">
-        <button type="submit" name="back" value="back" class="btn-link">Back</button>
-    </form>
-    <p>{{ table_name }}</p>
-    
-    {% for table_html in tables %}
-        {{ table_html|safe }}
-    {% endfor %}
-    
-</body>
-</html>
+<br>
+<div class="col"><a href="/search" class="btn btn-primary-custom">Back to search</a></div>
+<br>
+{% endfor %}
+{% endblock %}

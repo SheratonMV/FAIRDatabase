@@ -1,20 +1,91 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Dashboard</title>
-</head>
-<div class="topnav">
-    <a href="/dashboard">Dashboard</a>
-    <a href="/search">Database Search</a>
-    <a href="/logout">Logout</a>
-</div>
-<body>
-    <h1>Welcome, {{ session['user']['email'] }}!</h1>
-    <p>What would you like to do?</p>
-    <a href="/upload">Upload</a>
-    <br>
-    <a href="/change">Change entry</a>
-    <br>
-    <a href="/search">Database Search</a>
-</body>
-</html>
+{% extends "layout.html" %}
+{% block title %}FAIRMicrobiome | Dashboard{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+   <br>
+   <h1>Welcome, {{ user_email }}!
+      <small class="text-muted">What would you like to do?</small>
+   </h1>
+   <div style="height:3vh;"></div>
+   <div class="container">
+      <div class="row">
+         <div class="col-md-4 mb-3">
+            <div class="card">
+               <div class="card-color-box">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+               </div>
+               <div class="card-body">
+                  <h5 class="card-title">Search</h5>
+                  <p class="card-text">Head straight into the search function.</p>
+               </div>
+               <div class="card-footer">
+                  <a href="\search" role="button" class="btn btn-primary-custom">Search</a>
+               </div>
+            </div>
+         </div>
+         <div class="col-md-4 mb-3">
+            <div class="card">
+               <div class="card-color-box">
+                  <i class="fa-solid fa-upload"></i>
+               </div>
+               <div class="card-body">
+                  <h5 class="card-title">Upload</h5>
+                  <p class="card-text">Head to the upload function. </p>
+               </div>
+               <div class="card-footer">
+                  <a href="\upload" role="button" class="btn btn-primary-custom">Upload</a>
+               </div>
+            </div>
+         </div>
+         <div class="col-md-4 mb-3">
+            <div class="card">
+               <div class="card-color-box">
+                  <i class="fa-solid fa-arrows-rotate"></i>
+               </div>
+               <div class="card-body">
+                  <h5 class="card-title">Update Entry</h5>
+                  <p class="card-text">Go here to update an entry in the database.</p>
+               </div>
+               <div class="card-footer">
+                  <a href="\update" role="button" class="btn btn-primary-custom">Update entry</a>
+               </div>
+            </div>
+         </div>
+      </div>
+      <div class="row mt-3">
+         <div class="col-md-4 mb-3">
+            <div class="card">
+               <div class="card-color-box">
+                  <i class="fa-solid fa-lock"></i>
+               </div>
+               <div class="card-body">
+                  <h5 class="card-title">Privacy metrics</h5>
+                  <p class="card-text">Go here to use the privacy metrics module.</p>
+               </div>
+               <div class="card-footer">
+                  <a href="\privacy_metrics" role="button" class="btn btn-primary-custom">Privacy metrics</a>
+               </div>
+            </div>
+         </div>
+         <div class="col-md-4 mb-3">
+            <div class="card">
+               <div class="card-color-box">
+                  <i class="fa-solid fa-arrows-split-up-and-left"></i>
+               </div>
+               <div class="card-body">
+                  <h5 class="card-title">Federated learning</h5>
+                  <p class="card-text">Access the federated learning dashboard here.</p>
+               </div>
+               <div class="card-footer">
+                  <a href="\federated_learning" role="button" class="btn btn-primary-custom">Federated learning</a>
+               </div>
+            </div>
+         </div>
+         <div class="col-md-4 mb-3">
+            <!-- 6th card goes here -->
+         </div>
+      </div>
+   </div>
+   
+<div style="height:5vh;"></div>
+{% endblock %}

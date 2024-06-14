@@ -44,11 +44,11 @@ def filter_characters_list(stringlist):
     return filtered_string
 SUPABASE_URL = 'http://localhost:8000'
 #KeyMSI
-SUPABASE_PUBLIC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICAgInJvbGUiOiAic2VydmljZV9yb2xlIiwKICAgICJpc3MiOiAic3VwYWJhc2UiLAogICAgImlhdCI6IDE2ODc5ODk2MDAsCiAgICAiZXhwIjogMTg0NTg0MjQwMAp9.KP_2X3ZplcvahzTvAb0NlAIkhzmVs-hO3FHIrt7mRO8'
+SUPABASE_PUBLIC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzE0ODYwMDAwLAogICJleHAiOiAxODcyNjI2NDAwCn0.87CKUUqmCE6oZhyExthSKEDCGBnuZqhTdOUbgQtxsCE'
 #KeyZ
 # SUPABASE_PUBLIC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogInNlcnZpY2Vfcm9sZSIsCiAgImlzcyI6ICJzdXBhYmFzZSIsCiAgImlhdCI6IDE3MDE5OTAwMDAsCiAgImV4cCI6IDE4NTk4NDI4MDAKfQ.TtldGEFJ88vn790LrseKISJ9EdEv8GfTDsCsRN_b764'#'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_PUBLIC_KEY)
-database_connection = psycopg2.connect(host="localhost", port="5432", database="", user="postgres", password="4ssEP7M09t7g1PM5Y6U3")#"GciOiJIUzI1NiIsInR5cCI6IkpXVCJ9")
+database_connection = psycopg2.connect(host="localhost", port="5432", database="", user="postgres", password="7sJYfI5dHJs27zie2Cpy")#"GciOiJIUzI1NiIsInR5cCI6IkpXVCJ9")
 
 sql_query = 'SELECT table_name FROM information_schema.tables WHERE table_schema=\'public\''
 cursor_database = database_connection.cursor()
@@ -139,7 +139,7 @@ def upload():
 
                 # Connect to database
                 database_connection = psycopg2.connect(host="localhost", port=5432, database="",
-                                                       user="postgres", password='4ssEP7M09t7g1PM5Y6U3')#"GciOiJIUzI1NiIsInR5cCI6IkpXVCJ9")#
+                                                       user="postgres", password='7sJYfI5dHJs27zie2Cpy')#"GciOiJIUzI1NiIsInR5cCI6IkpXVCJ9")#
 
 
 
