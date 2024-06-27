@@ -11,7 +11,7 @@
    <div class="card text-center" style="background-color: white;">
       <div class="card-body">
          <h1 class="display-3">Data generalization module</h1>
-         <p>Welcome to the data generalization module. In this module, you can upload omics and healthcare datasets to make them GDPR compliant. Start by importing a .csv file.</p>
+         <p>Welcome to the data generalization module. In this module, you can upload omics and healthcare datasets to generalise them. Start by importing a .csv file.</p>
          <form method="post" enctype="multipart/form-data">
             <div class="form-group">
                <label for="file">Upload a .csv file:</label>
@@ -25,7 +25,7 @@
    {% if uploaded and not columns_dropped %}
    <h3>Select direct identifiers to drop:</h3>
    <p>Direct identifiers are the attributes that can directly identify an individual without the need for additional information, such as names or adresses. </p>
-   <p id="selected-count">0 checkboxes selected</p>
+   <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
 
    <form method="post">
       {% for col in column_names %}
@@ -63,9 +63,11 @@
    {% endif %}
    {% if columns_dropped and not missing_values_reviewed %}
    <h3>Select missing value columns:</h3>
-   <p>Here, the percentage of missing values per column is shown sorting from highest to lowest.<br>
+   <p>Here, the percentage of missing values per column is shown sorting from highest to lowest. Columns with a high percentage of missing values are advised to be dropped.<br>
       Please select the columns with missing values to drop:
    </p>
+   <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
+
    <form method="post">
       {% for col, percentage in missing_percentages.items() %}
       <div class="form-check">
