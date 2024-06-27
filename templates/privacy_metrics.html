@@ -1,8 +1,294 @@
 {% extends "layout.html" %}
 {% block title %}FAIRMicrobiome | Privacy metrics{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
+<div class="container">
+   {% if message %}
+   <div class="alert alert-info mt-3" role="alert">
+      {{ message }}
+   </div>
+   {% endif %}
+   {% if not uploaded %}
+   <div class="card text-center" style="background-color: white;">
+      <div class="card-body">
+         <h1 class="display-3">Data generalization module</h1>
+         <p>Welcome to the data generalization module. In this module, you can upload omics and healthcare datasets to generalise them. Start by importing a .csv file.</p>
+         <form method="post" enctype="multipart/form-data">
+            <div class="form-group">
+               <label for="file">Upload a .csv file:</label>
+               <input class="form-control" type="file" name="file" id="file" style="background-color: white; margin-bottom: 0.5cm;" accept=".csv" required>
+            </div>
+            <button type="submit" class="btn btn-primary-custom">Import</button>
+         </form>
+      </div>
+   </div>
+   {% endif %}
+   {% if uploaded and not columns_dropped %}
+   <h3>Select direct identifiers to drop:</h3>
+   <p>Direct identifiers are the attributes that can directly identify an individual without the need for additional information, such as names or adresses. </p>
+   <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
+
+   <form method="post">
+      {% for col in column_names %}
+      <div class="form-check">
+         <input class="form-check-input" type="checkbox" id="column_{{ loop.index }}" name="columns_to_drop" value="{{ col }}">
+         <label class="form-check-label" for="column_{{ loop.index }}">{{ col }}</label>
+      </div>
+      {% endfor %}
+      <br>
+      <button type="button" data-bs-toggle="modal" data-bs-target="#confirmationModal1" class="btn btn-primary-custom" style="margin-bottom: 0.5cm;">Continue</button>
+      <div class="modal fade" id="confirmationModal1" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+         <div class="modal-dialog">
+            <div class="modal-content">
+               <div class="modal-header">
+                  <h1 class="modal-title fs-5" id="exampleModalLabel">Confirmation</h1>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+               </div>
+               <div class="modal-body">
+                  <p id="selection-message"></p>
+                  
+               </div>
+               <div class="modal-footer">
+                  <button type="button" class="btn btn-cancel-custom" data-bs-dismiss="modal">Close</button>
+                  <button type="submit" name="submit_button" value="submit_columns" class="btn btn-primary-custom">Continue</button>
+               </div>
+            </div>
+         </div>
+      </div>
+   </form>
+   <form action="/consolidated_return" method="post">
+      <input type="text" name="state" value="1" style="display: none;">
+      <button type="submit" class="btn btn-cancel-custom">Back</button>
+   </form>
    <br>
-   <h1>Privacy metrics</h1>
+   {% endif %}
+   {% if columns_dropped and not missing_values_reviewed %}
+   <h3>Select missing value columns:</h3>
+   <p>Here, the percentage of missing values per column is shown sorting from highest to lowest. Columns with a high percentage of missing values are advised to be dropped.<br>
+      Please select the columns with missing values to drop:
+   </p>
+   <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
+
+   <form method="post">
+      {% for col, percentage in missing_percentages.items() %}
+      <div class="form-check">
+         <input class="form-check-input" type="checkbox" id="column_{{ loop.index }}" name="columns_to_drop" value="{{ col }}">
+         <label class="form-check-label" for="column_{{ loop.index }}">{{ col }} - {{ percentage }}% missing</label>
+      </div>
+      {% endfor %}
+      <br>
+      <button type="button" data-bs-toggle="modal" data-bs-target="#confirmationModal2" class="btn btn-primary-custom" style="margin-bottom: 0.5cm;">Continue</button>
+      <div class="modal fade" id="confirmationModal2" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+         <div class="modal-dialog">
+            <div class="modal-content">
+               <div class="modal-header">
+                  <h1 class="modal-title fs-5" id="exampleModalLabel">Confirmation</h1>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+               </div>
+               <div class="modal-body">
+                  <p id="selection-message"></p>
+               </div>
+               <div class="modal-footer">
+                  <button type="button" class="btn btn-cancel-custom" data-bs-dismiss="modal">Close</button>
+                  <button type="submit" name="submit_button" value="submit_missing_values"  class="btn btn-primary-custom">Continue</button>
+               </div>
+            </div>
+         </div>
+      </div>
+   </form>
+   <form action="/consolidated_return" method="post">
+      <input type="text" name="state" value="2" style="display: none;">
+      <button type="submit" class="btn btn-cancel-custom">Back</button>
+   </form>
+   {% endif %}
+   {% if missing_values_reviewed and not quasi_identifiers_selected %}
+   <h3>Select Quasi-identifiers:</h3>
+   <p>Quasi-identifiers are attributes that can be combined with other quasi-identifiers to uniquely identify an individual.</p>
+   <form method="post">
+      {% for col in column_names %}
+      <div class="form-check">
+         <input class="form-check-input" type="checkbox" id="quasi_identifier_{{ loop.index }}" name="quasi_identifiers" value="{{ col }}">
+         <label class="form-check-label" for="quasi_identifier_{{ loop.index }}">{{ col }}</label>
+      </div>
+      {% endfor %}
+      <br>
+      <button type="submit" name="submit_button" value="submit_quasi_identifiers"  class="btn btn-primary-custom" style="margin-bottom: 0.5cm;">Continue</button>
+   </form>
+   <form action="/consolidated_return" method="post">
+      <input type="text" name="state" value="3" style="display: none;">
+      <button type="submit" class="btn btn-cancel-custom">Back</button>
+   </form>
+   {% endif %}
+   {% if quasi_identifiers_selected and current_quasi_identifier %}
+   <form method="post">
+      <h3>Distinct values and percentages for '{{ current_quasi_identifier }}':</h3>
+      <ul>
+         {% for value, percentage in quasi_identifier_values[current_quasi_identifier] %}
+         <li>{{ value }}: {{ percentage }}%</li>
+         {% endfor %}
+      </ul>
+      <h4>Available values in '{{ current_quasi_identifier }}': {{ distinct_values[current_quasi_identifier] }}</h4>
+      {% for value, _ in quasi_identifier_values[current_quasi_identifier] %}
+      <div class="form-group">
+         <label for="mapping_{{ current_quasi_identifier }}_{{ value }}">Map '{{ value }}' to:</label>
+         <input class="form-control" type="text" id="mapping_{{ current_quasi_identifier }}_{{ value }}" name="mapping_{{ current_quasi_identifier }}_{{ value }}" value="{{ value }}">
+      </div>
+      {% endfor %}
+      <br>
+      <button type="button" data-bs-toggle="modal" data-bs-target="#confirmationModal4" class="btn btn-primary-custom" style="margin-bottom: 0.5cm;">Continue</button>
+      <div class="modal fade" id="confirmationModal4" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+         <div class="modal-dialog">
+            <div class="modal-content">
+               <div class="modal-header">
+                  <h1 class="modal-title fs-5" id="exampleModalLabel">Confirmation</h1>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+               </div>
+               <div class="modal-body">
+                  Are you sure you want to map these values? This action cannot be undone. 
+               </div>
+               <div class="modal-footer">
+                  <button type="button" class="btn btn-cancel-custom" data-bs-dismiss="modal">Close</button>
+                  <button type="submit" name="submit_button" value="submit_mapping" class="btn btn-primary-custom">Continue</button>
+               </div>
+            </div>
+         </div>
+      </div>
+   </form>
+   <form action="/consolidated_return" method="post">
+      <input type="text" name="state" value="4" style="display: none;">
+      <button type="submit" class="btn btn-cancel-custom">Back</button>
+   </form>
+   {% endif %}
+   <!-- {% if updated_percentages %}
+   <h2>Updated Percentages After Mapping</h2>
+   <table>
+      <thead>
+         <tr>
+            <th>Value</th>
+            <th>Percentage</th>
+         </tr>
+      </thead>
+      <tbody>
+         {% for quasi_identifier, values in updated_percentages.items() %}
+         {% for value, percentage in values.items() %}
+         <tr>
+            <td>{{ value }}</td>
+            <td>{{ percentage }}%</td>
+         </tr>
+         {% endfor %}
+         {% endfor %}
+      </tbody>
+   </table>
+   {% endif %} -->
+   {% if all_steps_completed %}
+   <div class="row">
+      <div class="col-8">
+         <h3>Privacy metric score</h3>
+         <p>Now the dataset has been generalised, a preliminary privacy metric score can be given. </p>
+         <b>What does this score mean?</b>
+<p>
+<ul>
+   <li>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</li>
+   <li>Integer venenatis nulla quis ex condimentum scelerisque.</li>
+   <li>Mauris vel nulla sed neque dapibus tempor.</li>
+   <li>Maecenas vitae urna ac quam lobortis gravida.</li>
+   <li>Sed a ante quis purus dapibus vehicula.</li>
+   <li>Morbi in sapien vitae felis placerat facilisis.</li>
+   <li>Vivamus vulputate ante nec aliquam tincidunt.</li>
+   <li>Vestibulum id ex cursus, hendrerit ligula et, congue ante.</li>
+   <li>Duis pretium leo sollicitudin urna viverra, vulputate tempor augue dictum.</li>
+   <li>Praesent bibendum dui et massa condimentum, sit amet suscipit felis auctor.</li>
+   <li>Aliquam ac erat nec ex aliquam lobortis vel nec diam.</li>
+   <li>Quisque non ex sit amet lorem porta sagittis at vel justo.</li>
+   <li>Sed ut massa vitae tortor viverra ultrices eget vitae neque.</li>
+   <li>Suspendisse eleifend dolor eu diam pulvinar gravida.</li>
+</ul>
+</p>
+      </div>
+      <div class="col col-lg-4">
+         <div class="card" style="background-color: #F2EDE2;">
+            <h5 class="card-header">Preliminary privacy score</h5>
+            <div class="card-body">
+               <div class="score-wrap">
+                  <div class="score">
+                     <div class="score-bar">
+                        <div class="placeholder"style="background-color: #F2EDE2;">
+                           <svg width="200" height="120">
+                              <circle cx="100" cy="100" r="65" fill="none" stroke-width="25" stroke-linecap="round" stroke-dashoffset="-205.35" stroke-dasharray="408.69 10000" stroke="#FFFFFF"></circle>
+                           </svg>
+                        </div>
+                        <div class="score-circle">
+                           <svg width="200" height="120">
+                              <circle cx="100" cy="100" r="65" fill="none" stroke-width="25" stroke-linecap="round" stroke-dashoffset="-205.35" stroke-dasharray="{{ dashArray }} 10000" stroke="url(#score-gradient)"></circle>
+                              <defs>
+                                 <linearGradient id="score-gradient">
+                                    <stop offset="0%" stop-color="#FF6363"></stop>
+                                    <stop offset="25%" stop-color="#FEBE8C"></stop>
+                                    <stop offset="100%" stop-color="#B6E2A1"></stop>
+                                 </linearGradient>
+                              </defs>
+                           </svg>
+                        </div>
+                     </div>
+                     <div class="score-value">
+                        <div class="score-name" >Score</div>
+                        <div class="score-number">{{ svgScore }}%</div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+            <div class="card-footer">
+               <div id="scoreMessage"></div>
+            </div>
+         </div>
+      </div>
+   </div>
+   <div class="row">
+      <div class="col-8">
+         <form action="/consolidated_return" method="post">
+            <input type="text" name="state" value="1" style="display: none;">
+            <button type="submit" class="btn btn-primary-custom">Return to upload</button>
+         </form>
+      </div>
+   </div>
 </div>
+</div>
+<!-- Store svgScore as a data attribute on an HTML element -->
+<div id="svgScoreValue" data-svgScore="{{ svgScore }}"></div>
+{% endif %}
+</div>
+<script>
+   document.addEventListener('DOMContentLoaded', function () {
+       var checkboxes = document.querySelectorAll('input[type="checkbox"][name="columns_to_drop"]');
+       var countDisplay = document.getElementById('selected-count');
+       var messageDisplay = document.getElementById('selection-message');
+       
+   
+       function updateSelectedCount() {
+           var selectedCount = 0;
+           checkboxes.forEach(function (checkbox) {
+               if (checkbox.checked) {
+                   selectedCount++;
+               }
+           });
+           countDisplay.textContent = selectedCount + ' checkboxes selected';
+   
+   
+           // Conditional message based on selected count
+           if (selectedCount === 0) {
+                messageDisplay.textContent = 'Do you want to continue? You have no checkboxes selected.';
+            } else if (selectedCount === 1) {
+                messageDisplay.textContent = 'Do you want to remove ' + selectedCount + ' column? This action cannot be undone.';
+            } else {
+                messageDisplay.textContent = 'Do you want to remove ' + selectedCount + ' columns? This action cannot be undone.';
+            }
+       }
+   
+       checkboxes.forEach(function (checkbox) {
+           checkbox.addEventListener('change', updateSelectedCount);
+       });
+   
+       // Initial count display
+       updateSelectedCount();
+   });
+</script>
 {% endblock %}

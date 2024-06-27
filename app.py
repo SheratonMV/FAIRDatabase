@@ -6,6 +6,7 @@
 # Open AI
 
 from flask import Flask, session, request, render_template, redirect, url_for, make_response
+from flask import jsonify
 import matplotlib.pyplot as plt
 
 import plotly.graph_objs as go
@@ -23,6 +24,8 @@ import os
 import re
 import io
 import json
+import random
+
 
 app = Flask(__name__)
 app.secret_key = os.urandom(1)
@@ -32,6 +35,8 @@ SUPABASE_PUBLIC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFu
 
 supabase = create_client(SUPABASE_URL, SUPABASE_PUBLIC_KEY)
 client: Client = supabase
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['ALLOWED_EXTENSIONS'] = {'csv'}
 
 def filter_characters(string):
     filtered_string = re.sub(r'[^a-zA-Z0-9_]', '_', string)
@@ -479,22 +484,278 @@ def table_preview():
 @app.route('/logout')
 def logout():
     session.pop('user', None)
+    uploaded = False
+    columns_dropped = False
+    missing_values_reviewed = False
+    quasi_identifiers_selected = False
+    current_quasi_identifier = False
+    all_steps_completed = False
+    session['uploaded'] = uploaded
+    session['columns_dropped'] = columns_dropped
+    session['missing_values_reviewed'] = missing_values_reviewed
+    session['quasi_identifiers_selected'] = quasi_identifiers_selected
+    session['current_quasi_identifier'] = current_quasi_identifier
+    session['all_steps_completed'] = all_steps_completed
     return redirect('/')
 
-@app.route('/privacy_metrics')
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
+def drop_columns(df, columns_to_drop):
+    if columns_to_drop and columns_to_drop[0].lower() != 'none':
+        df.drop(columns=columns_to_drop, inplace=True)
+        return True
+    # Return True if no columns are selected to drop (i.e., proceed to the next step without changing df)
+    return True
+
+def calculate_missing_percentages(df):
+    missing_percentages = (df.isnull().sum() / len(df)) * 100
+    return missing_percentages.to_dict()
+
+
+def identify_quasi_identifiers_with_distinct_values(df, selected_columns):
+    if not selected_columns:
+        return {}, {}
+
+    distinct_values = {col: df[col].value_counts().index.tolist() for col in selected_columns}
+    quasi_identifier_values = {}
+    for col in selected_columns:
+        distinct_count = df[col].value_counts()
+        total_count = len(df[col])
+        percentages = (distinct_count / total_count) * 100
+        quasi_identifier_values[col] = [(val, f"{percentages[val]:.2f}") for val in distinct_count.index]
+    return distinct_values, quasi_identifier_values
+
+
+def map_values_and_output_percentages(df, selected_columns, mappings):
+    """
+    Maps values in the selected columns to other values based on user input,
+    including the ability to map to newly created values or remap values after reviewing. Outputs updated percentages.
+    """
+    for col in selected_columns:
+        if col not in df.columns:
+            continue
+
+        if col in mappings:
+            mapping = mappings[col]
+            df[col] = df[col].map(lambda x: mapping.get(x, x))
+    
+    updated_percentages = {col: (df[col].value_counts(normalize=True) * 100).to_dict() for col in selected_columns}
+    return df, updated_percentages
+
+@app.route('/privacy_metrics', methods=['GET', 'POST'])
 def privacy_metrics():
     if 'user' in session:
         user_email = session['email']
+        uploaded = session.get('uploaded', False)
+        columns_dropped = session.get('columns_dropped', False)
+        missing_values_reviewed = session.get('missing_values_reviewed', False)
+        quasi_identifiers_selected = session.get('quasi_identifiers_selected', False)
+        column_names = session.get('column_names', [])
+        columns_to_drop = session.get('columns_to_drop', [])
+        quasi_identifiers = session.get('quasi_identifiers', [])
+        quasi_identifier_values = session.get('quasi_identifier_values', {})
+        distinct_values = session.get('distinct_values', {})
+        current_quasi_identifier = session.get('current_quasi_identifier')
+        mappings = session.get('mappings', {})
+        all_steps_completed = session.get('all_steps_completed', False)
+        missing_percentages = session.get('missing_percentages', {})
+        updated_percentages = session.get('updated_percentages', {})
+        message = None
 
-        return render_template('privacy_metrics.html', user_email=user_email,current_path=request.path)
+        if request.method == 'POST':
+            print("POST request received")
+            if 'file' in request.files:
+                file = request.files['file']
+                if file and allowed_file(file.filename):
+                    filename = secure_filename(file.filename)
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(filepath)
+                    session['uploaded_filepath'] = filepath
+                    uploaded = True
+                    session['uploaded'] = uploaded
+                    df = pd.read_csv(filepath)
+                    column_names = df.columns.tolist()
+                    session['column_names'] = column_names
+                    message = "File imported successfully."
+
+            elif request.form.get('submit_button') == 'submit_columns':
+                columns_to_drop = request.form.getlist('columns_to_drop')
+                filepath = session.get('uploaded_filepath')
+                if not filepath:
+                    return jsonify({'error': 'No file uploaded or session expired.'}), 400
+
+                df = pd.read_csv(filepath)
+                if drop_columns(df, columns_to_drop):
+                    df.to_csv(filepath, index=False)
+                    columns_dropped = True
+                    session['columns_dropped'] = columns_dropped
+                    message = "Direct identifiers dropped successfully."
+                    column_names = df.columns.tolist()
+                    session['column_names'] = column_names
+                    missing_percentages = calculate_missing_percentages(df)
+                    session['missing_percentages'] = missing_percentages
+
+            elif request.form.get('submit_button') == 'submit_missing_values':
+                columns_to_drop = request.form.getlist('columns_to_drop')
+                filepath = session.get('uploaded_filepath')
+                if not filepath:
+                    return jsonify({'error': 'No file uploaded or session expired.'}), 400
+
+                df = pd.read_csv(filepath)
+                if drop_columns(df, columns_to_drop):
+                    df.to_csv(filepath, index=False)
+                    missing_values_reviewed = True
+                    session['missing_values_reviewed'] = missing_values_reviewed
+                    message = "Columns with missing values dropped successfully."
+                    column_names = df.columns.tolist()
+                    session['column_names'] = column_names
+
+            elif request.form.get('submit_button') == 'submit_quasi_identifiers':
+                quasi_identifiers = request.form.getlist('quasi_identifiers')
+                filepath = session.get('uploaded_filepath')
+                if not filepath:
+                    return jsonify({'error': 'No file uploaded or session expired.'}), 400
+
+                df = pd.read_csv(filepath)
+                if not quasi_identifiers:
+                    quasi_identifiers_selected = True
+                    session['all_steps_completed'] = True
+                    all_steps_completed = session['all_steps_completed']
+                    session['quasi_identifiers_selected'] = quasi_identifiers_selected
+                    message = "No quasi-identifiers selected. Dataset has been generalized."
+
+                else:
+                    distinct_values, quasi_identifier_values = identify_quasi_identifiers_with_distinct_values(df, quasi_identifiers)
+                    session['quasi_identifiers'] = quasi_identifiers
+                    session['quasi_identifier_values'] = quasi_identifier_values
+                    session['distinct_values'] = distinct_values
+                    quasi_identifiers_selected = True
+                    session['quasi_identifiers_selected'] = quasi_identifiers_selected
+                    current_quasi_identifier = quasi_identifiers[0]
+                    session['current_quasi_identifier'] = current_quasi_identifier
+                    session['current_quasi_identifier_index'] = 0
+                    message = "Quasi-identifiers selected"
+
+            elif request.form.get('submit_button') == 'submit_mapping':
+                current_quasi_identifier = session.get('current_quasi_identifier')
+                filepath = session.get('uploaded_filepath')
+                if not filepath:
+                    return jsonify({'error': 'No file uploaded or session expired.'}), 400
+
+                if current_quasi_identifier:
+                    df = pd.read_csv(filepath)
+                    if current_quasi_identifier not in mappings:
+                        mappings[current_quasi_identifier] = {}
+                    
+                    for key in request.form:
+                        if key.startswith('mapping_'):
+                            _, value = key.rsplit('_', 1)  # Use rsplit to handle multiple underscores
+                            mappings[current_quasi_identifier][value] = request.form[key]
+                    
+                    print(f"Mappings before applying: {mappings}")
+                    df, updated_percentages = map_values_and_output_percentages(df, [current_quasi_identifier], mappings)
+                    df.to_csv(filepath, index=False)
+                    session['mappings'] = mappings
+                    quasi_identifier_values[current_quasi_identifier] = updated_percentages[current_quasi_identifier]
+                    session['quasi_identifier_values'] = quasi_identifier_values
+                    session['updated_percentages'] = updated_percentages  # Store updated percentages in session
+                    message = f"Values for '{current_quasi_identifier}' mapped successfully."
+                    print(f"Updated DataFrame saved and percentages calculated for {current_quasi_identifier}")
+
+                    current_quasi_identifier_index = session.get('current_quasi_identifier_index', 0)
+                    if current_quasi_identifier_index + 1 < len(quasi_identifiers):
+                        current_quasi_identifier_index += 1
+                        session['current_quasi_identifier_index'] = current_quasi_identifier_index
+                        session['current_quasi_identifier'] = quasi_identifiers[current_quasi_identifier_index]
+                    else:
+                        session['current_quasi_identifier'] = None
+                        session['all_steps_completed'] = True
+                        message = "All quasi-identifier values mapped successfully."
+                        all_steps_completed = session['all_steps_completed']
+        
+        
+        svgScore = random.randint(0,100)
+        return render_template(
+            'privacy_metrics.html',
+            user_email=user_email,
+            current_path=request.path,
+            uploaded=uploaded,
+            columns_dropped=columns_dropped,
+            missing_values_reviewed=missing_values_reviewed,
+            quasi_identifiers_selected=quasi_identifiers_selected,
+            column_names=column_names,
+            columns_to_drop=columns_to_drop,
+            quasi_identifiers=quasi_identifiers,
+            quasi_identifier_values=quasi_identifier_values,
+            distinct_values=distinct_values,
+            current_quasi_identifier=session.get('current_quasi_identifier'),
+            mappings=mappings,
+            message=message,
+            all_steps_completed=all_steps_completed,
+            missing_percentages=dict(sorted(missing_percentages.items(), key=lambda x:x[1], reverse=True)),
+            updated_percentages=dict(sorted(updated_percentages.items(), key=lambda x:x[1], reverse=True)), svgScore=svgScore  # Pass updated percentages to the template
+        )
     else:
-        return redirect('/')
-    
+        return redirect(url_for('login'))
+
+
+
+
+@app.route('/consolidated_return', methods=['GET', 'POST'])
+def consolidated_return():
+    state = request.form.get('state')
+    if state == '1':
+        uploaded = False
+        columns_dropped = False
+        missing_values_reviewed = False
+        quasi_identifiers_selected = False
+        current_quasi_identifier = False
+        all_steps_completed = False
+        session['uploaded'] = uploaded
+        session['columns_dropped'] = columns_dropped
+        session['missing_values_reviewed'] = missing_values_reviewed
+        session['quasi_identifiers_selected'] = quasi_identifiers_selected
+        session['current_quasi_identifier'] = current_quasi_identifier
+        session['all_steps_completed'] = all_steps_completed
+        return redirect('/privacy_metrics')
+    elif state == '2':
+        uploaded = True
+        columns_dropped = False
+        session['uploaded'] = uploaded
+        session['columns_dropped'] = columns_dropped
+        return redirect('/privacy_metrics')
+    elif state == '3':
+        uploaded = True
+        columns_dropped = True
+        missing_values_reviewed = False
+        session['uploaded'] = uploaded
+        session['columns_dropped'] = columns_dropped
+        session['missing_values_reviewed'] = missing_values_reviewed
+        return redirect('/privacy_metrics') 
+    elif state == '4':
+        uploaded = True
+        columns_dropped = True
+        missing_values_reviewed = True
+        quasi_identifiers_selected = False
+        current_quasi_identifier = False
+        session['uploaded'] = uploaded
+        session['columns_dropped'] = columns_dropped
+        session['missing_values_reviewed'] = missing_values_reviewed
+        session['quasi_identifiers_selected'] = quasi_identifiers_selected
+        session['current_quasi_identifier'] = current_quasi_identifier
+        return redirect('/privacy_metrics') 
+    return redirect('/privacy_metrics') 
+
+
+
+
+
 @app.route('/federated_learning')
 def federated_learning():
     if 'user' in session:
         user_email = session['email']
-
+        svgScore = random.randint(0,100)
         return render_template('federated_learning.html', user_email=user_email,current_path=request.path)
     else:
         return redirect('/')
@@ -509,4 +770,6 @@ def documentation():
         return redirect('/')
     
 if __name__ == '__main__':
+    if not os.path.exists(app.config['UPLOAD_FOLDER']):
+        os.makedirs(app.config['UPLOAD_FOLDER'])
     app.run(debug=True)
