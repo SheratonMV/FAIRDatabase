@@ -219,3 +219,52 @@ body {
 .custom-textarea {
   height: 1000px; 
 }
+
+/* Privacy metrics score indicator */
+.score-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+    
+}
+
+.score {
+   
+    width: 200px;
+    height: 120px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+
+}
+
+.score-bar {
+    position: absolute;
+    width: 100%;
+    height: 200%;
+    border-radius: 50%;
+    top: 0;
+}
+
+.score-bar .score-circle {
+    position: absolute;
+    top: 0;
+}
+
+.score-value {
+    margin-bottom: 5px;
+    text-align: center;
+    color: black;
+
+}
+
+.score-name {
+    color: black;
+}
+
+.score-number {
+    font-size: 25px;
+    font-weight: 600;
+}

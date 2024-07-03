@@ -268,3 +268,70 @@ function downloadAndCloseSearchForm() {
 // Enable tooltips
 const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
 const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+
+// Privacy metrics score indicator
+// Access svgScore from the data attribute
+const svgScore = document.getElementById('svgScoreValue').getAttribute('data-svgScore');
+const radius = 65;
+const dashArray = (Math.PI * radius * svgScore) / 100;
+
+// Update the dasharray attribute of the score-circle SVG
+document.addEventListener('DOMContentLoaded', function() {
+    const scoreCircle = document.querySelector('.score-circle svg circle');
+    scoreCircle.setAttribute('stroke-dasharray', `${dashArray} 10000`);
+
+    // Determine score range and display message
+    let message = '';
+    if (svgScore >= 0 && svgScore < 20) {
+        message = 'Your score is very low.';
+    } else if (svgScore >= 20 && svgScore < 40) {
+        message = 'Your score is low.';
+    } else if (svgScore >= 40 && svgScore < 60) {
+        message = 'Your score is moderate.';
+    } else if (svgScore >= 60 && svgScore < 80) {
+        message = 'Your score is good.';
+    } else if (svgScore >= 80 && svgScore <= 100) {
+        message = 'Your score is excellent!';
+    } else {
+        message = 'Invalid score range.';
+    }
+
+    // Display the message on the page
+    const scoreMessageDiv = document.getElementById('scoreMessage');
+    scoreMessageDiv.textContent = message;
+});
+
+// Counting checkboxes and giving messages to user
+ document.addEventListener('DOMContentLoaded', function () {
+       var checkboxes = document.querySelectorAll('input[type="checkbox"][name="columns_to_drop"]');
+       var countDisplay = document.getElementById('selected-count');
+       var messageDisplay = document.getElementById('selection-message');
+       
+   
+       function updateSelectedCount() {
+           var selectedCount = 0;
+           checkboxes.forEach(function (checkbox) {
+               if (checkbox.checked) {
+                   selectedCount++;
+               }
+           });
+           countDisplay.textContent = selectedCount + ' checkboxes selected';
+   
+   
+           // Conditional message based on selected count
+           if (selectedCount === 0) {
+                messageDisplay.textContent = 'Do you want to continue? You have no checkboxes selected.';
+            } else if (selectedCount === 1) {
+                messageDisplay.textContent = 'Do you want to remove ' + selectedCount + ' column? This action cannot be undone.';
+            } else {
+                messageDisplay.textContent = 'Do you want to remove ' + selectedCount + ' columns? This action cannot be undone.';
+            }
+       }
+   
+       checkboxes.forEach(function (checkbox) {
+           checkbox.addEventListener('change', updateSelectedCount);
+       });
+   
+       // Initial count display
+       updateSelectedCount();
+   });
