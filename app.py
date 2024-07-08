@@ -9,6 +9,8 @@ from flask import Flask, session, request, render_template, redirect, url_for, m
 from flask import jsonify
 import matplotlib.pyplot as plt
 
+import numpy as np
+from collections import defaultdict
 import plotly.graph_objs as go
 from supabase import create_client, Client
 from werkzeug.utils import secure_filename
@@ -675,7 +677,8 @@ def privacy_metrics():
                         all_steps_completed = session['all_steps_completed']
         
         
-        svgScore = random.randint(0,100)
+        svgScore = random.random()
+        print(svgScore)
         return render_template(
             'privacy_metrics.html',
             user_email=user_email,
@@ -748,23 +751,166 @@ def consolidated_return():
     return redirect('/privacy_metrics') 
 
 
-
-
-
 @app.route('/federated_learning')
 def federated_learning():
     if 'user' in session:
         user_email = session['email']
-        svgScore = random.randint(0,100)
         return render_template('federated_learning.html', user_email=user_email,current_path=request.path)
     else:
         return redirect('/')
+    
+df = pd.read_csv('df8.csv')
+    
+@app.route('/p29score', methods=['GET', 'POST'])
+def p29score():
+    if 'user' in session:
+        user_email = session['email']
+        
+        if request.method == 'POST':
+            quasi_identifiers = request.form.getlist('quasi_identifiers')
+            sensitive_attributes = request.form.getlist('sensitive_attributes')
+
+            if quasi_identifiers and sensitive_attributes:
+                result = calculate_p29_score(df, quasi_identifiers, sensitive_attributes)
+                
+                p29result = round(result['P_29 Score'], 3)
+                minlresult = round(result['Minimum normalized l-value'], 3)
+                maxtresult = float(round(result['Maximum t-value'], 3))
+                k_anonresult = result['Minimum k-anonymity']
+                reason_result = [reason for reason in result['Reasons']]    
+                problems_result = [problem for problem in result['Problematic info']]
+                
+                return render_template('p29score.html', user_email=user_email, current_path=request.path, result=result, 
+                                       columns=df.columns, p29result=p29result, minlresult=minlresult, maxtresult=maxtresult,
+                                       k_anonresult=k_anonresult, reason_result=reason_result, problems_result=problems_result)
+            else:
+                return render_template('p29score.html', user_email=user_email, current_path=request.path, columns=df.columns, error="Please select both quasi-identifiers and sensitive attributes.")
+        return render_template('p29score.html', user_email=user_email, current_path=request.path, columns=df.columns)
+    else:
+        return redirect('/')
+
+def calculate_p29_score(df, quasi_identifiers, sensitive_attributes):
+    def calculate_k_anonymity(group):
+        return len(group)
+
+    def calculate_normalized_entropy(series):
+        if series.empty:
+            return 0
+        value_counts = series.value_counts(normalize=True)
+        total_entropy = 0
+        for count in value_counts:
+            if count > 0:
+                total_entropy -= count * np.log2(count)
+        unique_values = series.nunique()
+        if unique_values == 1:
+            return 0
+        normalized_entropy = total_entropy / np.log2(unique_values)
+        return normalized_entropy
+
+    results = defaultdict(list)
+    grouped = df.groupby(quasi_identifiers)
+    for name, group in grouped:
+        k_anonymity = calculate_k_anonymity(group)
+        for attribute in sensitive_attributes:
+            normalized_entropy = calculate_normalized_entropy(group[attribute])
+            results[f'Normalized Entropy l-diversity_{attribute}'].append(normalized_entropy)
+        quasi_identifier_values = ', '.join(f"{qi}: {group[qi].iloc[0]}" for qi in quasi_identifiers)
+        results['Quasi-identifiers'].append(quasi_identifier_values)
+        results['k-anonymity'].append(k_anonymity)
+
+    results_df = pd.DataFrame(results)
+
+    def calculate_t_closeness(df, quasi_identifiers, sensitive_attributes):
+        results = []
+        grouped = df.groupby(quasi_identifiers)
+        global_distributions = {}
+        for attribute in sensitive_attributes:
+            global_distributions[attribute] = calculate_global_distribution(df[attribute])
+        for group_name, group_df in grouped:
+            t_closeness_values = {}
+            for attribute in sensitive_attributes:
+                series = group_df[attribute]
+                t_closeness = compute_t_closeness(series, global_distributions[attribute])
+                t_closeness_values[f't-closeness_{attribute}'] = t_closeness
+            group_result = {
+                'Quasi-identifiers': ', '.join(f"{qi}: {value}" for qi, value in zip(quasi_identifiers, group_name)),
+                **t_closeness_values
+            }
+            results.append(group_result)
+        results_df = pd.DataFrame(results)
+        return results_df
+
+    def calculate_global_distribution(series):
+        class_distribution = series.value_counts(normalize=True)
+        global_distribution = class_distribution.to_dict()
+        return global_distribution
+
+    def compute_t_closeness(series, global_distribution):
+        class_distribution = series.value_counts(normalize=True)
+        combined_index = list(global_distribution.keys())
+        class_distribution = class_distribution.reindex(combined_index, fill_value=0)
+        p_values = class_distribution.values
+        q_values = np.array([global_distribution.get(k, 0) for k in combined_index])
+        t_closeness = 0.5 * np.sum(np.abs(p_values - q_values))
+        return t_closeness
+
+    t_value = calculate_t_closeness(df, quasi_identifiers, sensitive_attributes)
+    k_value = results_df[['Quasi-identifiers', 'k-anonymity']].copy()
+    l_value_columns = ['Quasi-identifiers'] + [col for col in results_df.columns if col.startswith('Normalized Entropy l-diversity')]
+    l_value = results_df[l_value_columns].copy()
+    l_value.min()
+
+    def calculate_P_29_score(k_value, l_value, t_value, w_k=0.5, w_l=0.25, w_t=0.25):
+        reasons = []
+        problematic_info = []
+        k_min = k_value['k-anonymity'].min()
+        if k_min == 1:
+            reasons.append("k-anonymity is 1")
+            problematic_rows = k_value[k_value['k-anonymity'] == 1]['Quasi-identifiers'].tolist()
+            problematic_info.extend([(row, "k-anonymity is 1") for row in problematic_rows])
+        if l_value.iloc[:, 1:].eq(0).any().any():
+            reasons.append("normalized entropy l-value is 0 for some attribute")
+            for col in l_value.columns[1:]:
+                problematic_rows = l_value[l_value[col] == 0]['Quasi-identifiers'].tolist()
+                problematic_info.extend([(row, f"normalized entropy l-value is 0 for {col}") for row in problematic_rows])
+        if (t_value.iloc[:, 1:].astype(float) > 0.5).any().any():
+            reasons.append("t-value exceeds 0.5 for some attribute")
+            for col in t_value.columns[1:]:
+                if t_value[col].dtype != 'object':
+                    problematic_rows = t_value[t_value[col].astype(float) > 0.5]['Quasi-identifiers'].tolist()
+                    problematic_info.extend([(row, f"t-value exceeds 0.5 for {col}") for row in problematic_rows])
+        if k_min == 1 or l_value.iloc[:, 1:].eq(0).any().any() or (t_value.iloc[:, 1:].astype(float) > 0.5).any().any():
+            return 0.0, problematic_info, reasons, k_min, l_value.iloc[:, 1:].min().min(), t_value.iloc[:, 1:].max().max()
+        column_means = l_value.iloc[:, 1:].mean()
+        normalized_l_value = column_means.mean()
+        t_value_normalized = t_value.copy()
+        for column in t_value.columns[1:]:
+            min_val = t_value[column].min()
+            max_val = t_value[column].max()
+            t_value_normalized[column] = (t_value[column] - min_val) / (max_val - min_val)
+        normalized_t_value = t_value_normalized.iloc[:, 1:].mean().mean()
+        P_29_score = w_k * (1 - (1 / k_min)) + w_l * normalized_l_value + w_t * (1 - normalized_t_value)
+        return P_29_score, problematic_info, reasons, k_min, l_value.iloc[:, 1:].min().min(), t_value.iloc[:, 1:].max().max()
+
+    P_29_score, problematic_info, reasons, k_min, min_l_value, max_t_value = calculate_P_29_score(k_value, l_value, t_value)
+    result = {
+        "P_29 Score": P_29_score,
+        "Problematic info": problematic_info,
+        "Reasons": reasons,
+        "Minimum k-anonymity": k_min,
+        "Minimum normalized l-value": min_l_value,
+        "Maximum t-value": max_t_value
+    }
+
+    return result
+
+
+
 
 @app.route('/documentation')
 def documentation():
     if 'user' in session:
         user_email = session['email']
-
         return render_template('documentation.html', user_email=user_email,current_path=request.path)
     else:
         return redirect('/')

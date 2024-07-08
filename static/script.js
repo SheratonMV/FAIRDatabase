@@ -262,44 +262,129 @@ function downloadAndCloseSearchForm() {
   }, 200); 
 }
 
-// Set focus search bar shortcut
-
-
 // Enable tooltips
 const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
 const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
 
-// Privacy metrics score indicator
-// Access svgScore from the data attribute
-const svgScore = document.getElementById('svgScoreValue').getAttribute('data-svgScore');
-const radius = 65;
-const dashArray = (Math.PI * radius * svgScore) / 100;
-
-// Update the dasharray attribute of the score-circle SVG
+// P29 score indicator
 document.addEventListener('DOMContentLoaded', function() {
-    const scoreCircle = document.querySelector('.score-circle svg circle');
-    scoreCircle.setAttribute('stroke-dasharray', `${dashArray} 10000`);
+  const p29score = parseFloat(document.getElementById('p29result').getAttribute('data-p29result'));
+  const radiusp29 = 65;
+  const dashArrayp29 = Math.PI * radiusp29 * p29score;
 
-    // Determine score range and display message
-    let message = '';
-    if (svgScore >= 0 && svgScore < 20) {
-        message = 'Your score is very low.';
-    } else if (svgScore >= 20 && svgScore < 40) {
-        message = 'Your score is low.';
-    } else if (svgScore >= 40 && svgScore < 60) {
-        message = 'Your score is moderate.';
-    } else if (svgScore >= 60 && svgScore < 80) {
-        message = 'Your score is good.';
-    } else if (svgScore >= 80 && svgScore <= 100) {
-        message = 'Your score is excellent!';
-    } else {
-        message = 'Invalid score range.';
-    }
+  // Update the dasharray attribute of the score-circle SVG
+  const scoreCirclep29 = document.querySelector('.score-circle-p29 svg circle');
+  scoreCirclep29.setAttribute('stroke-dasharray', `${dashArrayp29} 10000`);
 
-    // Display the message on the page
-    const scoreMessageDiv = document.getElementById('scoreMessage');
-    scoreMessageDiv.textContent = message;
+  // Determine score range and display message
+  let message = '';
+  if (p29score >= 0 && p29score < 0.2) {
+      message = 'Your score is very low.';
+  } else if (p29score >= 0.2 && p29score < 0.4) {
+      message = 'Your score is low.';
+  } else if (p29score >= 0.4 && p29score < 0.6) {
+      message = 'Your score is moderate.';
+  } else if (p29score >= 0.6 && p29score < 0.8) {
+      message = 'Your score is good.';
+  } else if (p29score >= 0.8 && p29score <= 1.0) {
+      message = 'Your score is excellent!';
+  } else {
+      message = 'Invalid score range.';
+  }
+
+  // Display the message on the page
+  const scoreMessageDivp29 = document.getElementById('scoreMessage-p29');
+  scoreMessageDivp29.textContent = message;
 });
+
+
+
+
+// Min L score indicator
+document.addEventListener('DOMContentLoaded', function() {
+  const minLScore = parseFloat(document.getElementById('minlresult').getAttribute('data-minl-result'));
+  const radiusminl = 65;
+  const dashArrayminl = Math.PI * radiusminl * minLScore;
+
+  // Update the dasharray attribute of the score-circle SVG
+  const scoreCircleminl = document.querySelector('.score-circle-minl svg circle');
+  scoreCircleminl.setAttribute('stroke-dasharray', `${dashArrayminl} 10000`);
+
+  // Determine score range and display message
+  let message = '';
+  if (minLScore >= 0 && minLScore < 0.2) {
+      message = 'Your score is very low.';
+  } else if (minLScore >= 0.2 && minLScore < 0.4) {
+      message = 'Your score is low.';
+  } else if (minLScore >= 0.4 && minLScore < 0.6) {
+      message = 'Your score is moderate.';
+  } else if (minLScore >= 0.6 && minLScore < 0.8) {
+      message = 'Your score is good.';
+  } else if (minLScore >= 0.8 && minLScore <= 1.0) {
+      message = 'Your score is excellent!';
+  } else {
+      message = 'Invalid score range.';
+  }
+
+  // Display the message on the page
+  const scoreMessageDivminl = document.getElementById('scoreMessage-minl');
+  scoreMessageDivminl.textContent = message;
+});
+
+// Max T score indicator
+document.addEventListener('DOMContentLoaded', function() {
+  const maxtscoreString = document.getElementById('maxtresult').getAttribute('data-maxt-result');
+  const maxtscore = parseFloat(maxtscoreString);
+  const radiusmaxt = 65;
+  const dashArraymaxt = Math.PI * radiusmaxt * maxtscore;
+
+  // Update the dasharray attribute of the score-circle SVG
+  const scoreCirclemaxt = document.querySelector('.score-circle-maxt svg circle');
+  scoreCirclemaxt.setAttribute('stroke-dasharray', `${dashArraymaxt} 10000`);
+
+  // Determine score range and display message
+  let message = '';
+  if (maxtscore >= 0 && maxtscore < 0.2) {
+      message = 'Your score is very low.';
+  } else if (maxtscore >= 0.2 && maxtscore < 0.4) {
+      message = 'Your score is low.';
+  } else if (maxtscore >= 0.4 && maxtscore < 0.6) {
+      message = 'Your score is moderate.';
+  } else if (maxtscore >= 0.6 && maxtscore < 0.8) {
+      message = 'Your score is good.';
+  } else if (maxtscore >= 0.8 && maxtscore <= 1.0) {
+      message = 'Your score is excellent!';
+  } else {
+      message = 'Invalid score range.';
+  }
+
+  // Display the message on the page
+  const scoreMessageDivmaxt = document.getElementById('scoreMessage-maxt');
+  scoreMessageDivmaxt.textContent = message;
+});
+
+// k-anonymity message
+document.addEventListener('DOMContentLoaded', function() {
+  const k_anonResult = document.getElementById('k_anonresult').getAttribute('data-k-anon-result');
+  // Determine score range and display message
+  let message = '';
+  if (k_anonResult == 0) {
+      message = '<placeholder for 0>';
+  } else if (k_anonResult >0&& k_anonResult < 50) {
+      message = '<placeholder for 1-50>';
+  } else if (k_anonResult >= 50 && k_anonResult < 100) {
+      message = '<placeholder 50-100>';
+  } else if (k_anonResult > 100) {
+      message = '<placeholder > 100>';
+  } else {
+      message = 'Invalid score range.';
+  }
+
+  // Display the message on the page
+  const scoreMessageDivkanon = document.getElementById('scoreMessage-kanon');
+  scoreMessageDivkanon.textContent = message;
+});
+
 
 // Counting checkboxes and giving messages to user
  document.addEventListener('DOMContentLoaded', function () {

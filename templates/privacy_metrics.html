@@ -26,7 +26,6 @@
    <h3>Select direct identifiers to drop:</h3>
    <p>Direct identifiers are the attributes that can directly identify an individual without the need for additional information, such as names or adresses. </p>
    <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
-
    <form method="post">
       {% for col in column_names %}
       <div class="form-check">
@@ -45,7 +44,6 @@
                </div>
                <div class="modal-body">
                   <p id="selection-message"></p>
-                  
                </div>
                <div class="modal-footer">
                   <button type="button" class="btn btn-cancel-custom" data-bs-dismiss="modal">Close</button>
@@ -67,7 +65,6 @@
       Please select the columns with missing values to drop:
    </p>
    <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
-
    <form method="post">
       {% for col, percentage in missing_percentages.items() %}
       <div class="form-check">
@@ -159,50 +156,50 @@
    </form>
    {% endif %}
    <!-- {% if updated_percentages %}
-   <h2>Updated Percentages After Mapping</h2>
-   <table>
-      <thead>
-         <tr>
-            <th>Value</th>
-            <th>Percentage</th>
-         </tr>
-      </thead>
-      <tbody>
-         {% for quasi_identifier, values in updated_percentages.items() %}
-         {% for value, percentage in values.items() %}
-         <tr>
-            <td>{{ value }}</td>
-            <td>{{ percentage }}%</td>
-         </tr>
-         {% endfor %}
-         {% endfor %}
-      </tbody>
-   </table>
-   {% endif %} -->
+      <h2>Updated Percentages After Mapping</h2>
+      <table>
+         <thead>
+            <tr>
+               <th>Value</th>
+               <th>Percentage</th>
+            </tr>
+         </thead>
+         <tbody>
+            {% for quasi_identifier, values in updated_percentages.items() %}
+            {% for value, percentage in values.items() %}
+            <tr>
+               <td>{{ value }}</td>
+               <td>{{ percentage }}%</td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+         </tbody>
+      </table>
+      {% endif %} -->
    {% if all_steps_completed %}
    <div class="row">
       <div class="col-8">
          <h3>Privacy metric score</h3>
          <p>Now the dataset has been generalised, a preliminary privacy metric score can be given. </p>
          <b>What does this score mean?</b>
-<p>
-<ul>
-   <li>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</li>
-   <li>Integer venenatis nulla quis ex condimentum scelerisque.</li>
-   <li>Mauris vel nulla sed neque dapibus tempor.</li>
-   <li>Maecenas vitae urna ac quam lobortis gravida.</li>
-   <li>Sed a ante quis purus dapibus vehicula.</li>
-   <li>Morbi in sapien vitae felis placerat facilisis.</li>
-   <li>Vivamus vulputate ante nec aliquam tincidunt.</li>
-   <li>Vestibulum id ex cursus, hendrerit ligula et, congue ante.</li>
-   <li>Duis pretium leo sollicitudin urna viverra, vulputate tempor augue dictum.</li>
-   <li>Praesent bibendum dui et massa condimentum, sit amet suscipit felis auctor.</li>
-   <li>Aliquam ac erat nec ex aliquam lobortis vel nec diam.</li>
-   <li>Quisque non ex sit amet lorem porta sagittis at vel justo.</li>
-   <li>Sed ut massa vitae tortor viverra ultrices eget vitae neque.</li>
-   <li>Suspendisse eleifend dolor eu diam pulvinar gravida.</li>
-</ul>
-</p>
+         <p>
+         <ul>
+            <li>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</li>
+            <li>Integer venenatis nulla quis ex condimentum scelerisque.</li>
+            <li>Mauris vel nulla sed neque dapibus tempor.</li>
+            <li>Maecenas vitae urna ac quam lobortis gravida.</li>
+            <li>Sed a ante quis purus dapibus vehicula.</li>
+            <li>Morbi in sapien vitae felis placerat facilisis.</li>
+            <li>Vivamus vulputate ante nec aliquam tincidunt.</li>
+            <li>Vestibulum id ex cursus, hendrerit ligula et, congue ante.</li>
+            <li>Duis pretium leo sollicitudin urna viverra, vulputate tempor augue dictum.</li>
+            <li>Praesent bibendum dui et massa condimentum, sit amet suscipit felis auctor.</li>
+            <li>Aliquam ac erat nec ex aliquam lobortis vel nec diam.</li>
+            <li>Quisque non ex sit amet lorem porta sagittis at vel justo.</li>
+            <li>Sed ut massa vitae tortor viverra ultrices eget vitae neque.</li>
+            <li>Suspendisse eleifend dolor eu diam pulvinar gravida.</li>
+         </ul>
+         </p>
       </div>
       <div class="col col-lg-4">
          <div class="card" style="background-color: #F2EDE2;">

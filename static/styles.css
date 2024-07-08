@@ -248,9 +248,19 @@ body {
     top: 0;
 }
 
-.score-bar .score-circle {
+.score-bar .score-circle-p29 {
     position: absolute;
     top: 0;
+}
+
+.score-bar .score-circle-minl {
+  position: absolute;
+  top: 0;
+}
+
+.score-bar .score-circle-maxt {
+  position: absolute;
+  top: 0;
 }
 
 .score-value {

@@ -53,6 +53,12 @@
                </a>
             </li>
             <li class="nav-item">
+               <a class="nav-link" {% if current_path == '/p29score' %} style="background-color: #102F31;" {% endif %} href="/p29score">
+                  <i class="fa-solid fa-shield-halved"></i>
+               <span class="sidebar-text">Privacy Score</span>
+               </a>
+            </li>
+            <li class="nav-item">
                <a class="nav-link" {% if current_path == '/federated_learning' %} style="background-color: #102F31;" {% endif %} href="/federated_learning">
                <i class="fa-solid fa-arrows-split-up-and-left"></i>
                <span class="sidebar-text">Federated learning</span>

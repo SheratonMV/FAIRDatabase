@@ -1,0 +1,270 @@
+{% extends "layout.html" %}
+{% block title %}FAIRMicrobiome | P29 Score{% endblock %}
+{% block content %}
+{% if error %}
+<div class="alert alert-danger" role="alert">
+   {{  error  }}
+</div>
+{% endif %}
+{% if not result %}
+<div class="card text-center" style="background-color: white;">
+    <div class="card-body">
+       <h1 class="display-3">P29 Score</h1>
+       <p>[[explanation placeholder]]</p>
+    </div>
+ </div>
+ <br>
+<form method="POST" action="{{ url_for('p29score') }}">
+   <div class="row">
+      <div class="col-md-6">
+         <h3>Select quasi-identifiers:</h3>
+         {% for column in columns %}
+         <label>
+         <input type="checkbox" name="quasi_identifiers" value="{{ column }}">
+         {{ column }}
+         </label><br>
+         {% endfor %}
+      </div>
+      <div class="col-md-6">
+         <h3>Select sensitive attributes:</h3>
+         {% for column in columns %}
+         <label>
+         <input type="checkbox" name="sensitive_attributes" value="{{ column }}">
+         {{ column }}
+         </label><br>
+         {% endfor %}
+      </div>
+   </div>
+   <br>
+   <input type="submit" class="btn btn-primary-custom"   value="Calculate Score">
+</form>
+<br>
+{% else %}
+<h1>P29 Score result</h1>
+<div id="p29result" data-p29result="{{ p29result }}"></div>
+<div id="minlresult" data-minl-result="{{ minlresult }}"></div>
+<div id="maxtresult" data-maxt-result="{{ maxtresult }}"></div>
+<div id="k_anonresult" data-k-anon-result="{{ k_anonresult }}"></div>
+
+<div class="alert alert-success" role="alert">
+   P29 score calculation successful, please see the results below. 
+</div>
+<div class="row mt-3">
+    <div class="col-md-4 mb-3">
+       <div class="card" style="background-color: #F2EDE2;">
+          <h5 class="card-header">P29 Score
+            <a  data-bs-toggle="tooltip" data-bs-placement="bottom" href="/documentation" data-bs-title="<placeholder>. Click for more info">
+                <i class="fa fa-info-circle info-icon" aria-hidden="true" style="color: #1E5B5E;"></i>
+             </a>
+
+          </h5>
+          <div class="card-body">
+             <div class="score-wrap">
+                <div class="score">
+                   <div class="score-bar">
+                      <div class="placeholder"style="background-color: #F2EDE2;">
+                         <svg width="200" height="120">
+                            <circle cx="100" cy="100" r="65" fill="none" stroke-width="25" stroke-linecap="round" stroke-dashoffset="-205.35" stroke-dasharray="408.69 10000" stroke="#FFFFFF"></circle>
+                         </svg>
+                      </div>
+                      <div class="score-circle-p29">
+                         <svg width="200" height="120">
+                            <circle cx="100" cy="100" r="65" fill="none" stroke-width="25" stroke-linecap="round" stroke-dashoffset="-205.35" stroke-dasharray="{{ dashArrayp29 }} 10000" stroke="url(#score-gradient-p29)"></circle>
+                            <defs>
+                               <linearGradient id="score-gradient-p29">
+                                  <stop offset="0%" stop-color="#FF6363"></stop>
+                                  <stop offset="25%" stop-color="#FEBE8C"></stop>
+                                  <stop offset="100%" stop-color="#B6E2A1"></stop>
+                               </linearGradient>
+                            </defs>
+                         </svg>
+                      </div>
+                   </div>
+                   <div class="score-value">
+                      <div class="score-name" >Score</div>
+                      <div class="score-number">{{ p29result }}</div>
+                   </div>
+                </div>
+             </div>
+          </div>
+          <div class="card-footer">
+             <div id="scoreMessage-p29"></div>
+          </div>
+       </div>
+    </div>
+    <div class="col-md-4 mb-3">
+       <div class="card" style="background-color: #F2EDE2;">
+          <h5 class="card-header">Minimum normalized l-value
+            <a  data-bs-toggle="tooltip" data-bs-placement="bottom" href="/documentation" data-bs-title="<placeholder>. Click for more info">
+                <i class="fa fa-info-circle info-icon" aria-hidden="true" style="color: #1E5B5E;"></i>
+             </a>
+          </h5>
+          <div class="card-body">
+             <div class="score-wrap">
+                <div class="score">
+                   <div class="score-bar">
+                      <div class="placeholder"style="background-color: #F2EDE2;">
+                         <svg width="200" height="120">
+                            <circle cx="100" cy="100" r="65" fill="none" stroke-width="25" stroke-linecap="round" stroke-dashoffset="-205.35" stroke-dasharray="408.69 10000" stroke="#FFFFFF"></circle>
+                         </svg>
+                      </div>
+                      <div class="score-circle-minl">
+                         <svg width="200" height="120">
+                            <circle cx="100" cy="100" r="65" fill="none" stroke-width="25" stroke-linecap="round" stroke-dashoffset="-205.35" stroke-dasharray="{{ dashArrayminl }} 10000" stroke="url(#score-gradient-minl)"></circle>
+                            <defs>
+                               <linearGradient id="score-gradient-minl">
+                                  <stop offset="0%" stop-color="#FF6363"></stop>
+                                  <stop offset="25%" stop-color="#FEBE8C"></stop>
+                                  <stop offset="100%" stop-color="#B6E2A1"></stop>
+                               </linearGradient>
+                            </defs>
+                         </svg>
+                      </div>
+                   </div>
+                   <div class="score-value">
+                      <div class="score-name" >Score</div>
+                      <div class="score-number">{{ minlresult }}</div>
+                   </div>
+                </div>
+             </div>
+          </div>
+          <div class="card-footer">
+             <div id="scoreMessage-minl"></div>
+          </div>
+       </div>
+    </div>
+    <div class="col-md-4 mb-3">
+       <div class="card" style="background-color: #F2EDE2;">
+          <h5 class="card-header">Maximum t-value
+            <a  data-bs-toggle="tooltip" data-bs-placement="bottom" href="/documentation" data-bs-title="<placeholder>. Click for more info">
+                <i class="fa fa-info-circle info-icon" aria-hidden="true" style="color: #1E5B5E;"></i>
+             </a>
+          </h5>
+          <div class="card-body">
+             <div class="score-wrap">
+                <div class="score">
+                   <div class="score-bar">
+                      <div class="placeholder"style="background-color: #F2EDE2;">
+                         <svg width="200" height="120">
+                            <circle cx="100" cy="100" r="65" fill="none" stroke-width="25" stroke-linecap="round" stroke-dashoffset="-205.35" stroke-dasharray="408.69 10000" stroke="#FFFFFF"></circle>
+                         </svg>
+                      </div>
+                      <div class="score-circle-maxt">
+                         <svg width="200" height="120">
+                            <circle cx="100" cy="100" r="65" fill="none" stroke-width="25" stroke-linecap="round" stroke-dashoffset="-205.35" stroke-dasharray="{{ dashArraymaxt }} 10000" stroke="url(#score-gradient-maxt)"></circle>
+                            <defs>
+                               <linearGradient id="score-gradient-maxt">
+                                  <stop offset="0%" stop-color="#FF6363"></stop>
+                                  <stop offset="25%" stop-color="#FEBE8C"></stop>
+                                  <stop offset="100%" stop-color="#B6E2A1"></stop>
+                               </linearGradient>
+                            </defs>
+                         </svg>
+                      </div>
+                   </div>
+                   <div class="score-value">
+                      <div class="score-name" >Score</div>
+                      <div class="score-number">{{ maxtresult }}</div>
+                   </div>
+                </div>
+             </div>
+          </div>
+          <div class="card-footer">
+             <div id="scoreMessage-maxt"></div>
+          </div>
+       </div>
+    </div>
+ </div>
+ 
+
+ <div class="row mt-3">
+    <div class="col-md-4 mb-3">
+       <div class="card" style="background-color: #F2EDE2;">
+          <h5 class="card-header">Minimum k-anonymity:
+            <a  data-bs-toggle="tooltip" data-bs-placement="bottom" href="/documentation" data-bs-title="<placeholder>. Click for more info">
+                <i class="fa fa-info-circle info-icon" aria-hidden="true" style="color: #1E5B5E;"></i>
+             </a>
+          </h5>
+          <div class="card-body" style="text-align: center;">
+            <h1 class="display-3" style="color: #797771;">
+                {{ result['Minimum k-anonymity'] }}
+            </h1>
+        </div>
+          <div class="card-footer">
+            <div id="scoreMessage-kanon"></div>
+
+          </div>
+       </div>
+    </div>
+    <div class="col-md-4 mb-3">
+       <div class="card" style="background-color: #F2EDE2;">
+          <h5 class="card-header">Reasons
+            <a  data-bs-toggle="tooltip" data-bs-placement="bottom" href="/documentation" data-bs-title="<placeholder>. Click for more info">
+                <i class="fa fa-info-circle info-icon" aria-hidden="true" style="color: #1E5B5E;"></i>
+             </a>
+          </h5>
+          <div class="card-body">
+            {% if reason_result %}
+                {% for reason in reason_result %}
+                <p>{{ reason }}</p>
+                {% endfor %}
+            {% else %}
+                <p>No reason information available.</p>
+            {% endif %}
+        </div>
+          <div class="card-footer">
+          </div>
+       </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        
+     </div>
+     
+ </div>
+ <div class="row mt-3">
+    <div class="card" style="background-color: #F2EDE2;">
+        <h5 class="card-header">Problematic info
+          <a  data-bs-toggle="tooltip" data-bs-placement="bottom" href="/documentation" data-bs-title="<placeholder>. Click for more info">
+              <i class="fa fa-info-circle info-icon" aria-hidden="true" style="color: #1E5B5E;"></i>
+           </a>
+        </h5>
+        <div class="card-body">
+            {% if problems_result %}
+                {% for problem in problems_result %}
+                <p>{{ problem }}</p>
+                {% endfor %}
+            {% else %}
+                <p>No problematic information available.</p>
+            {% endif %}
+        </div>
+        <div class="card-footer">
+        </div>
+     </div>
+    <div class="col-md-4 mb-3">
+        <br>
+     <a type="button" class="btn btn-primary-custom" href="\p29score">Back to selection</a>
+
+    </div>
+
+ </div>
+
+
+    
+
+
+
+
+
+
+
+<!-- <p><strong>P_29 Score:</strong> {{ result['P_29 Score'] }}</p> -->
+<!-- <p><strong>Reasons:</strong> {{ result['Reasons'] }}</p> -->
+<!-- <p><strong>Minimum k-anonymity:</strong> {{ result['Minimum k-anonymity'] }}</p> -->
+<!-- <p><strong>Minimum normalized l-value:</strong> {{ result['Minimum normalized l-value'] }}</p> -->
+<!-- <p><strong>Maximum t-value:</strong> {{ result['Maximum t-value'] }}</p> -->
+<!-- <p><strong>Problematic info:</strong> {{ probems_result }}</p> -->
+
+
+
+{% endif %}
+{% endblock %}
