@@ -757,6 +757,11 @@ def p29score():
             session['quasi_identifiers'] = request.form.getlist('quasi_identifiers')
             session['sensitive_attributes'] = request.form.getlist('sensitive_attributes')
 
+            # Ensure no column is in both quasi_identifiers and sensitive_attributes
+            if set(session['quasi_identifiers']) & set(session['sensitive_attributes']):
+                error_message = "A column cannot be both a quasi-identifier and a sensitive attribute."
+                return render_template('p29score.html', user_email=user_email, current_path=request.path, columns=df.columns, error=error_message)
+                
             if session['quasi_identifiers'] and session['sensitive_attributes']:
                 result = calculate_p29_score(df, session['quasi_identifiers'], session['sensitive_attributes'])
                 
@@ -785,11 +790,10 @@ def privacy_processing():
         if not filepath:
             return jsonify({'error': 'No file uploaded or session expired.'}), 400
         df = pd.read_csv(filepath)
-        print("DEBUG processing: ", df)
         
         quasi_identifiers = session.get('quasi_identifiers', 'Not set')
         sensitive_attributes = session.get('sensitive_attributes', 'Not set')
-        
+                
         t_threshold = df.get('t_threshold', 0.5)
         k_threshold = df.get('k_threshold', 1)
         l_threshold = df.get('l_threshold', 0)
@@ -797,9 +801,7 @@ def privacy_processing():
         filtered_df = ensure_privacy(df, quasi_identifiers, sensitive_attributes, t_threshold, k_threshold, l_threshold)
         filtered_df.to_csv(filepath, index=False)
         
-        
-        
-        return render_template('privacy_processing', user_email=user_email,current_path=request.path)
+        return render_template('privacy_processing.html', user_email=user_email,current_path=request.path)
     else:
         return redirect('/')
     
@@ -937,8 +939,6 @@ def compute_t_closeness(series, global_distribution):
     return t_closeness
 
 def calculate_t_closeness(df, quasi_identifiers, sensitive_attributes):
-    print("DEBUG T:")
-    print(df, quasi_identifiers, sensitive_attributes)
     results = []
 
     grouped = df.groupby(quasi_identifiers)
@@ -982,8 +982,6 @@ def calculate_normalized_entropy(series):
     return normalized_entropy
 
 def calculate_k_l_values(df, quasi_identifiers, sensitive_attributes):
-    print("DEBUG K L:")
-    print(df, quasi_identifiers, sensitive_attributes)
     results = defaultdict(list)
     grouped = df.groupby(quasi_identifiers)
 
@@ -1029,8 +1027,6 @@ def ensure_privacy(df, quasi_identifiers, sensitive_attributes, t_threshold=0.5,
 
     
     
-    
-
 
 @app.route('/differential_privacy')
 def differential_privacy():

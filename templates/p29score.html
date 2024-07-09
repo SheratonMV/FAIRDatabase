@@ -1,11 +1,7 @@
 {% extends "layout.html" %}
 {% block title %}FAIRMicrobiome | P29 Score{% endblock %}
 {% block content %}
-{% if error %}
-<div class="alert alert-danger" role="alert">
-   {{  error  }}
-</div>
-{% endif %}
+
 {% if not result %}
 <div class="card text-center" style="background-color: white;">
    <div class="card-body">
@@ -14,6 +10,11 @@
    </div>
 </div>
 <br>
+{% if error %}
+<div class="alert alert-danger" role="alert">
+   {{  error  }}
+</div>
+{% endif %}
 <form method="POST" action="{{ url_for('p29score') }}">
    <div class="row">
       <div class="col-md-6">
