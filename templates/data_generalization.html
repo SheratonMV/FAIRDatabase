@@ -13,7 +13,8 @@
          <h1 class="display-3">Data generalization module</h1>
          <p>Welcome to the data generalization module. In this module, you can upload omics and healthcare datasets to generalize them. <br>
             Personal identification information (PII) must be removed or generalized to ensure compliance with the General Data Protection Regulation (GDPR).<br>
-            Start by importing a .csv file.</p>
+            Start by importing a .csv file.
+         </p>
          <form method="post" enctype="multipart/form-data">
             <div class="form-group">
                <label for="file">Upload a .csv file:</label>
@@ -28,7 +29,6 @@
    <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
    <h3>Select direct identifiers to drop:</h3>
    <p>Direct identifiers are attributes that can directly identify an individual without the need for additional information, such as name and passport number.</p>
-   
    <form method="post">
       {% for col in column_names %}
       <div class="form-check">
@@ -64,7 +64,6 @@
    {% endif %}
    {% if columns_dropped and not missing_values_reviewed %}
    <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
-
    <h3>Select missing value columns:</h3>
    <p>Here, the percentage of missing values per column is shown sorting from highest to lowest. Columns with a high percentage of missing values or that are not informative for subsequent analysis are recommended to be dropped.<br>
       Please identify and select the columns with missing values to be excluded.
@@ -162,11 +161,9 @@
    {% endif %}
    {% if all_steps_completed %}
    <div class="row">
-      
       <div class="col-8">
          <h3>Privacy metric score</h3>
          <p>Now the dataset has been generalised, a preliminary privacy metric score can be given. </p>
-
       </div>
       <div class="col col-lg-4">
       </div>
@@ -176,15 +173,12 @@
          <!-- <form action="/consolidated_return" method="post">
             <input type="text" name="state" value="1" style="display: none;">
             <button type="submit" class="btn btn-primary-custom">Return to upload</button>
-         </form> -->
+            </form> -->
          <a type="button" class="btn btn-primary-custom" href="\p29score">Calculate p29 score</a>
-
       </div>
-      
    </div>
 </div>
 </div>
-
 {% endif %}
 </div>
 <script>

@@ -1,34 +1,22 @@
-### TO DO ###
-# query metadata
-
-# levels of access
-# layout
-# Open AI
-
-from flask import Flask, session, request, render_template, redirect, url_for, make_response, send_file, Response
-import tempfile
-from flask import jsonify
-import matplotlib.pyplot as plt
-
-import numpy as np
-from collections import defaultdict
-import plotly.graph_objs as go
-from supabase import create_client, Client
-from werkzeug.utils import secure_filename
-from zipfile import ZipFile
-from hashlib import sha256
-from io import StringIO, BytesIO
-import pandas as pd
-import psycopg2
-import zipfile
+# Standard library imports
 import math
-import time
 import os
 import re
-import io
-import json
-import random
+import time
+from hashlib import sha256
+from io import StringIO, BytesIO
+import zipfile
 
+# Third-party imports
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import psycopg2
+import plotly.graph_objs as go
+from flask import Flask, session, request, render_template, redirect, url_for, make_response, jsonify
+from supabase import create_client, Client
+from werkzeug.utils import secure_filename
+from collections import defaultdict
 
 app = Flask(__name__)
 app.secret_key = os.urandom(1)
@@ -44,7 +32,6 @@ app.config['ALLOWED_EXTENSIONS'] = {'csv'}
 def filter_characters(string):
     filtered_string = re.sub(r'[^a-zA-Z0-9_]', '_', string)
     return filtered_string
-
 
 @app.route('/')
 def home():
@@ -102,7 +89,6 @@ def register():
 def dashboard():
     if 'user' in session:
         user_email = session['email']
-
         return render_template('dashboard.html', user_email=user_email,current_path=request.path)
     else:
         return redirect('/')
@@ -487,6 +473,7 @@ def table_preview():
 @app.route('/logout')
 def logout():
     session.pop('user', None)
+    session.pop('uploaded_filepath', None)
     uploaded = False
     columns_dropped = False
     missing_values_reviewed = False
@@ -696,7 +683,7 @@ def data_generalization():
             updated_percentages=dict(sorted(updated_percentages.items(), key=lambda x:x[1], reverse=True))
         )
     else:
-        return redirect(url_for('login'))
+        return redirect('/') 
 
 @app.route('/consolidated_return', methods=['GET', 'POST'])
 def consolidated_return():
@@ -820,20 +807,13 @@ def return_to_dashboard():
     if 'user' in session:
         user_email = session['email']
         session.pop('uploaded_filepath', None)
-        uploaded = False
-        columns_dropped = False
-        missing_values_reviewed = False
-        quasi_identifiers_selected = False
-        current_quasi_identifier = False
-        all_steps_completed = False
-        session['uploaded'] = uploaded
-        session['columns_dropped'] = columns_dropped
-        session['missing_values_reviewed'] = missing_values_reviewed
-        session['quasi_identifiers_selected'] = quasi_identifiers_selected
-        session['current_quasi_identifier'] = current_quasi_identifier
-        session['all_steps_completed'] = all_steps_completed
-    
-    return render_template('dashboard.html', user_email=user_email, current_path=request.path)
+        flags = ['uploaded', 'columns_dropped', 'missing_values_reviewed', 'quasi_identifiers_selected', 
+                 'current_quasi_identifier', 'all_steps_completed']
+        for flag in flags:
+            session[flag] = False
+        return render_template('dashboard.html', user_email=user_email, current_path=request.path)
+    else:
+        return redirect('/')
     
 
 
@@ -1054,10 +1034,6 @@ def ensure_privacy(df, quasi_identifiers, sensitive_attributes, t_threshold=0.5,
         df = df[~df.apply(lambda row: ', '.join(f"{qi}: {row[qi]}" for qi in quasi_identifiers) in groups_to_delete, axis=1)]
     
     return df
-
-
-    
-    
 
 @app.route('/differential_privacy')
 def differential_privacy():
