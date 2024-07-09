@@ -777,6 +777,33 @@ def p29score():
     else:
         return redirect('/')
 
+@app.route('/privacy_processing')
+def privacy_processing():
+    if 'user' in session:
+        user_email = session['email']
+        filepath = session.get('uploaded_filepath')
+        if not filepath:
+            return jsonify({'error': 'No file uploaded or session expired.'}), 400
+        df = pd.read_csv(filepath)
+        print("DEBUG processing: ", df)
+        
+        quasi_identifiers = session.get('quasi_identifiers', 'Not set')
+        sensitive_attributes = session.get('sensitive_attributes', 'Not set')
+        
+        t_threshold = df.get('t_threshold', 0.5)
+        k_threshold = df.get('k_threshold', 1)
+        l_threshold = df.get('l_threshold', 0)
+    
+        filtered_df = ensure_privacy(df, quasi_identifiers, sensitive_attributes, t_threshold, k_threshold, l_threshold)
+        filtered_df.to_csv(filepath, index=False)
+        
+        
+        
+        return render_template('privacy_processing', user_email=user_email,current_path=request.path)
+    else:
+        return redirect('/')
+    
+
 def calculate_p29_score(df, quasi_identifiers, sensitive_attributes):
     def calculate_k_anonymity(group):
         return len(group)
@@ -910,6 +937,8 @@ def compute_t_closeness(series, global_distribution):
     return t_closeness
 
 def calculate_t_closeness(df, quasi_identifiers, sensitive_attributes):
+    print("DEBUG T:")
+    print(df, quasi_identifiers, sensitive_attributes)
     results = []
 
     grouped = df.groupby(quasi_identifiers)
@@ -953,6 +982,8 @@ def calculate_normalized_entropy(series):
     return normalized_entropy
 
 def calculate_k_l_values(df, quasi_identifiers, sensitive_attributes):
+    print("DEBUG K L:")
+    print(df, quasi_identifiers, sensitive_attributes)
     results = defaultdict(list)
     grouped = df.groupby(quasi_identifiers)
 
@@ -970,28 +1001,17 @@ def calculate_k_l_values(df, quasi_identifiers, sensitive_attributes):
 
 def ensure_privacy(df, quasi_identifiers, sensitive_attributes, t_threshold=0.5, k_threshold=1, l_threshold=0):
     while True:
-        # Calculate t-closeness
-        t_value = calculate_t_closeness(df, quasi_identifiers, sensitive_attributes)
-
         # Calculate k-anonymity and l-diversity
         k_l_values = calculate_k_l_values(df, quasi_identifiers, sensitive_attributes)
-
-        # Debug: Print k_l_values to check its content
-        print("k_l_values:\n", k_l_values)
-
-        # Check if k-anonymity and l-diversity values are correctly populated
-        if k_l_values.empty:
-            raise ValueError("The k_l_values DataFrame is empty. Please check the calculations.")
-
-        # Ensure 'k-anonymity' column exists
-        if 'k-anonymity' not in k_l_values.columns:
-            raise KeyError("The 'k-anonymity' column is missing from k_l_values DataFrame")
-
+        
+        # Calculate t-closeness
+        t_value = calculate_t_closeness(df, quasi_identifiers, sensitive_attributes)
+        
         # Check if all groups satisfy t <= t_threshold, k > k_threshold, and l > l_threshold
         k_condition = k_l_values['k-anonymity'] > k_threshold
         l_condition = (k_l_values.iloc[:, 2:].astype(float) > l_threshold).all(axis=1)
         t_condition = (t_value.iloc[:, 1:].astype(float) <= t_threshold).all(axis=1)
-
+        
         if k_condition.all() and l_condition.all() and t_condition.all():
             break
         
@@ -1006,29 +1026,7 @@ def ensure_privacy(df, quasi_identifiers, sensitive_attributes, t_threshold=0.5,
     
     return df
 
-@app.route('/privacy_processing')
-def privacy_processing():
-    if 'user' in session:
-        user_email = session['email']
-        filepath = session.get('uploaded_filepath')
-        df = pd.read_csv(filepath)
-        quasi_identifiers = session.get('quasi_identifiers', 'Not set')
-        sensitive_attributes = session.get('sensitive_attributes', 'Not set')
-        print(quasi_identifiers)
-        print(sensitive_attributes)
-        
-        t_threshold = df.get('t_threshold', 0.5)
-        k_threshold = df.get('k_threshold', 1)
-        l_threshold = df.get('l_threshold', 0)
-    
-        filtered_df = ensure_privacy(df, quasi_identifiers, sensitive_attributes, t_threshold, k_threshold, l_threshold)
-        filtered_df.to_csv(filepath, index=False)
-        
-        
-        
-        return render_template('privacy_processing', user_email=user_email,current_path=request.path)
-    else:
-        return redirect('/')
+
     
     
     
