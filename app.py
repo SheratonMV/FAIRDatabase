@@ -5,7 +5,8 @@
 # layout
 # Open AI
 
-from flask import Flask, session, request, render_template, redirect, url_for, make_response
+from flask import Flask, session, request, render_template, redirect, url_for, make_response, send_file, Response
+import tempfile
 from flask import jsonify
 import matplotlib.pyplot as plt
 
@@ -545,8 +546,8 @@ def map_values_and_output_percentages(df, selected_columns, mappings):
     updated_percentages = {col: (df[col].value_counts(normalize=True) * 100).to_dict() for col in selected_columns}
     return df, updated_percentages
 
-@app.route('/privacy_metrics', methods=['GET', 'POST'])
-def privacy_metrics():
+@app.route('/data_generalization', methods=['GET', 'POST'])
+def data_generalization():
     if 'user' in session:
         user_email = session['email']
         uploaded = session.get('uploaded', False)
@@ -566,7 +567,6 @@ def privacy_metrics():
         message = None
 
         if request.method == 'POST':
-            print("POST request received")
             if 'file' in request.files:
                 file = request.files['file']
                 if file and allowed_file(file.filename):
@@ -655,7 +655,6 @@ def privacy_metrics():
                             _, value = key.rsplit('_', 1)  # Use rsplit to handle multiple underscores
                             mappings[current_quasi_identifier][value] = request.form[key]
                     
-                    print(f"Mappings before applying: {mappings}")
                     df, updated_percentages = map_values_and_output_percentages(df, [current_quasi_identifier], mappings)
                     df.to_csv(filepath, index=False)
                     session['mappings'] = mappings
@@ -663,7 +662,6 @@ def privacy_metrics():
                     session['quasi_identifier_values'] = quasi_identifier_values
                     session['updated_percentages'] = updated_percentages  # Store updated percentages in session
                     message = f"Values for '{current_quasi_identifier}' mapped successfully."
-                    print(f"Updated DataFrame saved and percentages calculated for {current_quasi_identifier}")
 
                     current_quasi_identifier_index = session.get('current_quasi_identifier_index', 0)
                     if current_quasi_identifier_index + 1 < len(quasi_identifiers):
@@ -677,10 +675,8 @@ def privacy_metrics():
                         all_steps_completed = session['all_steps_completed']
         
         
-        svgScore = random.random()
-        print(svgScore)
         return render_template(
-            'privacy_metrics.html',
+            'data_generalization.html',
             user_email=user_email,
             current_path=request.path,
             uploaded=uploaded,
@@ -697,13 +693,10 @@ def privacy_metrics():
             message=message,
             all_steps_completed=all_steps_completed,
             missing_percentages=dict(sorted(missing_percentages.items(), key=lambda x:x[1], reverse=True)),
-            updated_percentages=dict(sorted(updated_percentages.items(), key=lambda x:x[1], reverse=True)), svgScore=svgScore  # Pass updated percentages to the template
+            updated_percentages=dict(sorted(updated_percentages.items(), key=lambda x:x[1], reverse=True))
         )
     else:
         return redirect(url_for('login'))
-
-
-
 
 @app.route('/consolidated_return', methods=['GET', 'POST'])
 def consolidated_return():
@@ -721,13 +714,13 @@ def consolidated_return():
         session['quasi_identifiers_selected'] = quasi_identifiers_selected
         session['current_quasi_identifier'] = current_quasi_identifier
         session['all_steps_completed'] = all_steps_completed
-        return redirect('/privacy_metrics')
+        return redirect('/data_generalization')
     elif state == '2':
         uploaded = True
         columns_dropped = False
         session['uploaded'] = uploaded
         session['columns_dropped'] = columns_dropped
-        return redirect('/privacy_metrics')
+        return redirect('/data_generalization')
     elif state == '3':
         uploaded = True
         columns_dropped = True
@@ -735,7 +728,7 @@ def consolidated_return():
         session['uploaded'] = uploaded
         session['columns_dropped'] = columns_dropped
         session['missing_values_reviewed'] = missing_values_reviewed
-        return redirect('/privacy_metrics') 
+        return redirect('/data_generalization') 
     elif state == '4':
         uploaded = True
         columns_dropped = True
@@ -747,31 +740,25 @@ def consolidated_return():
         session['missing_values_reviewed'] = missing_values_reviewed
         session['quasi_identifiers_selected'] = quasi_identifiers_selected
         session['current_quasi_identifier'] = current_quasi_identifier
-        return redirect('/privacy_metrics') 
-    return redirect('/privacy_metrics') 
+        return redirect('/data_generalization') 
+    return redirect('/data_generalization') 
 
-
-@app.route('/federated_learning')
-def federated_learning():
-    if 'user' in session:
-        user_email = session['email']
-        return render_template('federated_learning.html', user_email=user_email,current_path=request.path)
-    else:
-        return redirect('/')
-    
-df = pd.read_csv('df8.csv')
-    
+# Module 2: p_29 score
 @app.route('/p29score', methods=['GET', 'POST'])
 def p29score():
     if 'user' in session:
         user_email = session['email']
+        filepath = session.get('uploaded_filepath')
+        if not filepath:
+            return jsonify({'error': 'No file uploaded or session expired.'}), 400
+        df = pd.read_csv(filepath)
         
         if request.method == 'POST':
-            quasi_identifiers = request.form.getlist('quasi_identifiers')
-            sensitive_attributes = request.form.getlist('sensitive_attributes')
+            session['quasi_identifiers'] = request.form.getlist('quasi_identifiers')
+            session['sensitive_attributes'] = request.form.getlist('sensitive_attributes')
 
-            if quasi_identifiers and sensitive_attributes:
-                result = calculate_p29_score(df, quasi_identifiers, sensitive_attributes)
+            if session['quasi_identifiers'] and session['sensitive_attributes']:
+                result = calculate_p29_score(df, session['quasi_identifiers'], session['sensitive_attributes'])
                 
                 p29result = round(result['P_29 Score'], 3)
                 minlresult = round(result['Minimum normalized l-value'], 3)
@@ -782,7 +769,8 @@ def p29score():
                 
                 return render_template('p29score.html', user_email=user_email, current_path=request.path, result=result, 
                                        columns=df.columns, p29result=p29result, minlresult=minlresult, maxtresult=maxtresult,
-                                       k_anonresult=k_anonresult, reason_result=reason_result, problems_result=problems_result)
+                                       k_anonresult=k_anonresult, reason_result=reason_result, problems_result=problems_result[:10], 
+                                       quasi_identifiers=session['quasi_identifiers'], sensitive_attributes=session['sensitive_attributes'])
             else:
                 return render_template('p29score.html', user_email=user_email, current_path=request.path, columns=df.columns, error="Please select both quasi-identifiers and sensitive attributes.")
         return render_template('p29score.html', user_email=user_email, current_path=request.path, columns=df.columns)
@@ -904,8 +892,163 @@ def calculate_p29_score(df, quasi_identifiers, sensitive_attributes):
 
     return result
 
+# Module 3: privacy processing
+def calculate_global_distribution(series):
+    class_distribution = series.value_counts(normalize=True)
+    global_distribution = class_distribution.to_dict()
+    return global_distribution
+
+def compute_t_closeness(series, global_distribution):
+    class_distribution = series.value_counts(normalize=True)
+    combined_index = list(global_distribution.keys())
+    class_distribution = class_distribution.reindex(combined_index, fill_value=0)
+
+    p_values = class_distribution.values
+    q_values = np.array([global_distribution.get(k, 0) for k in combined_index])
+
+    t_closeness = 0.5 * np.sum(np.abs(p_values - q_values))
+    return t_closeness
+
+def calculate_t_closeness(df, quasi_identifiers, sensitive_attributes):
+    results = []
+
+    grouped = df.groupby(quasi_identifiers)
+    global_distributions = {attribute: calculate_global_distribution(df[attribute]) for attribute in sensitive_attributes}
+
+    for group_name, group_df in grouped:
+        t_closeness_values = {}
+        for attribute in sensitive_attributes:
+            series = group_df[attribute]
+            t_closeness = compute_t_closeness(series, global_distributions[attribute])
+            t_closeness_values[f't-closeness_{attribute}'] = t_closeness
+
+        group_result = {
+            'Quasi-identifiers': ', '.join(f"{qi}: {value}" for qi, value in zip(quasi_identifiers, group_name)),
+            **t_closeness_values
+        }
+        results.append(group_result)
+
+    results_df = pd.DataFrame(results)
+    return results_df
+
+def calculate_k_anonymity(group):
+    return len(group)
+
+def calculate_normalized_entropy(series):
+    if series.empty:
+        return 0
+
+    value_counts = series.value_counts(normalize=True)
+    total_entropy = 0
+
+    for count in value_counts:
+        if count > 0:
+            total_entropy -= count * np.log2(count)
+
+    unique_values = series.nunique()
+    if unique_values == 1:
+        return 0
+
+    normalized_entropy = total_entropy / np.log2(unique_values)
+    return normalized_entropy
+
+def calculate_k_l_values(df, quasi_identifiers, sensitive_attributes):
+    results = defaultdict(list)
+    grouped = df.groupby(quasi_identifiers)
+
+    for name, group in grouped:
+        k_anonymity = calculate_k_anonymity(group)
+        results['Quasi-identifiers'].append(', '.join(f"{qi}: {value}" for qi, value in zip(quasi_identifiers, name)))
+        results['k-anonymity'].append(k_anonymity)
+
+        for attribute in sensitive_attributes:
+            normalized_entropy = calculate_normalized_entropy(group[attribute])
+            results[f'Normalized Entropy l-diversity_{attribute}'].append(normalized_entropy)
+
+    results_df = pd.DataFrame(results)
+    return results_df
+
+def ensure_privacy(df, quasi_identifiers, sensitive_attributes, t_threshold=0.5, k_threshold=1, l_threshold=0):
+    while True:
+        # Calculate t-closeness
+        t_value = calculate_t_closeness(df, quasi_identifiers, sensitive_attributes)
+
+        # Calculate k-anonymity and l-diversity
+        k_l_values = calculate_k_l_values(df, quasi_identifiers, sensitive_attributes)
+
+        # Debug: Print k_l_values to check its content
+        print("k_l_values:\n", k_l_values)
+
+        # Check if k-anonymity and l-diversity values are correctly populated
+        if k_l_values.empty:
+            raise ValueError("The k_l_values DataFrame is empty. Please check the calculations.")
+
+        # Ensure 'k-anonymity' column exists
+        if 'k-anonymity' not in k_l_values.columns:
+            raise KeyError("The 'k-anonymity' column is missing from k_l_values DataFrame")
+
+        # Check if all groups satisfy t <= t_threshold, k > k_threshold, and l > l_threshold
+        k_condition = k_l_values['k-anonymity'] > k_threshold
+        l_condition = (k_l_values.iloc[:, 2:].astype(float) > l_threshold).all(axis=1)
+        t_condition = (t_value.iloc[:, 1:].astype(float) <= t_threshold).all(axis=1)
+
+        if k_condition.all() and l_condition.all() and t_condition.all():
+            break
+        
+        # Identify groups that don't satisfy the conditions
+        groups_to_delete = []
+        for idx in range(len(k_l_values)):
+            if not (k_condition[idx] and l_condition[idx] and t_condition[idx]):
+                groups_to_delete.append(k_l_values['Quasi-identifiers'][idx])
+        
+        # Delete the identified groups
+        df = df[~df.apply(lambda row: ', '.join(f"{qi}: {row[qi]}" for qi in quasi_identifiers) in groups_to_delete, axis=1)]
+    
+    return df
+
+@app.route('/privacy_processing')
+def privacy_processing():
+    if 'user' in session:
+        user_email = session['email']
+        filepath = session.get('uploaded_filepath')
+        df = pd.read_csv(filepath)
+        quasi_identifiers = session.get('quasi_identifiers', 'Not set')
+        sensitive_attributes = session.get('sensitive_attributes', 'Not set')
+        print(quasi_identifiers)
+        print(sensitive_attributes)
+        
+        t_threshold = df.get('t_threshold', 0.5)
+        k_threshold = df.get('k_threshold', 1)
+        l_threshold = df.get('l_threshold', 0)
+    
+        filtered_df = ensure_privacy(df, quasi_identifiers, sensitive_attributes, t_threshold, k_threshold, l_threshold)
+        filtered_df.to_csv(filepath, index=False)
+        
+        
+        
+        return render_template('privacy_processing', user_email=user_email,current_path=request.path)
+    else:
+        return redirect('/')
+    
+    
+    
 
 
+@app.route('/differential_privacy')
+def differential_privacy():
+    if 'user' in session:
+        user_email = session['email']
+        return render_template('differential_privacy.html', user_email=user_email,current_path=request.path)
+    else:
+        return redirect('/')
+
+@app.route('/federated_learning')
+def federated_learning():
+    if 'user' in session:
+        user_email = session['email']
+        return render_template('federated_learning.html', user_email=user_email,current_path=request.path)
+    else:
+        return redirect('/')
 
 @app.route('/documentation')
 def documentation():
@@ -914,6 +1057,8 @@ def documentation():
         return render_template('documentation.html', user_email=user_email,current_path=request.path)
     else:
         return redirect('/')
+    
+
     
 if __name__ == '__main__':
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
