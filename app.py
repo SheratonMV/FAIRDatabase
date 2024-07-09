@@ -801,10 +801,41 @@ def privacy_processing():
         filtered_df = ensure_privacy(df, quasi_identifiers, sensitive_attributes, t_threshold, k_threshold, l_threshold)
         filtered_df.to_csv(filepath, index=False)
         
-        return render_template('privacy_processing.html', user_email=user_email,current_path=request.path)
+        result = calculate_p29_score(filtered_df, quasi_identifiers, sensitive_attributes)
+                
+        p29result = round(result['P_29 Score'], 3)
+        minlresult = round(result['Minimum normalized l-value'], 3)
+        maxtresult = float(round(result['Maximum t-value'], 3))
+        k_anonresult = result['Minimum k-anonymity']
+        reason_result = [reason for reason in result['Reasons']]    
+        problems_result = [problem for problem in result['Problematic info']]
+        
+        return render_template('privacy_processing.html', user_email=user_email,current_path=request.path,  result=result, p29result=p29result, minlresult=minlresult, maxtresult=maxtresult,
+                                       k_anonresult=k_anonresult, reason_result=reason_result, problems_result=problems_result[:10])
     else:
         return redirect('/')
     
+@app.route('/return_to_dashboard')
+def return_to_dashboard():
+    if 'user' in session:
+        user_email = session['email']
+        session.pop('uploaded_filepath', None)
+        uploaded = False
+        columns_dropped = False
+        missing_values_reviewed = False
+        quasi_identifiers_selected = False
+        current_quasi_identifier = False
+        all_steps_completed = False
+        session['uploaded'] = uploaded
+        session['columns_dropped'] = columns_dropped
+        session['missing_values_reviewed'] = missing_values_reviewed
+        session['quasi_identifiers_selected'] = quasi_identifiers_selected
+        session['current_quasi_identifier'] = current_quasi_identifier
+        session['all_steps_completed'] = all_steps_completed
+    
+    return render_template('dashboard.html', user_email=user_email, current_path=request.path)
+    
+
 
 def calculate_p29_score(df, quasi_identifiers, sensitive_attributes):
     def calculate_k_anonymity(group):

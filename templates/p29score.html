@@ -261,13 +261,19 @@
          </div>
       </div>
    </div>
-   <div class="col-md-4 mb-3">
+   <div class="col-12">
       <br>
       {% if p29result == 0.0 %} 
-      <a type="button" class="btn btn-primary-custom" href="\privacy_processing">To to module 3</a>
+      <div class="alert alert-info d-flex justify-content-between align-items-center" role="alert">
+         <p>The dataset has a P29 value of 0.0, which means that is needs to be processed in a privacy processing module. Press continue to initiate this proces. </p>
+         <a type="button" class="btn btn-primary-custom" href="\privacy_processing">Continue</a>
+      </div>
       {% endif %}
       {% if p29result > 0.0 %} 
-      <a type="button" class="btn btn-primary-custom" href="\differential_privacy">Go to differential privacy</a>
+      <div class="alert alert-info d-flex justify-content-between align-items-center" role="alert">
+         <p>The dataset has a P29 value higher than 0.0, which means that it can be further processed in the differential privacy module. Press continue to initiate this proces. </p>
+         <a type="button" class="btn btn-primary-custom" href="\differential_privacy">Continue</a>
+      </div>
       {% endif %}
    </div>
    <form action="/consolidated_return" method="post">
