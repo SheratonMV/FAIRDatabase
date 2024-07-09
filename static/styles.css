@@ -278,3 +278,9 @@ body {
     font-size: 25px;
     font-weight: 600;
 }
+
+/* Expand button customisation */
+.no-hover:hover {
+  color: #1E5B5E;
+  background-color: none;
+}
