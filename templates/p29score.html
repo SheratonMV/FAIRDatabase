@@ -1,11 +1,13 @@
 {% extends "layout.html" %}
-{% block title %}FAIRMicrobiome | P29 Score{% endblock %}
+{% block title %}FAIRMicrobiome | P29-Score{% endblock %}
 {% block content %}
 {% if not result %}
 <div class="card text-center" style="background-color: white;">
    <div class="card-body">
-      <h1 class="display-3">P29 Score</h1>
-      <p>[[explanation placeholder]]</p>
+      <h1 class="display-3">P29-Score</h1>
+      <p>The P29-Score quantifies identification risks for individuals within datasets, specifically addressing singling-out risks and inference risks, based on the diversity and distribution of values in the sensitive attributes. <br><br>
+         A higher score indicates greater data privacy within the datasets. This score serves as an index of the GDPR-compliant privacy level of the data.
+      </p>
    </div>
 </div>
 <br>
@@ -31,7 +33,7 @@
       </div>
       <div class="col-md-6">
          <h3>Select sensitive attributes:
-            <a  data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="Attributes in a dataset that, while not uniquely identifying on their own, can be combined with other publicly available information to re-identify individuals">
+            <a  data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="Sensitive attributes are the attributes within a dataset that require higher levels of protection due to their potential to reveal personal or confidential information about individuals.">
             <i class="fa fa-info-circle info-icon" aria-hidden="true" style="color: #1E5B5E;"></i>
             </a>
          </h3>
@@ -44,23 +46,23 @@
       </div>
    </div>
    <br>
-   <input type="submit" class="btn btn-primary-custom"   value="Calculate Score">
+   <input type="submit" class="btn btn-primary-custom" value="Calculate Score">
    <a type="button" class="btn btn-primary-custom" href="\data_generalization">Back</a>
 </form>
 <br>
 {% else %}
-<h1>P29 Score result</h1>
+<h1>P29-Score result</h1>
 <div id="p29result" data-p29result="{{ p29result }}"></div>
 <div id="minlresult" data-minl-result="{{ minlresult }}"></div>
 <div id="maxtresult" data-maxt-result="{{ maxtresult }}"></div>
 <div id="k_anonresult" data-k-anon-result="{{ k_anonresult }}"></div>
 <div class="alert alert-success" role="alert">
-   P29 score calculation successful, please see the results below. 
+   P29-Score calculation successful, please see the results below. 
 </div>
 <div class="row mt-3">
    <div class="col-md-4 mb-3">
       <div class="card" style="background-color: #F2EDE2;">
-         <h5 class="card-header">P29 Score
+         <h5 class="card-header">P29-Score
             <a  data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="GDPR-compliant privacy metric.">
             <i class="fa fa-info-circle info-icon" aria-hidden="true" style="color: #1E5B5E;"></i>
             </a>
@@ -275,10 +277,6 @@
       </div>
       {% endif %}
    </div>
-   <form action="/consolidated_return" method="post">
-      <input type="text" name="state" value="1" style="display: none;">
-      <button type="submit" class="btn btn-primary-custom">Return to upload</button>
-   </form>
    <br>
 </div>
 {% endif %}

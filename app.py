@@ -1035,13 +1035,104 @@ def ensure_privacy(df, quasi_identifiers, sensitive_attributes, t_threshold=0.5,
     
     return df
 
-@app.route('/differential_privacy')
+def validate_column_selection(columns, categorical_columns, numerical_columns):
+    selected_columns = categorical_columns + numerical_columns
+    return set(selected_columns) == set(columns) and (categorical_columns or numerical_columns)
+
+
+# Module 4: differential privacy
+@app.route('/differential_privacy', methods=['GET', 'POST'])
 def differential_privacy():
     if 'user' in session:
         user_email = session['email']
-        return render_template('differential_privacy.html', user_email=user_email,current_path=request.path)
+        #Identify the non-senstive Columns      
+        filepath = session.get('uploaded_filepath')
+        if not filepath:
+            return jsonify({'error': 'No file uploaded or session expired.'}), 400
+        df = pd.read_csv(filepath)
+        quasi_identifiers = session.get('quasi_identifiers', 'Not set')
+        sensitive_attributes = session.get('sensitive_attributes', 'Not set')
+        # Get all column names in the DataFrame
+        all_columns = df.columns.tolist()
+
+        # Identify columns that are neither quasi-identifiers nor sensitive attributes
+        other_columns = [col for col in all_columns if col not in quasi_identifiers + sensitive_attributes]
+        if request.method == 'POST':
+            session['categorical_columns'] = request.form.getlist('categorical_columns')
+            session['numerical_columns'] = request.form.getlist('numerical_columns')
+            
+            # Validate that all columns are selected
+            if not validate_column_selection(all_columns, session['categorical_columns'], session['numerical_columns']):
+                return render_template('differential_privacy.html', user_email=user_email, columns=all_columns, error="Please select all columns. You can not select a column in both lists.")
+            
+           
+            
+            epsilon = 2.0  # Example epsilon value
+            df_noisy= add_noise_to_df(df, session['categorical_columns'], session['numerical_columns'], epsilon)
+            df_noisy.to_csv(filepath, index=False)
+            return render_template('differential_privacy.html', user_email=user_email,current_path=request.path, columns=other_columns, selected_columns=True)
+        return render_template('differential_privacy.html', user_email=user_email,current_path=request.path, columns=other_columns,selected_columns=False)
     else:
         return redirect('/')
+
+# Add noise through the Local Differencial Privacy Machanism
+def add_laplace_noise(column, sensitivity, epsilon):
+    """
+    Add Laplace noise to a numerical column.
+    
+    Parameters:
+    - column: Original numerical column.
+    - sensitivity: Sensitivity of the function applied to the column (e.g., maximum difference between any two values).
+    - epsilon: Privacy budget parameter.
+    
+    Returns:
+    - Noisy column after adding Laplace noise.
+    """
+    scale = sensitivity / epsilon
+    noise = np.random.laplace(loc=0, scale=scale, size=column.shape)
+    return column + noise
+
+def add_randomized_response(value, categories, p=0.5):
+    """
+    Apply randomized response to a categorical value.
+    
+    Parameters:
+    - value: Original categorical value.
+    - categories: List of unique categories in the column.
+    - p: Probability parameter for randomized response.
+    
+    Returns:
+    - Noisy value after applying randomized response.
+    """
+    if np.random.random() < p:
+        return value  # Keep the original value
+    else:
+        return np.random.choice(categories)  # Replace with a random value from the category
+
+def add_noise_to_df(df, categorical_columns, numerical_columns, epsilon):
+    """
+    Add noise to a DataFrame based on local differential privacy.
+    
+    Parameters:
+    - df: Original DataFrame.
+    - categorical_columns: List of categorical columns.
+    - numerical_columns: List of numerical columns.
+    - epsilon: Privacy budget parameter.
+    
+    Returns:
+    - DataFrame with noise added.
+    """
+    noisy_df = df.copy()
+    
+    for column in numerical_columns:
+        sensitivity = df[column].max() - df[column].min()
+        noisy_df[column] = add_laplace_noise(df[column], sensitivity, epsilon)
+    
+    for column in categorical_columns:
+        categories = df[column].unique()
+        noisy_df[column] = df[column].apply(lambda x: add_randomized_response(x, categories))
+    
+    return noisy_df
 
 @app.route('/federated_learning')
 def federated_learning():

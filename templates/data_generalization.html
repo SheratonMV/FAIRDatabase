@@ -17,7 +17,6 @@
          </p>
          <form method="post" enctype="multipart/form-data">
             <div class="form-group">
-               <label for="file">Upload a .csv file:</label>
                <input class="form-control" type="file" name="file" id="file" style="background-color: white; margin-bottom: 0.5cm;" accept=".csv" required>
             </div>
             <button type="submit" class="btn btn-primary-custom">Import</button>
@@ -26,9 +25,10 @@
    </div>
    {% endif %}
    {% if uploaded and not columns_dropped %}
-   <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
-   <h3>Select direct identifiers to drop:</h3>
-   <p>Direct identifiers are attributes that can directly identify an individual without the need for additional information, such as name and passport number.</p>
+   <div class="bd-callout bd-callout-default">
+      <h3>Select direct identifiers to drop</h3>
+      <p>Direct identifiers are attributes that can directly identify an individual without the need for additional information, such as name and passport number.</p>
+   </div>
    <form method="post">
       {% for col in column_names %}
       <div class="form-check">
@@ -60,14 +60,16 @@
       <input type="text" name="state" value="1" style="display: none;">
       <button type="submit" class="btn btn-cancel-custom">Back</button>
    </form>
-   <br>
+   <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
    {% endif %}
    {% if columns_dropped and not missing_values_reviewed %}
-   <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
-   <h3>Select missing value columns:</h3>
-   <p>Here, the percentage of missing values per column is shown sorting from highest to lowest. Columns with a high percentage of missing values or that are not informative for subsequent analysis are recommended to be dropped.<br>
-      Please identify and select the columns with missing values to be excluded.
-   </p>
+   <div class="bd-callout bd-callout-default">
+      <h3>Select missing value columns</h3>
+      <p>Here, the percentage of missing values per column is shown sorting from highest to lowest. Columns with a high percentage of missing values or that are not informative for subsequent analysis are recommended to be dropped.<br>
+         <br>
+         Please identify and select the columns with missing values to be excluded.
+      </p>
+   </div>
    <form method="post">
       {% for col, percentage in missing_percentages.items() %}
       <div class="form-check">
@@ -99,11 +101,15 @@
       <input type="text" name="state" value="2" style="display: none;">
       <button type="submit" class="btn btn-cancel-custom">Back</button>
    </form>
+   <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
    {% endif %}
    {% if missing_values_reviewed and not quasi_identifiers_selected %}
-   <h3>Select Quasi-identifiers:</h3>
-   <p>Quasi-identifiers are attributes in a dataset that, while not uniquely identifying on their own, can be combined with other publicly available information to re-identify individuals.
-   </p>
+   <div class="bd-callout bd-callout-default">
+      <h3>Select quasi-identifiers</h3>
+      <p>
+         Quasi-identifiers are attributes in a dataset that, while not uniquely identifying on their own, can be combined with other publicly available information to re-identify individuals.
+      </p>
+   </div>
    <form method="post">
       {% for col in column_names %}
       <div class="form-check">
@@ -118,6 +124,7 @@
       <input type="text" name="state" value="3" style="display: none;">
       <button type="submit" class="btn btn-cancel-custom">Back</button>
    </form>
+   <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
    {% endif %}
    {% if quasi_identifiers_selected and current_quasi_identifier %}
    <form method="post">
@@ -160,60 +167,20 @@
    </form>
    {% endif %}
    {% if all_steps_completed %}
-   <div class="row">
-      <div class="col-8">
-         <h3>Privacy metric score</h3>
-         <p>Now the dataset has been generalised, a preliminary privacy metric score can be given. </p>
-      </div>
-      <div class="col col-lg-4">
-      </div>
+   <div class="bd-callout bd-callout-default">
+      <h3>Privacy metric score</h3>
+      <p>Now the dataset has been generalised, a preliminary privacy metric score can be given. </p>
    </div>
    <div class="row">
       <div class="col-8">
-         <!-- <form action="/consolidated_return" method="post">
-            <input type="text" name="state" value="1" style="display: none;">
-            <button type="submit" class="btn btn-primary-custom">Return to upload</button>
-            </form> -->
-         <a type="button" class="btn btn-primary-custom" href="\p29score">Calculate p29 score</a>
+         <a type="button" class="btn btn-primary-custom" href="\p29score">Calculate P29-Score</a>
       </div>
+      <!-- <div class="col">
+         <a type="button" href="/return_to_dashboard" class="btn btn-primary-custom" style="margin-bottom: 1%;">Return to the dashboard</a>
+         </div> -->
    </div>
 </div>
 </div>
 {% endif %}
 </div>
-<script>
-   document.addEventListener('DOMContentLoaded', function () {
-       var checkboxes = document.querySelectorAll('input[type="checkbox"][name="columns_to_drop"]');
-       var countDisplay = document.getElementById('selected-count');
-       var messageDisplay = document.getElementById('selection-message');
-       
-   
-       function updateSelectedCount() {
-           var selectedCount = 0;
-           checkboxes.forEach(function (checkbox) {
-               if (checkbox.checked) {
-                   selectedCount++;
-               }
-           });
-           countDisplay.textContent = selectedCount + ' checkboxes selected';
-   
-   
-           // Conditional message based on selected count
-           if (selectedCount === 0) {
-                messageDisplay.textContent = 'Do you want to continue? You have no checkboxes selected.';
-            } else if (selectedCount === 1) {
-                messageDisplay.textContent = 'Do you want to remove ' + selectedCount + ' column? This action cannot be undone.';
-            } else {
-                messageDisplay.textContent = 'Do you want to remove ' + selectedCount + ' columns? This action cannot be undone.';
-            }
-       }
-   
-       checkboxes.forEach(function (checkbox) {
-           checkbox.addEventListener('change', updateSelectedCount);
-       });
-   
-       // Initial count display
-       updateSelectedCount();
-   });
-</script>
 {% endblock %}

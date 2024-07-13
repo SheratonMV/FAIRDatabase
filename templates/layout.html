@@ -47,7 +47,8 @@
                </a>
             </li>
             <li class="nav-item">
-               <a class="nav-link" {% if current_path == '/data_generalization' %} style="background-color: #102F31;" {% endif %} href="/data_generalization">
+               <a class="nav-link"{% if current_path == '/data_generalization' or current_path == '/p29score' or current_path == '/differential_privacy' or current_path == '/privacy_processing' %}
+               style="background-color: #102F31; pointer-events: none; cursor:pointer;" {% endif %} href="/data_generalization">
                <i class="fa-solid fa-shield-halved"></i>
                <span class="sidebar-text">Data generalization</span>
                </a>

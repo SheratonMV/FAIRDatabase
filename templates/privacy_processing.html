@@ -2,9 +2,9 @@
 {% block title %}FAIRMicrobiome | Privacy processing{% endblock %}
 {% block content %}
 <br>
-<h1>Updated P29 Score</h1>
+<h1>Updated P29-Score</h1>
 <div class="alert alert-success" role="alert">
-   Privacy processing succeeded! The updated P29 score is displayed below.
+   Privacy processing succeeded! The updated P29-Score is displayed below.
 </div>
 <div id="p29result" data-p29result="{{ p29result }}"></div>
 <div id="minlresult" data-minl-result="{{ minlresult }}"></div>
@@ -13,7 +13,7 @@
 <div class="row mt-3">
    <div class="col-md-4 mb-3">
       <div class="card" style="background-color: #F2EDE2;">
-         <h5 class="card-header">P29 Score
+         <h5 class="card-header">P29-Score
             <a  data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="GDPR-compliant privacy metric.">
             <i class="fa fa-info-circle info-icon" aria-hidden="true" style="color: #1E5B5E;"></i>
             </a>
@@ -213,9 +213,8 @@
       </div>
    </div>
 </div>
-<div class="row mt-3">
-   <div class="col">
-      <a type="button" href="/return_to_dashboard" class="btn btn-primary-custom" style="margin-bottom: 1%;">Return to the dashboard</a>
-   </div>
+<div class="alert alert-info d-flex justify-content-between align-items-center" style="margin-top: 1%;" role="alert">
+   <p>The dataset has a P29 value higher than 0.0, which means that it can be further processed in the differential privacy module. Press continue to initiate this proces. </p>
+   <a type="button" class="btn btn-primary-custom" href="\differential_privacy">Continue</a>
 </div>
 {% endblock %}

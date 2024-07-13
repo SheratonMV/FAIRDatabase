@@ -3,11 +3,54 @@
 {% block content %}
 <div class="row justify-content-center">
    <br>
-   <h1>Differential Privacy</h1>
-   
+   <div class="bd-callout bd-callout-default">
+      <h1>Differential privacy</h1>
+      <p>
+         To apply differential privacy to the dataset, there must be made a distinction between categorical and numerical columns. <br>
+      </p>
+   </div>
 
-
-
+   {% if error %}
+   <div class="alert alert-danger alert-dismissible fade show" role="alert">
+      {{  error  }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+   </div>
+   {% endif %}
+   {% if selected_columns %}
+   <div class="alert alert-success d-flex justify-content-between align-items-center" role="success">
+      <p>Differential privacy succeeded. You can now return to the dashboard.</p>
+      <a type="button" href="/return_to_dashboard" class="btn btn-primary-custom" style="margin-bottom: 1%;">Return to the dashboard</a>
+   </div>
+   {% else %}
+   <form id="privacyForm" method="POST" action="{{ url_for('differential_privacy') }}">
+      <div class="row">
+         <div class="col-md-6">
+            <h3>Select categorical columns</h3>
+            <div>
+               {% for column in columns %}
+               <input type="checkbox" name="categorical_columns" value="{{ column }}">
+               <label for="{{ column }}">{{ column }}</label><br>
+               {% else %}
+               <p>No columns available</p>
+               {% endfor %}
+            </div>
+         </div>
+         <div class="col-md-6">
+            <h3>Select numerical columns</h3>
+            <div>
+               {% for column in columns %}
+               <input type="checkbox" name="numerical_columns" value="{{ column }}">
+               <label for="{{ column }}">{{ column }}</label><br>
+               {% else %}
+               <p>No columns available</p>
+               {% endfor %}
+            </div>
+         </div>
+      </div>
+      <div class="mt-3">
+         <button type="submit" class="btn btn-primary-custom" style="margin-bottom: 0.5cm;">Submit</button>
+      </div>
+   </form>
+   {% endif %}
 </div>
-
 {% endblock %}
