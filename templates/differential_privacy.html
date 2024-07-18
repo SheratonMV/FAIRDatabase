@@ -6,7 +6,8 @@
    <div class="bd-callout bd-callout-default">
       <h1>Differential privacy</h1>
       <p>
-         To apply differential privacy to the dataset, there must be made a distinction between categorical and numerical columns. <br>
+         To mitigate linkability attacks and therefore exploit connections between records in the dataset and external datasets based on non-sensitive attributes, noises are introduced to exact values within non-sensitive attributes using local differential privacy. Numerical attributes are perturbed using the Laplace mechanism, while categorical attributes are perturbed using the randomized response mechanism.
+        <br>
       </p>
    </div>
 
@@ -18,7 +19,7 @@
    {% endif %}
    {% if selected_columns %}
    <div class="alert alert-success d-flex justify-content-between align-items-center" role="success">
-      <p>Differential privacy succeeded. You can now return to the dashboard.</p>
+      <p>Differential privacy succeeded. This dataset is now GDPR-compliant and ready for upload.</p>
       <a type="button" href="/return_to_dashboard" class="btn btn-primary-custom" style="margin-bottom: 1%;">Return to the dashboard</a>
    </div>
    {% else %}
