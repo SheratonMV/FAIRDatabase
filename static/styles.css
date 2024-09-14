@@ -248,9 +248,19 @@ body {
     top: 0;
 }
 
-.score-bar .score-circle {
+.score-bar .score-circle-p29 {
     position: absolute;
     top: 0;
+}
+
+.score-bar .score-circle-minl {
+  position: absolute;
+  top: 0;
+}
+
+.score-bar .score-circle-maxt {
+  position: absolute;
+  top: 0;
 }
 
 .score-value {
@@ -267,4 +277,45 @@ body {
 .score-number {
     font-size: 25px;
     font-weight: 600;
+}
+
+/* Expand button customisation */
+.no-hover:hover {
+  color: #1E5B5E;
+  background-color: none;
+}
+
+/* Callout */
+.bd-callout {
+  padding: 1.25rem;
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+  border: 1px solid #eee;
+  border-left-width: .40rem;
+  border-radius: .25rem;
+  background-color: white;
+  }
+  
+.bd-callout h4 {
+margin-top: 0;
+margin-bottom: .25rem
+}
+
+.bd-callout p:last-child {
+margin-bottom: 0
+}
+
+.bd-callout code {
+border-radius: .25rem
+}
+
+.bd-callout+.bd-callout {
+margin-top: -.25rem
+}
+.bd-callout-default{
+  border-left-color: #1E5B5E
+  }
+  
+.bd-callout-defaulth4 {
+color: #6c757d
 }

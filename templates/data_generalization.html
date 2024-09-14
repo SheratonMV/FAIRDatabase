@@ -1,0 +1,186 @@
+{% extends "layout.html" %}
+{% block title %}FAIRMicrobiome | Privacy metrics{% endblock %}
+{% block content %}
+<div class="container">
+   {% if message %}
+   <div class="alert alert-success mt-3" role="alert">
+      {{ message }}
+   </div>
+   {% endif %}
+   {% if not uploaded %}
+   <div class="card text-center" style="background-color: white;">
+      <div class="card-body">
+         <h1 class="display-3">Data generalization module</h1>
+         <p>Welcome to the data generalization module. In this module, you can upload omics and healthcare datasets to generalize them. <br>
+            Personal identification information (PII) must be removed or generalized to ensure compliance with the General Data Protection Regulation (GDPR).<br>
+            Start by importing a .csv file.
+         </p>
+         <form method="post" enctype="multipart/form-data">
+            <div class="form-group">
+               <input class="form-control" type="file" name="file" id="file" style="background-color: white; margin-bottom: 0.5cm;" accept=".csv" required>
+            </div>
+            <button type="submit" class="btn btn-primary-custom">Import</button>
+         </form>
+      </div>
+   </div>
+   {% endif %}
+   {% if uploaded and not columns_dropped %}
+   <div class="bd-callout bd-callout-default">
+      <h3>Select direct identifiers to drop</h3>
+      <p>Direct identifiers are attributes that can directly identify an individual without the need for additional information, such as name and passport number.</p>
+   </div>
+   <form method="post">
+      {% for col in column_names %}
+      <div class="form-check">
+         <input class="form-check-input" type="checkbox" id="column_{{ loop.index }}" name="columns_to_drop" value="{{ col }}">
+         <label class="form-check-label" for="column_{{ loop.index }}">{{ col }}</label>
+      </div>
+      {% endfor %}
+      <br>
+      <button type="button" data-bs-toggle="modal" data-bs-target="#confirmationModal1" class="btn btn-primary-custom" style="margin-bottom: 0.5cm;">Continue</button>
+      <div class="modal fade" id="confirmationModal1" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+         <div class="modal-dialog">
+            <div class="modal-content">
+               <div class="modal-header">
+                  <h1 class="modal-title fs-5" id="exampleModalLabel">Confirmation</h1>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+               </div>
+               <div class="modal-body">
+                  <p id="selection-message"></p>
+               </div>
+               <div class="modal-footer">
+                  <button type="button" class="btn btn-cancel-custom" data-bs-dismiss="modal">Close</button>
+                  <button type="submit" name="submit_button" value="submit_columns" class="btn btn-primary-custom">Continue</button>
+               </div>
+            </div>
+         </div>
+      </div>
+   </form>
+   <form action="/consolidated_return" method="post">
+      <input type="text" name="state" value="1" style="display: none;">
+      <button type="submit" class="btn btn-cancel-custom">Back</button>
+   </form>
+   <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
+   {% endif %}
+   {% if columns_dropped and not missing_values_reviewed %}
+   <div class="bd-callout bd-callout-default">
+      <h3>Select missing value columns</h3>
+      <p>Here, the percentage of missing values per column is shown sorting from highest to lowest. Columns with a high percentage of missing values or that are not informative for subsequent analysis are recommended to be dropped.<br>
+         <br>
+         Please identify and select the columns with missing values to be excluded.
+      </p>
+   </div>
+   <form method="post">
+      {% for col, percentage in missing_percentages.items() %}
+      <div class="form-check">
+         <input class="form-check-input" type="checkbox" id="column_{{ loop.index }}" name="columns_to_drop" value="{{ col }}">
+         <label class="form-check-label" for="column_{{ loop.index }}">{{ col }} - {{ percentage }}% missing</label>
+      </div>
+      {% endfor %}
+      <br>
+      <button type="button" data-bs-toggle="modal" data-bs-target="#confirmationModal2" class="btn btn-primary-custom" style="margin-bottom: 0.5cm;">Continue</button>
+      <div class="modal fade" id="confirmationModal2" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+         <div class="modal-dialog">
+            <div class="modal-content">
+               <div class="modal-header">
+                  <h1 class="modal-title fs-5" id="exampleModalLabel">Confirmation</h1>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+               </div>
+               <div class="modal-body">
+                  <p id="selection-message"></p>
+               </div>
+               <div class="modal-footer">
+                  <button type="button" class="btn btn-cancel-custom" data-bs-dismiss="modal">Close</button>
+                  <button type="submit" name="submit_button" value="submit_missing_values"  class="btn btn-primary-custom">Continue</button>
+               </div>
+            </div>
+         </div>
+      </div>
+   </form>
+   <form action="/consolidated_return" method="post">
+      <input type="text" name="state" value="2" style="display: none;">
+      <button type="submit" class="btn btn-cancel-custom">Back</button>
+   </form>
+   <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
+   {% endif %}
+   {% if missing_values_reviewed and not quasi_identifiers_selected %}
+   <div class="bd-callout bd-callout-default">
+      <h3>Select quasi-identifiers</h3>
+      <p>
+         Quasi-identifiers are attributes in a dataset that, while not uniquely identifying on their own, can be combined with other publicly available information to re-identify individuals.
+      </p>
+   </div>
+   <form method="post">
+      {% for col in column_names %}
+      <div class="form-check">
+         <input class="form-check-input" type="checkbox" id="quasi_identifier_{{ loop.index }}" name="quasi_identifiers" value="{{ col }}">
+         <label class="form-check-label" for="quasi_identifier_{{ loop.index }}">{{ col }}</label>
+      </div>
+      {% endfor %}
+      <br>
+      <button type="submit" name="submit_button" value="submit_quasi_identifiers"  class="btn btn-primary-custom" style="margin-bottom: 0.5cm;">Continue</button>
+   </form>
+   <form action="/consolidated_return" method="post">
+      <input type="text" name="state" value="3" style="display: none;">
+      <button type="submit" class="btn btn-cancel-custom">Back</button>
+   </form>
+   <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
+   {% endif %}
+   {% if quasi_identifiers_selected and current_quasi_identifier %}
+   <form method="post">
+      <h3>Distinct values and percentages for '{{ current_quasi_identifier }}':</h3>
+      <ul>
+         {% for value, percentage in quasi_identifier_values[current_quasi_identifier] %}
+         <li>{{ value }}: {{ percentage }}%</li>
+         {% endfor %}
+      </ul>
+      <h4>Available values in '{{ current_quasi_identifier }}': {{ distinct_values[current_quasi_identifier] }}</h4>
+      {% for value, _ in quasi_identifier_values[current_quasi_identifier] %}
+      <div class="form-group">
+         <label for="mapping_{{ current_quasi_identifier }}_{{ value }}">Map '{{ value }}' to:</label>
+         <input class="form-control" type="text" id="mapping_{{ current_quasi_identifier }}_{{ value }}" name="mapping_{{ current_quasi_identifier }}_{{ value }}" value="{{ value }}">
+      </div>
+      {% endfor %}
+      <br>
+      <button type="button" data-bs-toggle="modal" data-bs-target="#confirmationModal4" class="btn btn-primary-custom" style="margin-bottom: 0.5cm;">Continue</button>
+      <div class="modal fade" id="confirmationModal4" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+         <div class="modal-dialog">
+            <div class="modal-content">
+               <div class="modal-header">
+                  <h1 class="modal-title fs-5" id="exampleModalLabel">Confirmation</h1>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+               </div>
+               <div class="modal-body">
+                  Are you sure you want to map these values? This action cannot be undone. 
+               </div>
+               <div class="modal-footer">
+                  <button type="button" class="btn btn-cancel-custom" data-bs-dismiss="modal">Close</button>
+                  <button type="submit" name="submit_button" value="submit_mapping" class="btn btn-primary-custom">Continue</button>
+               </div>
+            </div>
+         </div>
+      </div>
+   </form>
+   <form action="/consolidated_return" method="post">
+      <input type="text" name="state" value="4" style="display: none;">
+      <button type="submit" class="btn btn-cancel-custom">Back</button>
+   </form>
+   {% endif %}
+   {% if all_steps_completed %}
+   <div class="bd-callout bd-callout-default">
+      <h3>Privacy metric score</h3>
+      <p>Now the dataset has been generalised, a preliminary privacy metric score can be given. </p>
+   </div>
+   <div class="row">
+      <div class="col-8">
+         <a type="button" class="btn btn-primary-custom" href="\p29score">Calculate P29-Score</a>
+      </div>
+      <!-- <div class="col">
+         <a type="button" href="/return_to_dashboard" class="btn btn-primary-custom" style="margin-bottom: 1%;">Return to the dashboard</a>
+         </div> -->
+   </div>
+</div>
+</div>
+{% endif %}
+</div>
+{% endblock %}

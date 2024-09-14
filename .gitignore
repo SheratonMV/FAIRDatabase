@@ -1,2 +1,5 @@
 outputs/
 outputfolder/
+uploads/
+uploadfolder/
+.venv/
