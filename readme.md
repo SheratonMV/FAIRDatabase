@@ -9,9 +9,10 @@ Steps to setup the Microbiome FAIR database locally:
 5. Copy .env.example as .env using `cp .env.example .env`
 6. Edit the .env file to insert credentials, to make it secure follow instructions at https://supabase.com/docs/guides/self-hosting/docker#securing-your-services. For a simple setup, change the following fields: POSTGRES_PASSWORD, JWT_SECRET, ANON_KEY, SERVICE_ROLE_KEY, DASHBOARD_USERNAME and DASHBOARD_PASSWORD
 7. Pull the latest images using `docker compose pull`
-8. Start the services (in detached mode) using `docker compose up -d`
-9. Then, open the Supabase dashboard using the localhost `http://localhost:8000`
-10. In this dashboard, add yourself as a user in the authentication tab. 
+8. Remove logflare integration if not required. A sample docker compose file is included in the developer files
+9. Start the services (in detached mode) using `docker compose up -d`
+10. Then, open the Supabase dashboard using the localhost `http://localhost:8000`
+11. In this dashboard, add yourself as a user in the authentication tab.
 
 **App.py:**
 1. Edit the `SUPABASE_PUBLIC_KEY` using the `ANON_KEY` defined in the .env file. 
