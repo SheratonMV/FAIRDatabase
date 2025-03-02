@@ -3,3 +3,4 @@ outputfolder/
 uploads/
 uploadfolder/
 .venv/
+config.json
