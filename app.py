@@ -12,23 +12,33 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import psycopg2
-import plotly.graph_objs as go
 from flask import Flask, session, request, render_template, redirect, url_for, make_response, jsonify
 from supabase import create_client, Client
 from werkzeug.utils import secure_filename
 from collections import defaultdict
+import json
 
+with open('config.json') as config_file:
+    config = json.load(config_file)
 app = Flask(__name__)
 app.secret_key = os.urandom(1)
-
-SUPABASE_URL = 'http://localhost:8000'
-SUPABASE_PUBLIC_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzE0ODYwMDAwLAogICJleHAiOiAxODcyNjI2NDAwCn0.87CKUUqmCE6oZhyExthSKEDCGBnuZqhTdOUbgQtxsCE'
-
+db_config = config.get('database', {})
+SUPABASE_URL = config["supabase_url"]
+SUPABASE_PUBLIC_KEY = config["supabase_key"]
 supabase = create_client(SUPABASE_URL, SUPABASE_PUBLIC_KEY)
 client: Client = supabase
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['ALLOWED_EXTENSIONS'] = {'csv'}
 
+
+def connect_to_db(db_config):
+    try:
+        conn = psycopg2.connect(**db_config)
+        print("Connection established successfully!")
+        return conn
+    except:
+        print(f"Error connecting to the database")
+        return None
 def filter_characters(string):
     filtered_string = re.sub(r'[^a-zA-Z0-9_]', '_', string)
     return filtered_string
@@ -124,7 +134,7 @@ def upload():
                     file_name = str(secure_filename(uploaded_file.filename)).rsplit('.', 1)[0] + time_c_text
                     
                     # Connect to database
-                    database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="7sJYfI5dHJs27zie2Cpy")
+                    database_connection = connect_to_db(db_config)
                     cursor_database = database_connection.cursor()
 
                     # Set column limit to 1200, leaving space for adding columns
@@ -227,7 +237,7 @@ def search():
         if request.method == 'GET':
             upload_timer = time.time()
             # Connect to database
-            database_connection = psycopg2.connect(host="localhost", port="5432", database="", user="postgres", password="7sJYfI5dHJs27zie2Cpy")
+            database_connection = connect_to_db(db_config)
             cursor_database = database_connection.cursor()
 
             # Get table names from the 'public' schema
@@ -251,7 +261,7 @@ def search():
                 session["search_term"] = [search_term, seq_a, seq_na]
 
                 # Connect to database
-                database_connection = psycopg2.connect(host="localhost", port="5432", database="", user="postgres", password="7sJYfI5dHJs27zie2Cpy")
+                database_connection = connect_to_db(db_config)
                 cursor_database = database_connection.cursor()
 
                 sql_query = f"SELECT DISTINCT table_name FROM information_schema.columns WHERE column_name LIKE '%{search_term}%' AND table_schema = 'public'"
@@ -262,7 +272,7 @@ def search():
                 database_connection.close()
 
                 # Retrieve the original table names to always display them
-                database_connection = psycopg2.connect(host="localhost", port="5432", database="", user="postgres", password="7sJYfI5dHJs27zie2Cpy")
+                database_connection = connect_to_db(db_config)
                 cursor_database = database_connection.cursor()
 
                 sql_query = "SELECT DISTINCT table_name FROM information_schema.tables WHERE table_schema = 'public'"
@@ -293,7 +303,7 @@ def display():
             search_term = session.get("search_term")
 
             # Database connection
-            database_connection = psycopg2.connect(host="localhost",port="5432",database="",user="postgres",password="7sJYfI5dHJs27zie2Cpy")
+            database_connection = connect_to_db(db_config)
             cursor_database = database_connection.cursor()
             
             # Get tables where search term is part of
@@ -428,7 +438,7 @@ def table_preview():
             table_name = request.args.get('type')
             
             # Database connection
-            database_connection = psycopg2.connect(host="localhost", port="5432", database="", user="postgres", password="7sJYfI5dHJs27zie2Cpy")
+            database_connection = connect_to_db(db_config)
             cursor_database = database_connection.cursor()
 
             query_tables = f"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '{table_name}'"
