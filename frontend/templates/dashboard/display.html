@@ -1,0 +1,40 @@
+{% extends "dashboard/layout.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<br>
+
+<head>
+    <title>Display Tables</title>
+</head>
+<div class="topnav">
+    <a href="/dashboard/dashboard">Dashboard</a>
+    <a href="/dashboard/search">Database Search</a>
+    <a href="/auth/logout">Logout</a>
+</div>
+<body>
+    {% if search_term %}
+        <p>{{ search_term }}</p>
+    {% endif %}
+    
+    {% if search_results %}
+        <h1>Search Results for:</h1>
+        <ul>
+            {% for result in search_results %}
+                <li>{{ result[0] }}, {{ result[1] }}</li>
+            {% endfor %}
+        </ul>
+        
+    <form action="/dashboard/display" method="post">
+        <button type="submit">Download Results</button>
+    </form>
+    {% endif %}    
+
+</body>
+
+</div>
+{% endblock %}
+
+
