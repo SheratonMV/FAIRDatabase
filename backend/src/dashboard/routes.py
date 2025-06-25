@@ -121,6 +121,7 @@ def upload():
                 current_app.config["UPLOAD_FOLDER"], filename))
         except Exception as e:
             conn.rollback()
+            print(e)
             raise GenericExceptionHandler(
                 f"Upload failed: {str(e)}", status_code=400)
 
