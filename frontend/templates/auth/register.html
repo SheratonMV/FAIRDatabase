@@ -1,0 +1,49 @@
+{% extends "auth/login_layout.html" %}
+
+{% block title %}FAIRMicrobiome | Register{% endblock %}
+
+{% block content %}   
+<div class="row justify-content-center">
+   <div class="col-md-10"> 
+      <div class="container mt-5">
+         <div class="card">
+            <div class="card-header" style="background-color: #01191a; color: white;">Register</div>
+            <div class="card-body">
+               <div class="row">
+                  <div class="col-md-8"> 
+                     <p>To register, please enter the following details: </p>
+                     {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                           <div class="alert alert-danger">
+                              <ul>
+                                 {% for category, message in messages %}
+                                    <li>{{ message }}</li>
+                                 {% endfor %}
+                              </ul>
+                           </div>
+                        {% endif %}
+                     {% endwith %}
+                     <form id="register-form" method="post" action="{{ url_for('auth_routes.register') }}">
+                        <div class="form-group">
+                           <label for="email">Email:</label><br>
+                           <input class="form-control" type="email" name="email" required style="width: 80%;" id="email">
+                        </div>
+                        <div class="form-group">
+                           <label for="password">Password:</label><br>
+                           <input class="form-control" type="password" name="password" required style="width: 80%;" id="password"><br>
+                        </div>
+                        <input type="submit" value="Register" class="btn btn-primary-custom">
+                        <a type="button" href="{{ url_for('auth_routes.login') }}" class="btn btn-cancel-custom" formnovalidate>Login</a>
+                        <br>
+                     </form>
+                  </div>
+                  <div class="col-md-4 d-flex align-items-center justify-content-center"> <!-- Centered the image -->
+                     <img src="../../../static/img/metahealth_logo.svg" class="img-fluid bigger-image" alt="MetaHealth">
+                  </div>
+               </div>
+            </div>
+         </div>
+      </div>
+   </div>
+</div>
+{% endblock %}

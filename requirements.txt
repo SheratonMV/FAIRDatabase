@@ -1,9 +1,0 @@
-scikit-bio
-pycanon
-flask
-werkzeug
-psycopg2
-pandas
-sqlalchemy
-supabase==2.3.0
-matplotlib
