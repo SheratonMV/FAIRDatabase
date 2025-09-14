@@ -54,3 +54,5 @@
     - https://www.psycopg.org/psycopg3/docs/
 - Supabase Py
     - https://context7.com/supabase/supabase-py/llms.txt
+- Pydantic 
+    - https://docs.pydantic.dev/latest/llms-full.txt
