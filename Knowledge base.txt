@@ -1,0 +1,56 @@
+- Flask
+    - https://context7.com/websites/flask_palletsprojects-en-stable/llms.txt
+- Development Containers
+    - https://context7.com/devcontainers/devcontainers.github.io/llms.txt
+- Dev Containers Templates
+    - https://context7.com/devcontainers/templates/llms.txt
+- Dev Containers CLI
+    - https://context7.com/devcontainers/cli/llms.txt
+- Dev Containers Images
+    - https://context7.com/devcontainers/images/llms.txt
+- Dev Containers Features
+    - https://context7.com/devcontainers/features/llms.txt
+- Development Containers
+    - https://context7.com/devcontainers/spec/llms.txt
+- Dev Containers CI
+    - https://context7.com/devcontainers/ci/llms.txt
+- Flask SQLAlchemy
+    - https://context7.com/pallets-eco/flask-sqlalchemy/llms.txt
+- SQLAlchemy
+    - https://context7.com/sqlalchemy/sqlalchemy/llms.txt
+- SQLAlchemy 2.0 Documentation
+    - https://context7.com/websites/sqlalchemy-en-20/llms.txt
+- Uv
+    - https://context7.com/astral-sh/uv/llms.txt
+- Ruff
+    - https://context7.com/astral-sh/ruff/llms.txt
+- Pytest Flask
+    - https://context7.com/pytest-dev/pytest-flask/llms.txt
+- Pytest
+    - https://context7.com/pytest-dev/pytest/llms.txt
+- Werkzeug
+    - https://context7.com/pallets/werkzeug/llms.txt
+- Jinja
+    - https://context7.com/websites/jinja_palletsprojects_en_stable/llms.txt
+- GitHub
+    - https://context7.com/websites/github_en/llms.txt
+- Docker
+    - https://context7.com/websites/docker/llms.txt
+- OpenAPI
+    - https://context7.com/websites/learn_openapis/llms.txt
+- OpenAPI Specification
+    - https://context7.com/websites/spec_openapis-oas/llms.txt
+- Python Enhancement Proposals (PEPs)
+    - https://context7.com/websites/peps_python/llms.txt
+- Supabase
+    - https://context7.com/websites/supabase_com-docs/llms.txt
+- MDN Web Docs
+    - https://context7.com/websites/developer_mozilla-en-us/llms.txt
+- PostgreSQL
+    - https://context7.com/websites/postgresql/llms.txt
+- The Flask Mega-Tutorial
+    - https://context7.com/websites/blog_miguelgrinberg-post/llms.txt
+- Psycopg 3
+    - https://www.psycopg.org/psycopg3/docs/
+- Supabase Py
+    - https://context7.com/supabase/supabase-py/llms.txt
