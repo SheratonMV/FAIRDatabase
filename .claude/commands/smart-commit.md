@@ -142,10 +142,77 @@ Migration required for existing clients"
 
 ## Post-Commit
 
-Display summary:
+### Push and Create PR
+```bash
+# Push to fork
+git push -u origin $(git branch --show-current)
+
+# Create PR to main branch in fork (NOT original repo)
+gh pr create \
+  --repo seijispieker/FAIRDatabase \
+  --base main \
+  --head $(git branch --show-current) \
+  --title "<generated from commits>" \
+  --body "<summary of changes>"
+```
+
+### CRITICAL: Fork Workflow
+```bash
+# ALWAYS verify you're creating PR in the fork
+gh pr list --repo seijispieker/FAIRDatabase
+
+# NEVER create PR to original repository
+# ❌ WRONG: gh pr create --repo SheratonMV/FAIRDatabase
+# ✅ RIGHT: gh pr create --repo seijispieker/FAIRDatabase
+```
+
+### PR Creation Logic
+1. **Target repository**: Always `seijispieker/FAIRDatabase`
+2. **Base branch**: `main` (in the fork)
+3. **Title generation**: From commit messages
+4. **Body content**:
+   - Summary of changes
+   - List of commits
+   - Breaking changes if any
+   - Testing status
+
+### Example PR Creation
+```bash
+# After commits are made
+current_branch=$(git branch --show-current)
+git push -u origin $current_branch
+
+# Generate PR title from last commit or branch name
+pr_title=$(git log -1 --pretty=%s)
+
+# Generate PR body from commit messages
+pr_body=$(cat <<EOF
+## Changes
+$(git log main..$current_branch --pretty="- %s")
+
+## Commits
+$(git log main..$current_branch --oneline)
+
+---
+Created from branch: $current_branch
+EOF
+)
+
+# Create PR in fork only
+gh pr create \
+  --repo seijispieker/FAIRDatabase \
+  --base main \
+  --head $current_branch \
+  --title "$pr_title" \
+  --body "$pr_body"
+```
+
+### Display Summary
 ```bash
 git log --oneline -n <number-of-commits>
-echo "Ready to push: git push -u origin $(git branch --show-current)"
+echo "Branch pushed to fork: seijispieker/FAIRDatabase"
+echo "PR created: $(gh pr view --repo seijispieker/FAIRDatabase --json url -q .url)"
 ```
 
 **Note**: Testing handled by CI/CD pipeline, not pre-commit.
+**IMPORTANT**: PRs are ONLY created within the fork. Never to SheratonMV/FAIRDatabase.
