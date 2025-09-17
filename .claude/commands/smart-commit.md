@@ -140,9 +140,11 @@ Migration required for existing clients"
 - Files properly grouped
 - Message follows convention
 
-## Post-Commit
+## Post-Commit (Automatic Execution)
 
 ### Push and Create PR
+**This section is automatically executed after commits are created.**
+
 ```bash
 # Push to fork
 git push -u origin $(git branch --show-current)
