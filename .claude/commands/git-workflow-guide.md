@@ -28,12 +28,14 @@ git commit -m "fix(api): resolve timeout issue"
 git commit -m "docs: update installation guide"
 ```
 
-### 3. Push & Create PR
+### 3. Push & Ask Before Creating PR
 ```bash
 # Push to your fork
 git push -u origin feature/your-branch
 
-# Create PR with GitHub CLI
+# IMPORTANT: Ask user before creating PR
+# Claude Code should say: "Would you like me to create a pull request for these changes?"
+# If user says yes, then create PR:
 gh pr create \
   --repo seijispieker/FAIRDatabase \
   --base main \
@@ -151,7 +153,9 @@ git commit -m "feat(models): add validation to User model"
 # 4. Push to fork
 git push -u origin feature/add-user-validation
 
-# 5. Create PR
+# 5. Ask before creating PR
+# Claude Code: "Would you like me to create a pull request for these changes?"
+# If user says yes:
 gh pr create \
   --repo seijispieker/FAIRDatabase \
   --base main \
@@ -162,7 +166,7 @@ gh pr create \
 
 Closes #42"
 
-# 6. View PR
+# 6. View PR (if created)
 gh pr view --web
 ```
 
