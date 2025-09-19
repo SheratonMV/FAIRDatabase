@@ -41,6 +41,18 @@ setup_node_environment() {
     # Change to project root for Node operations
     cd "$PROJECT_ROOT" || exit 1
 
+    # Update npm to latest version
+    log_info "Updating npm to latest version..."
+    npm install -g npm@latest || {
+        log_warn "Failed to update npm globally, trying with sudo..."
+        sudo npm install -g npm@latest || {
+            log_warn "Failed to update npm - continuing with current version"
+        }
+    }
+    # Check npm version after update
+    local npm_version=$(npm --version)
+    log_success "npm version: $npm_version"
+
     # Install project dependencies if package.json exists
     if [[ -f "package.json" ]]; then
         log_info "Installing Node.js dependencies..."
@@ -128,6 +140,7 @@ setup_git_configuration() {
     }
 
     # Check if Git user identity is configured
+    # Note: VS Code automatically copies .gitconfig from host to container
     local git_email=$(git config --global user.email 2>/dev/null)
     local git_name=$(git config --global user.name 2>/dev/null)
 
@@ -138,7 +151,8 @@ setup_git_configuration() {
         log_info "  git config --global user.email \"your.email@example.com\""
         log_info "  git config --global user.name \"Your Name\""
         log_info ""
-        log_info "This is required for making commits."
+        log_info "Note: If you have Git configured on your host machine,"
+        log_info "VS Code should have copied it automatically."
 
         # Create a reminder file that will be shown on terminal start
         cat > "$HOME/.git-config-reminder" << 'EOF'
@@ -148,6 +162,9 @@ Your Git identity is not configured. Please run:
 
   git config --global user.email "your.email@example.com"
   git config --global user.name "Your Name"
+
+Note: If you have Git configured on your host machine,
+VS Code should have copied it automatically.
 
 This message will disappear once configured.
 EOF
