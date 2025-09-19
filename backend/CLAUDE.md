@@ -86,10 +86,11 @@ UserData: TypeAlias = Dict[str, Any]
 ```
 backend/
 ├── CLAUDE.md                # This file
-├── pyproject.toml          # Project configuration (managed by UV)
-├── requirements.txt        # Generated dependencies (do not edit manually)
+├── pyproject.toml          # Project configuration and dependencies
+├── uv.lock                 # Lock file for reproducible builds
 ├── .env.example           # Environment variables template
 ├── .env                   # Local environment (never commit)
+├── .venv/                 # Virtual environment (auto-created by uv)
 │
 ├── app/                   # Main application package
 │   ├── __init__.py
@@ -574,6 +575,21 @@ async def fair_database_exception_handler(
     )
 ```
 
+## 🔍 Search & Analysis Guidelines
+
+### CRITICAL: Use Appropriate Tools
+```bash
+# ❌ NEVER use these:
+grep -r "pattern" .
+find . -name "*.py"
+
+# ✅ ALWAYS use these instead:
+rg "pattern"              # Use ripgrep
+rg --files -g "*.py"     # Find files with ripgrep
+```
+
+**Note**: This mirrors the root CLAUDE.md guidance. Always use ripgrep (`rg`) instead of grep for better performance and functionality.
+
 ## 🗄️ Database Standards
 
 ### SQLAlchemy Models
@@ -702,40 +718,51 @@ class BaseRepository(Generic[T]):
 
 ## 🛠️ Development Environment
 
-### Package Management with UV
+### Package Management with UV (Exclusive)
 ```bash
-# NEVER edit pyproject.toml dependencies manually
-# ALWAYS use UV commands
+# IMPORTANT: Use UV exclusively with pyproject.toml - NEVER use pip directly
 
 # Install UV (if not installed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Create virtual environment
-uv venv
+# Sync all dependencies (including dev)
+uv sync --all-groups
 
-# Activate environment (Linux/Mac)
-source .venv/bin/activate
-
-# Sync dependencies
+# Sync only production dependencies
 uv sync
 
-# Add production dependency
+# Add production dependencies
 uv add fastapi pydantic sqlalchemy
 
-# Add development dependency
-uv add --dev pytest pytest-cov pytest-asyncio black ruff mypy
+# Add development dependencies
+uv add --group dev pytest pytest-cov ruff mypy
 
-# Remove package
+# Remove dependencies
 uv remove package-name
 
 # Update all dependencies
 uv sync --upgrade
 
-# Run commands in environment
-uv run python app/main.py
+# List installed packages
+uv pip list
+
+# Run commands in virtual environment
+uv run python app.py
 uv run pytest
 uv run ruff check .
+uv run mypy src/
+
+# Or activate venv and run directly
+source .venv/bin/activate
+python app.py
+pytest
+ruff check .
 ```
+
+**Project Structure**:
+- `pyproject.toml` - Project configuration and dependencies
+- `uv.lock` - Lock file for reproducible builds (auto-generated, don't edit)
+- `.venv/` - Virtual environment (auto-created by uv)
 
 ### Environment Variables
 ```python
@@ -1003,10 +1030,10 @@ async def liveness_check():
 
 ### Before Committing
 - [ ] Write/update tests (minimum 80% coverage)
-- [ ] Run test suite: `uv run pytest`
-- [ ] Run linter: `uv run ruff check .`
-- [ ] Format code: `uv run ruff format .`
-- [ ] Type check: `uv run mypy app/`
+- [ ] Run test suite: `pytest` or `uv run pytest`
+- [ ] Run linter: `ruff check .` or `uv run ruff check .`
+- [ ] Format code: `ruff format .` or `uv run ruff format .`
+- [ ] Type check: `mypy app/` or `uv run mypy app/`
 - [ ] Update documentation if needed
 - [ ] Ensure no secrets in code
 

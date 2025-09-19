@@ -37,10 +37,7 @@ Steps to set up and use the Microbiome FAIR Database locally.
 
 ### Supabase and Docker setup
 
-1. Download and install Docker:
-    ```bash
-    pip install docker
-    ```
+1. Download and install Docker Desktop from https://www.docker.com/products/docker-desktop/
 
 2. Clone the Supabase repository:
     ```bash
@@ -106,15 +103,14 @@ Assuming the current working directory is the root of the project:
     cd backend
     ```
 
-2. Highly recommended to set up a virtual environment:
+2. Sync dependencies using uv (automatically creates virtual environment):
     ```bash
-    python3 -m venv venv
-    source venv/bin/activate
+    uv sync --all-groups
     ```
 
-3. Install the dependencies:
+3. Activate the virtual environment (optional, uv run handles this automatically):
     ```bash
-    pip install -r requirements.txt
+    source .venv/bin/activate
     ```
 
 4. Set up the environment:
