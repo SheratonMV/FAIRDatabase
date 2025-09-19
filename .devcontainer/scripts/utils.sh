@@ -244,23 +244,15 @@ service_running() {
     fi
 }
 
-# Wait for service to be ready with timeout
+# Wait for service to be ready (no timeout)
 wait_for_service() {
     local service="$1"
     local check_command="$2"
-    local timeout="${3:-30}"
-    local elapsed=0
 
-    log_info "Waiting for $service to be ready (timeout: ${timeout}s)..."
+    log_info "Waiting for $service to be ready..."
 
     while ! eval "$check_command" &> /dev/null; do
-        if [[ $elapsed -ge $timeout ]]; then
-            log_error "Timeout waiting for $service after ${timeout}s"
-            return 1
-        fi
-
         sleep 1
-        ((elapsed++))
         echo -n "."
     done
 
