@@ -102,9 +102,9 @@ python app.py
 ```bash
 # Python development
 cd backend
-uv pip install -r requirements.txt
-uv pip install -r requirements-dev.txt
-pytest
+uv sync --all-groups  # Sync all dependencies
+uv run pytest         # Run tests
+uv run python app.py  # Run the application
 
 # Linting and formatting
 ruff check .

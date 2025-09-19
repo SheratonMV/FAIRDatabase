@@ -1,5 +1,14 @@
 # DevContainer Configuration Guide
 
+## Naming Conventions
+
+### Shell Scripts
+All shell scripts MUST use **kebab-case** (dash-separated lowercase) naming:
+- ✅ Correct: `post-create.sh`, `mcp-setup.sh`, `validate-setup.sh`
+- ❌ Incorrect: `postCreate.sh`, `post_create.sh`, `PostCreate.sh`
+
+This is the standard convention for shell scripts and ensures consistency across the project.
+
 ## Claude Code and MCP Integration
 
 ### Claude Code CLI
@@ -16,9 +25,9 @@ Serena provides semantic code analysis tools:
 - **Multi-language Support**: Works with 20+ programming languages
 
 ### Setup Process
-1. **postCreate.sh**: Installs Claude Code CLI via npm or native installer
+1. **post-create.sh**: Installs Claude Code CLI via npm or native installer
 2. **mcp-setup.sh**: Configures Serena MCP server for the project
-3. **postStart.sh**: Runs MCP setup on container start
+3. **post-start.sh**: Runs MCP setup on container start
 
 ### Manual MCP Commands
 ```bash
@@ -34,6 +43,54 @@ claude mcp remove serena
 # Check Claude Code health
 claude doctor
 ```
+
+## Python Package Management
+
+### Using uv Exclusively with pyproject.toml
+
+This devcontainer uses **uv** as the exclusive Python package manager with a modern pyproject.toml configuration. Do NOT use pip directly.
+
+**uv Commands to Use**:
+```bash
+# Sync all dependencies (including dev)
+uv sync --all-groups
+
+# Sync only production dependencies
+uv sync
+
+# Add a new production dependency
+uv add flask sqlalchemy
+
+# Add a development dependency
+uv add --group dev pytest ruff
+
+# Remove a dependency
+uv remove package-name
+
+# Update all dependencies
+uv sync --upgrade
+
+# List installed packages
+uv pip list
+
+# Run commands in the virtual environment
+uv run python app.py
+uv run pytest
+uv run ruff check .
+```
+
+**Key Benefits**:
+- Lightning-fast dependency resolution
+- Automatic virtual environment management
+- Lock file for reproducible builds (uv.lock)
+- Modern pyproject.toml configuration
+- Native support for dependency groups
+
+**Never Use**:
+- `pip install ...` (use `uv add` instead)
+- `python -m pip ...` (use `uv` commands instead)
+- `pip3 ...` (use `uv` commands instead)
+- `requirements.txt` (managed via pyproject.toml now)
 
 ## Base Image
 

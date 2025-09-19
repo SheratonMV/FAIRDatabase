@@ -3,17 +3,12 @@
   "image": "mcr.microsoft.com/devcontainers/python:3.13",
 
   "features": {
-    // Python tooling
     "ghcr.io/devcontainers-extra/features/uv:1": {},
     "ghcr.io/devcontainers-extra/features/ruff:1": {},
-
-    // Infrastructure
     "ghcr.io/devcontainers/features/docker-in-docker:2": {
       "moby": false
     },
     "ghcr.io/devcontainers/features/node:1": {},
-
-    // Development tools
     "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/devcontainers-extra/features/ripgrep:1": {}
   },
@@ -21,33 +16,22 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        // Python Development
         "ms-python.python",
         "ms-python.vscode-pylance",
         "ms-python.debugpy",
         "ms-python.vscode-python-envs",
         "charliermarsh.ruff",
-
-        // AI Assistance
         "Anthropic.claude-code",
         "GitHub.copilot",
         "GitHub.copilot-chat",
-
-        // Database (Supabase + PostgreSQL)
         "Supabase.vscode-supabase-extension",
         "mtxr.sqltools",
         "mtxr.sqltools-driver-pg",
-
-        // Git & GitHub
         "mhutchie.git-graph",
         "GitHub.vscode-pull-request-github",
         "GitHub.vscode-github-actions",
-
-        // Container Development
         "ms-vscode-remote.remote-containers",
         "ms-azuretools.vscode-docker",
-
-        // Configuration
         "redhat.vscode-yaml",
         "mikestead.dotenv",
         "editorconfig.editorconfig"
@@ -55,8 +39,8 @@
     }
   },
 
-  "postCreateCommand": ".devcontainer/scripts/postCreate.sh",
-  "postStartCommand": ".devcontainer/scripts/postStart.sh",
+  "postCreateCommand": ".devcontainer/scripts/post-create.sh",
+  "postStartCommand": ".devcontainer/scripts/post-start.sh",
 
   "forwardPorts": [5000, 54321, 54323],
   "portsAttributes": {
