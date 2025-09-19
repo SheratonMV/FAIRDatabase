@@ -17,6 +17,13 @@ source "${SCRIPT_DIR}/utils.sh"
 main() {
     log_section "🎯 FAIRDatabase DevContainer - Startup"
 
+    # Check for Git configuration reminder
+    if [[ -f "$HOME/.git-config-reminder" ]]; then
+        echo ""
+        cat "$HOME/.git-config-reminder"
+        echo ""
+    fi
+
     # Start essential services
     start_supabase_services
 
@@ -53,21 +60,48 @@ start_supabase_services() {
     fi
 
     # Check if Supabase is already running
-    if service_running "Supabase" "npx supabase status 2>/dev/null | grep -q RUNNING"; then
+    if npx supabase status &>/dev/null; then
         log_success "Supabase services are already running"
-    else
-        log_info "Starting Supabase services (this may take a moment)..."
-
-        # Start Supabase with timeout handling
-        if timeout 60 npx supabase start 2>&1 | tee /tmp/supabase-start.log; then
-            log_success "Supabase services started successfully"
-        else
-            log_warn "Supabase services failed to start"
-            log_info "Check logs at /tmp/supabase-start.log"
-            log_info "Start manually with: npx supabase start"
-            # Non-fatal - continue startup
-        fi
+        return 0
     fi
+
+    log_info "Starting Supabase services..."
+    log_info "First startup requires downloading Docker images (~1.5GB) - this may take several minutes..."
+
+    # Start Supabase in background and capture the output
+    # No timeout - let it take as long as needed
+    (
+        npx supabase start > /tmp/supabase-start.log 2>&1
+        echo $? > /tmp/supabase-start-exit-code
+    ) &
+    local supabase_pid=$!
+
+    # Wait for startup with progress indicator (no timeout)
+    local wait_time=0
+
+    while true; do
+        if ! kill -0 $supabase_pid 2>/dev/null; then
+            # Process finished
+            local exit_code=$(cat /tmp/supabase-start-exit-code 2>/dev/null || echo "1")
+            if [ "$exit_code" -eq 0 ]; then
+                log_success "Supabase services started successfully"
+                return 0
+            else
+                log_warn "Supabase startup completed with issues"
+                log_info "Check logs at /tmp/supabase-start.log"
+                log_info "You can retry with: npx supabase start"
+                return 1
+            fi
+        fi
+
+        # Show progress
+        if [ $((wait_time % 10)) -eq 0 ]; then
+            echo -n "."
+        fi
+
+        sleep 1
+        ((wait_time++))
+    done
 }
 
 # -----------------------------------------------------------------------------
@@ -128,8 +162,8 @@ display_service_urls() {
     log_section "🌐 Service URLs"
 
     echo "  Flask Backend:    http://localhost:5000"
-    echo "  Supabase Studio:  http://localhost:54321"
-    echo "  Supabase API:     http://localhost:54323"
+    echo "  Supabase Studio:  http://localhost:54323"
+    echo "  Supabase API:     http://localhost:54321"
     echo ""
 }
 

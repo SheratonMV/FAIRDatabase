@@ -83,6 +83,9 @@ setup_python_environment() {
         exit 1
     fi
 
+    # Set UV link mode to copy to avoid hardlink warnings in containers
+    export UV_LINK_MODE=copy
+
     # Sync all Python dependencies using uv
     log_info "Syncing Python dependencies with uv..."
     uv sync --all-groups || {
@@ -124,12 +127,43 @@ setup_git_configuration() {
         # Non-fatal - continue setup
     }
 
+    # Check if Git user identity is configured
+    local git_email=$(git config --global user.email 2>/dev/null)
+    local git_name=$(git config --global user.name 2>/dev/null)
+
+    if [[ -z "$git_email" ]] || [[ -z "$git_name" ]]; then
+        log_warn "Git user identity not configured!"
+        log_info ""
+        log_info "Please configure your Git identity by running:"
+        log_info "  git config --global user.email \"your.email@example.com\""
+        log_info "  git config --global user.name \"Your Name\""
+        log_info ""
+        log_info "This is required for making commits."
+
+        # Create a reminder file that will be shown on terminal start
+        cat > "$HOME/.git-config-reminder" << 'EOF'
+⚠️  Git Configuration Required
+─────────────────────────────
+Your Git identity is not configured. Please run:
+
+  git config --global user.email "your.email@example.com"
+  git config --global user.name "Your Name"
+
+This message will disappear once configured.
+EOF
+    else
+        # Remove reminder file if it exists and Git is configured
+        rm -f "$HOME/.git-config-reminder"
+        log_success "Git identity configured: $git_name <$git_email>"
+    fi
+
     # Set up useful Git aliases (optional)
     git config --global alias.st "status --short" 2>/dev/null || true
     git config --global alias.co "checkout" 2>/dev/null || true
     git config --global alias.br "branch" 2>/dev/null || true
+    git config --global alias.lg "log --oneline --graph --decorate" 2>/dev/null || true
 
-    log_success "Git configured"
+    log_success "Git configuration complete"
 }
 
 # -----------------------------------------------------------------------------
