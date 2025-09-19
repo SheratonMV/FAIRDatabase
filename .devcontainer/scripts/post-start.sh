@@ -90,27 +90,35 @@ start_supabase_services() {
 }
 
 # -----------------------------------------------------------------------------
-# MCP SERVER SETUP
+# SERENA MCP SETUP FOR CLAUDE CODE
 # -----------------------------------------------------------------------------
 
 setup_mcp_servers() {
-    log_info "Configuring MCP servers for AI assistance..."
+    log_info "Configuring Serena MCP for Claude Code..."
 
-    local mcp_script="${SCRIPTS_DIR}/mcp-setup.sh"
+    # Check if Claude Code is installed
+    if ! command_exists "claude"; then
+        log_warn "Claude Code not found - skipping Serena MCP setup"
+        return 0
+    fi
 
-    if [[ -x "$mcp_script" ]]; then
-        # Run MCP setup in background to avoid blocking startup
-        (
-            bash "$mcp_script" &> /tmp/mcp-setup.log || {
-                log_warn "MCP setup encountered issues"
-                log_info "Check logs at /tmp/mcp-setup.log"
-                log_info "Run manually with: ${mcp_script}"
-            }
-        ) &
+    # Check if Serena is already configured
+    if claude mcp list 2>/dev/null | grep -q "serena"; then
+        log_success "Serena MCP already configured"
+        return 0
+    fi
 
-        log_info "MCP setup running in background - check 'claude mcp list' shortly"
+    # Add Serena MCP server for semantic code analysis
+    log_info "Adding Serena semantic code analysis..."
+    if claude mcp add serena -- uvx --from git+https://github.com/oraios/serena \
+        serena start-mcp-server --context ide-assistant --project "$PROJECT_ROOT" &>/dev/null; then
+        log_success "Serena MCP configured successfully"
+        log_info "Use 'claude mcp list' to verify connection"
     else
-        log_debug "MCP setup script not found or not executable: $mcp_script"
+        log_warn "Failed to configure Serena MCP"
+        log_info "Configure manually with:"
+        log_info "  claude mcp add serena -- uvx --from git+https://github.com/oraios/serena \\"
+        log_info "    serena start-mcp-server --context ide-assistant --project $PROJECT_ROOT"
     fi
 }
 
