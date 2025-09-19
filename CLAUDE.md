@@ -4,6 +4,8 @@ This file provides comprehensive guidance to Claude Code when working with the F
 
 ## 📋 Project Overview
 
+**Current Date**: September 2025
+
 FAIRDatabase is a system designed to implement FAIR data principles (Findable, Accessible, Interoperable, and Reusable) for managing research data. The project consists of a Flask backend and a web-based frontend.
 
 ### Hierarchical Documentation Structure
