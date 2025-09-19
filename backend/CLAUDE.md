@@ -88,71 +88,49 @@ backend/
 ├── CLAUDE.md                # This file
 ├── pyproject.toml          # Project configuration and dependencies
 ├── uv.lock                 # Lock file for reproducible builds
-├── .env.example           # Environment variables template
-├── .env                   # Local environment (never commit)
+├── pytest.ini              # Pytest configuration
+├── app.py                  # Flask application entry point
+├── config.py               # Configuration settings
 ├── .venv/                 # Virtual environment (auto-created by uv)
 │
-├── app/                   # Main application package
+├── src/                   # Main application package
 │   ├── __init__.py
-│   ├── main.py           # FastAPI/Flask application entry point
-│   │
-│   ├── api/              # API endpoints
+│   ├── auth/              # Authentication module
 │   │   ├── __init__.py
-│   │   ├── v1/           # API version 1
-│   │   │   ├── __init__.py
-│   │   │   ├── endpoints/
-│   │   │   │   ├── users.py
-│   │   │   │   └── auth.py
-│   │   │   └── dependencies.py
-│   │   └── health.py     # Health check endpoints
+│   │   ├── routes.py
+│   │   ├── helpers.py
+│   │   ├── decorators.py
+│   │   └── form.py
 │   │
-│   ├── core/             # Core functionality
+│   ├── dashboard/         # Dashboard module
 │   │   ├── __init__.py
-│   │   ├── config.py     # Settings management (Pydantic)
-│   │   ├── security.py   # Security utilities
-│   │   ├── database.py   # Database connection
-│   │   └── exceptions.py # Custom exceptions
+│   │   ├── routes.py
+│   │   └── helpers.py
 │   │
-│   ├── models/           # Database models
+│   ├── data/              # Data management module
 │   │   ├── __init__.py
-│   │   ├── base.py       # Base model class
-│   │   ├── user.py
-│   │   └── mixins.py     # Reusable model mixins
+│   │   ├── routes.py
+│   │   ├── helpers.py
+│   │   └── form.py
 │   │
-│   ├── schemas/          # Pydantic schemas
+│   ├── main/              # Main module
 │   │   ├── __init__.py
-│   │   ├── user.py
-│   │   └── common.py     # Shared schemas
+│   │   ├── routes.py
+│   │   └── helpers.py
 │   │
-│   ├── services/         # Business logic
+│   ├── privacy/           # Privacy module
 │   │   ├── __init__.py
-│   │   ├── auth.py
-│   │   └── user.py
+│   │   ├── routes.py
+│   │   ├── helpers.py
+│   │   └── form.py
 │   │
-│   └── utils/            # Utilities
-│       ├── __init__.py
-│       ├── validators.py
-│       └── helpers.py
+│   ├── exceptions.py      # Custom exceptions
+│   └── form_handler.py    # Form handling utilities
 │
-├── tests/                # Test suite (mirrors app structure)
-│   ├── __init__.py
-│   ├── conftest.py      # Pytest fixtures
-│   ├── test_main.py
-│   ├── api/
-│   │   └── v1/
-│   │       └── test_users.py
-│   ├── services/
-│   │   └── test_auth.py
-│   └── utils/
-│       └── test_validators.py
-│
-├── migrations/           # Database migrations (Alembic)
-│   ├── alembic.ini
-│   └── versions/
-│
-└── scripts/             # Utility scripts
-    ├── init_db.py
-    └── seed_data.py
+└── tests/                # Test suite
+    ├── __init__.py
+    ├── conftest.py      # Pytest fixtures
+    └── test_*.py        # Test files
 ```
 
 ## 📝 Documentation Standards

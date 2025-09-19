@@ -1,6 +1,6 @@
 # CLAUDE.md - Frontend Development Guide
 
-This document provides specific guidance for working with the FAIRDatabase frontend.
+This file provides comprehensive frontend-specific guidance for the FAIRDatabase project. It extends the root CLAUDE.md with frontend-specific conventions and standards.
 
 ## 📋 Frontend Overview
 

@@ -47,11 +47,12 @@ When principles conflict, apply this precedence:
 
 ## 🔧 Technology Stack
 
-### Current Stack (Subject to Overhaul)
+### Current Stack
 - **Backend**: Python with Flask framework
-- **Database**: TBD (review existing docker-compose.yml)
+- **Database**: Supabase (PostgreSQL)
 - **Frontend**: HTML templates with static assets
 - **Testing**: pytest framework
+- **Package Management**: uv with pyproject.toml
 
 ### Important Notes
 - The current codebase is NOT compliant with all standards defined in this document
@@ -80,13 +81,15 @@ FAIRDatabase/
 ├── backend/
 │   ├── CLAUDE.md          # Python-specific conventions
 │   ├── src/               # Application source code
-│   ├── tests/             # Test files next to code
-│   └── requirements.txt   # Python dependencies
+│   ├── tests/             # Test files
+│   └── pyproject.toml     # Python dependencies (managed by uv)
 ├── frontend/
 │   ├── CLAUDE.md          # Frontend-specific conventions
 │   ├── templates/         # HTML templates
 │   └── public/            # Static assets
-├── docs/                  # Documentation
+├── supabase/              # Supabase configuration
+├── static/                # Additional static assets
+├── .devcontainer/         # Dev container configuration
 ├── .github/               # GitHub workflows
 └── CLAUDE.md             # This file
 ```
