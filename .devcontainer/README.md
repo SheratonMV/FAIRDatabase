@@ -13,6 +13,8 @@ Development container for FAIRDatabase with comprehensive tooling and Supabase s
 1. Open the project in VS Code
 2. When prompted, click "Reopen in Container"
 3. Wait for the container to build and start
+4. **First startup**: Supabase will download ~1.5GB of Docker images - this may take 5-10 minutes
+5. Container startup will block until Supabase is fully operational
 
 ### Using DevContainer CLI
 
@@ -83,19 +85,28 @@ The following ports are automatically forwarded:
 
 ### Initial Setup
 ```bash
-# The container runs these automatically:
+# The container runs these automatically during startup:
 # 1. Installs Node dependencies
 # 2. Installs Supabase CLI
-# 3. Sets up Python environment
-# 4. Creates .env from sample
+# 3. Sets up Python environment with uv
+# 4. Downloads and starts Supabase (blocks until complete)
+# 5. Configures Claude Code and Serena MCP server
 
-# Start Supabase (if not already running)
-npx supabase start
+# Check Supabase status (should be running)
+npx supabase status
 
 # Run Flask backend
 cd backend
-python app.py
+uv run python app.py
 ```
+
+### Startup Behavior
+The devcontainer startup process:
+1. **Post-create**: Installs all dependencies and tools
+2. **Post-start**: Starts Supabase services (blocking)
+3. **Container ready**: All services operational
+
+⚠️ **Important**: The container will not be marked as ready until Supabase has fully downloaded and started. This ensures a complete development environment.
 
 ### Common Commands
 
@@ -122,6 +133,13 @@ git commit -m "message"
 ```
 
 ## Troubleshooting
+
+### Startup Timeout
+If the devcontainer startup appears to hang:
+1. **Normal behavior**: First startup downloads ~1.5GB of Supabase images
+2. **Expected time**: 5-10 minutes on first run
+3. **Progress**: Check VS Code terminal for download progress
+4. **Logs**: Monitor `/tmp/supabase-start.log` in the container
 
 ### Build Timeout
 If the full devcontainer build times out:
