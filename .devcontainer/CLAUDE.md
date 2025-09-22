@@ -9,41 +9,6 @@ All shell scripts MUST use **kebab-case** (dash-separated lowercase) naming:
 
 This is the standard convention for shell scripts and ensures consistency across the project.
 
-## Claude Code and MCP Integration
-
-### Claude Code CLI
-The devcontainer automatically installs Claude Code CLI, providing:
-- Command-line interface for Claude AI assistance
-- Integration with MCP (Model Context Protocol) servers
-- Enhanced code understanding and generation capabilities
-
-### Serena MCP Server
-Serena provides semantic code analysis tools:
-- **Symbolic Code Navigation**: Navigate code by symbols, not just text
-- **Semantic Editing**: Edit code at the symbol level (classes, functions, methods)
-- **Efficient Exploration**: Avoid reading entire files unnecessarily
-- **Multi-language Support**: Works with 20+ programming languages
-
-### Setup Process
-1. **post-create.sh**: Installs Claude Code CLI via npm or native installer
-2. **mcp-setup.sh**: Configures Serena MCP server for the project
-3. **post-start.sh**: Runs MCP setup on container start
-
-### Manual MCP Commands
-```bash
-# Check MCP server status
-claude mcp list
-
-# Add Serena manually if needed
-claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context ide-assistant --project $(pwd)
-
-# Remove an MCP server
-claude mcp remove serena
-
-# Check Claude Code health
-claude doctor
-```
-
 ## Python Package Management
 
 ### Using uv Exclusively with pyproject.toml
