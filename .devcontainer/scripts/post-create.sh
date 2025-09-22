@@ -21,14 +21,35 @@ main() {
     validate_environment || exit 1
 
     # Each setup step is independent and can fail fast
-    setup_node_environment
-    setup_python_environment
-    setup_development_tools
-    setup_git_configuration
-    setup_environment_files
+    setup_node_environment || {
+        log_error "Node environment setup failed"
+        exit 1
+    }
+
+    setup_python_environment || {
+        log_error "Python environment setup failed"
+        exit 1
+    }
+
+    setup_development_tools || {
+        log_warn "Development tools setup had issues but continuing"
+        # Don't exit - development tools are optional
+    }
+
+    setup_git_configuration || {
+        log_warn "Git configuration had issues but continuing"
+        # Don't exit - Git config is optional
+    }
+
+    setup_environment_files || {
+        log_warn "Environment files setup had issues but continuing"
+        # Don't exit - env files may already exist
+    }
 
     log_section "✅ Initial Setup Complete"
     log_info "Container is ready for development"
+
+    return 0
 }
 
 # -----------------------------------------------------------------------------
@@ -190,8 +211,14 @@ EOF
 setup_environment_files() {
     log_info "Setting up environment files..."
 
+    # Save current directory
+    local original_dir=$(pwd)
+
     # Change to backend directory for .env setup
-    cd "$BACKEND_DIR" || exit 1
+    cd "$BACKEND_DIR" || {
+        log_error "Failed to change to backend directory"
+        return 1
+    }
 
     # Create .env from sample if needed
     if [[ ! -f ".env" ]] && [[ -f ".env.sample" ]]; then
@@ -204,8 +231,13 @@ setup_environment_files() {
         log_warn "No .env.sample found - create .env manually if needed"
     fi
 
-    # Return to project root
-    cd "$PROJECT_ROOT" || exit 1
+    # Return to original directory
+    cd "$original_dir" || {
+        log_warn "Could not return to original directory, going to project root"
+        cd "$PROJECT_ROOT" || return 1
+    }
+
+    return 0
 }
 
 # -----------------------------------------------------------------------------
