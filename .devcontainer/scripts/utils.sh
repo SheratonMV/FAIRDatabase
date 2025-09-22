@@ -265,7 +265,7 @@ wait_for_service() {
 # CLAUDE CODE SPECIFIC
 # -----------------------------------------------------------------------------
 
-# Install Claude Code CLI with proper error handling
+# Install Claude Code CLI via npm
 install_claude_code() {
     if command_exists "claude"; then
         log_success "Claude Code is already installed: $(claude --version 2>&1 | head -1)"
@@ -274,23 +274,19 @@ install_claude_code() {
 
     log_info "Installing Claude Code CLI..."
 
-    # Try npm installation first (preferred)
-    if command_exists "npm"; then
-        if npm install -g @anthropic-ai/claude-code 2>/dev/null; then
-            log_success "Claude Code installed via npm"
-        else
-            log_warn "npm installation failed, trying native installer..."
-
-            # Fallback to native installer
-            if curl -fsSL https://claude.ai/install.sh | bash; then
-                log_success "Claude Code installed via native installer"
-            else
-                log_error "Failed to install Claude Code CLI"
-                return 1
-            fi
-        fi
-    else
+    # Require npm for installation
+    if ! command_exists "npm"; then
         log_error "npm is not available and required for Claude Code installation"
+        log_info "Please install npm first"
+        return 1
+    fi
+
+    # Install via npm
+    if npm install -g @anthropic-ai/claude-code 2>/dev/null; then
+        log_success "Claude Code installed via npm"
+    else
+        log_error "Failed to install Claude Code CLI via npm"
+        log_info "Try manually: npm install -g @anthropic-ai/claude-code"
         return 1
     fi
 

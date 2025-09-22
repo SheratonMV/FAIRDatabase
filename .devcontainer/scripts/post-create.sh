@@ -65,10 +65,7 @@ setup_node_environment() {
     # Update npm to latest version
     log_info "Updating npm to latest version..."
     npm install -g npm@latest || {
-        log_warn "Failed to update npm globally, trying with sudo..."
-        sudo npm install -g npm@latest || {
-            log_warn "Failed to update npm - continuing with current version"
-        }
+        log_warn "Failed to update npm - continuing with current version"
     }
     # Check npm version after update
     local npm_version=$(npm --version)
@@ -81,19 +78,10 @@ setup_node_environment() {
             log_error "Failed to install Node.js dependencies"
             exit 1
         }
-        log_success "Node.js dependencies installed"
+        log_success "Node.js dependencies installed (including Supabase CLI)"
     else
         log_debug "No package.json found, skipping Node dependency installation"
     fi
-
-    # Install Supabase CLI as dev dependency
-    log_info "Installing Supabase CLI..."
-    npm install -D supabase || {
-        log_error "Failed to install Supabase CLI"
-        log_info "You can install it manually with: npm install -D supabase"
-        exit 1
-    }
-    log_success "Supabase CLI installed"
 }
 
 # -----------------------------------------------------------------------------

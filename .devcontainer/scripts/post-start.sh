@@ -20,6 +20,12 @@ source "${SCRIPT_DIR}/utils.sh"
 main() {
     log_section "🎯 FAIRDatabase DevContainer - Startup"
 
+    # Check Claude availability once at startup
+    CLAUDE_AVAILABLE=false
+    if command_exists "claude"; then
+        CLAUDE_AVAILABLE=true
+    fi
+
     # Check for Git configuration reminder
     if [[ -f "$HOME/.git-config-reminder" ]]; then
         echo ""
@@ -96,8 +102,8 @@ start_supabase_services() {
 setup_mcp_servers() {
     log_info "Configuring Serena MCP for Claude Code..."
 
-    # Check if Claude Code is installed
-    if ! command_exists "claude"; then
+    # Use the pre-checked Claude availability
+    if [[ "$CLAUDE_AVAILABLE" != "true" ]]; then
         log_warn "Claude Code not found - skipping Serena MCP setup"
         return 0
     fi
@@ -177,7 +183,8 @@ display_quick_commands() {
     echo "  uv pip list                         # List packages"
     echo ""
 
-    if command_exists "claude"; then
+    # Use the pre-checked Claude availability
+    if [[ "$CLAUDE_AVAILABLE" == "true" ]]; then
         echo "AI Assistant:"
         echo "  claude                              # Get AI help"
         echo "  claude mcp list                     # List MCP servers"
