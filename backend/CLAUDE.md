@@ -557,16 +557,15 @@ async def fair_database_exception_handler(
 
 ### CRITICAL: Use Appropriate Tools
 ```bash
-# ❌ NEVER use these:
-grep -r "pattern" .
-find . -name "*.py"
+# Use grep with appropriate flags for better results
+grep -r "pattern" .       # Recursive search
+grep -l "pattern" *.py    # List matching files
 
-# ✅ ALWAYS use these instead:
-rg "pattern"              # Use ripgrep
-rg --files -g "*.py"     # Find files with ripgrep
+# Find files efficiently
+find . -name "*.py"       # Find Python files
 ```
 
-**Note**: This mirrors the root CLAUDE.md guidance. Always use ripgrep (`rg`) instead of grep for better performance and functionality.
+**Note**: While grep is available, consider using IDE search features or language-specific tools when appropriate for better performance and functionality.
 
 ## 🗄️ Database Standards
 

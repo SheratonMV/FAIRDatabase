@@ -1,126 +1,125 @@
 # CLAUDE.md - FAIRDatabase Project Guide
 
-This file provides comprehensive guidance to Claude Code when working with the FAIRDatabase repository.
-
 ## 📋 Project Overview
 
-**Current Date**: September 2025
+FAIRDatabase implements FAIR data principles (Findable, Accessible, Interoperable, Reusable) for research data management using Flask backend and web frontend.
 
-FAIRDatabase is a system designed to implement FAIR data principles (Findable, Accessible, Interoperable, and Reusable) for managing research data. The project consists of a Flask backend and a web-based frontend.
-
-### Hierarchical Documentation Structure
-
-- **Root CLAUDE.md (this file)**: Contains general project-wide conventions, principles, and workflows
-- **Subdirectory CLAUDE.md files**: Contain context-specific guidance (e.g., `backend/CLAUDE.md` for Python-specific conventions)
-- Always check for local CLAUDE.md files when working in subdirectories
+**Documentation Hierarchy**:
+- Root CLAUDE.md: Project-wide conventions and principles
+- Subdirectory CLAUDE.md files: Context-specific guidance
+- Always check for local CLAUDE.md files in subdirectories
+- **When making code changes**: Update relevant CLAUDE.md if the change affects patterns, workflows, or conventions
 
 ## 🎯 Core Development Philosophy
 
-### Primary Principles (from PRINCIPLES.md)
+**Start simple. Add complexity only when proven necessary.**
 
-#### 1. Single Responsibility Principle (SRP)
-Every module, class, or function should do ONE thing well. When describing what it does, you should be able to do so without using "and" or "or".
+### Primary Principles (Always Apply)
 
-#### 2. DRY (Don't Repeat Yourself)
-Every piece of knowledge must have a single, unambiguous, authoritative representation within a system. Duplication is acceptable only when the duplicated code might change independently.
+#### KISS - Keep It Simple, Stupid
+The simplest working solution is usually the best. Complexity must be justified by actual need, not anticipated futures.
 
-#### 3. Clean Code Readability
-Code should clearly express intent. Another developer should understand what it does, why it exists, and how to modify it without extensive documentation.
+#### YAGNI - You Aren't Gonna Need It
+Build only what's required now. Future-proofing without clear requirements creates unnecessary complexity.
 
-#### 4. Dependency Inversion Principle
-High-level modules should not depend on low-level modules. Both should depend on abstractions. This enables testing, flexibility, and maintainability.
+#### DRY - Don't Repeat Yourself
+Knowledge should have a single, authoritative representation. But remember: duplication is better than the wrong abstraction.
 
-#### 5. Open/Closed Principle
-Software entities should be open for extension but closed for modification. Add new functionality by adding new code, not by changing existing code that works.
+#### Single Responsibility
+Each component does one thing well. If you need "and" to describe it, split it.
 
-#### 6. Fail Fast and Explicitly
-Detect and report errors as early as possible. Fail with clear, actionable error messages at the point of failure, not later when debugging becomes difficult.
+#### Fail Fast
+Detect and report errors immediately with clear messages. Don't let problems propagate silently.
 
-### Priority Order for Conflicting Principles
+#### Explicit Over Implicit
+Code should clearly express intent. No magic, no surprises. Reading code should reveal its purpose.
 
-When principles conflict, apply this precedence:
-1. **Security** - Never compromise on security
-2. **Correctness** - Working code over elegant code
-3. **Maintainability** - Future developers over current convenience
-4. **Performance** - Optimize only after measuring
-5. **Features** - Core functionality before nice-to-haves
+### Design Principles (Apply with Context)
+
+#### Rule of Three
+1. First instance: write inline
+2. Second instance: duplicate it
+3. Third instance: consider abstracting
+
+#### Least Astonishment
+Code should behave as developers expect. Follow conventions. Avoid clever tricks.
+
+#### Separation of Concerns
+Different aspects (data, logic, presentation) in different places. Mix responsibilities only when simplicity demands it.
+
+#### Convention Over Configuration
+Use sensible defaults. Configure only what differs from the norm.
+
+### FAIR Data Principles (When Handling Research Data)
+
+- **Findable**: Persistent identifiers and metadata
+- **Accessible**: Clear retrieval protocols
+- **Interoperable**: Standard formats and vocabularies
+- **Reusable**: Licenses and provenance
+
+### 🚫 Anti-Patterns
+
+Avoid these signs of overengineering:
+- Abstractions with single implementations
+- Indirection without purpose
+- Premature optimization without measurements
+- Features beyond requirements
+- Frameworks when standard library suffices
+
+### ✅ Progressive Complexity
+
+Start left, move right only when needed:
+```
+Function → Class → Module → Package
+Dictionary → DataClass → Domain Model
+Direct Call → Callback → Event System
+Hardcoded → Config → Environment Variable
+```
+
+### Decision Framework
+
+Ask in order:
+1. Can it be simpler?
+2. Is complexity warranted? (Document why)
+3. Can this decision be deferred?
+
+When principles conflict: **Correct > Simple > Clean > Flexible**
+
+Remember: The best code is code that doesn't exist. The second best is simple code that works.
 
 ## 🔧 Technology Stack
 
-### Current Stack
-- **Backend**: Python with Flask framework
+- **Backend**: Python/Flask (may migrate to FastAPI)
 - **Database**: Supabase (PostgreSQL)
 - **Frontend**: HTML templates with static assets
-- **Testing**: pytest framework
+- **Testing**: pytest
 - **Package Management**: uv with pyproject.toml
 
-### Important Notes
-- The current codebase is NOT compliant with all standards defined in this document
-- Major refactoring is expected; prioritize new code quality over matching existing patterns
-- When in doubt, follow the principles in this document rather than existing code patterns
+**Note**: Existing code may not follow these standards. Prioritize principles over existing patterns.
 
-## 📝 Git Workflow & Repository Management
+## 📝 Git Workflow
 
-### Critical Fork Information
-```
-Original Repository: https://github.com/SheratonMV/FAIRDatabase
-Forked Repository:   https://github.com/seijispieker/FAIRDatabase (current)
-```
+**Fork Information**:
+- Original: `https://github.com/SheratonMV/FAIRDatabase`
+- Working Fork: `https://github.com/seijispieker/FAIRDatabase` (current)
 
-### IMPORTANT Git Rules
-- **NEVER** push directly to `SheratonMV/FAIRDatabase`
-- **NEVER** create pull requests to the original repository without explicit user instruction
-- **ALWAYS** work within the fork (`seijispieker/FAIRDatabase`)
-- Default remote should be set to the fork, not the original
+**Rules**:
+- Never push to original repository
+- Never create PRs to original without explicit instruction
+- Always work in fork
 
-## 📁 Project Structure Guidelines
+## 📁 Project Structure
 
-### File Organization
 ```
 FAIRDatabase/
-├── backend/
-│   ├── CLAUDE.md          # Python-specific conventions
-│   ├── src/               # Application source code
-│   ├── tests/             # Test files
-│   └── pyproject.toml     # Python dependencies (managed by uv)
-├── frontend/
-│   ├── CLAUDE.md          # Frontend-specific conventions
-│   ├── templates/         # HTML templates
-│   └── public/            # Static assets
-├── supabase/              # Supabase configuration
-├── static/                # Additional static assets
-├── .devcontainer/         # Dev container configuration
-├── .github/               # GitHub workflows
-└── CLAUDE.md             # This file
+├── backend/           # Flask app + CLAUDE.md
+├── frontend/          # Templates + CLAUDE.md
+├── supabase/          # Database config
+├── static/            # Static assets
+├── .devcontainer/     # Dev container
+└── .github/           # Workflows
 ```
-
-### Module Size Limits
-- **Files**: Maximum 500 lines
-- **Functions**: Maximum 50 lines
-- **Classes**: Maximum 100 lines
-- If approaching limits, refactor into smaller modules
-
-## 🔍 Search & Analysis Guidelines
-
-### CRITICAL: Use Appropriate Tools
-```bash
-# ❌ NEVER use these:
-grep -r "pattern" .
-find . -name "*.py"
-
-# ✅ ALWAYS use these instead:
-rg "pattern"              # Use ripgrep
-rg --files -g "*.py"     # Find files with ripgrep
-```
-
-## ⚠️ Current Codebase Notes
-
-The existing FAIRDatabase implementation:
-- Uses Flask (may migrate to FastAPI in future)
-- Has inconsistent patterns that need refactoring
-- May not follow all conventions defined here
-- Should be gradually improved, not rewritten at once
 
 ---
 
-**Remember**: This is a living document. Update it as the project evolves, but maintain consistency with core principles.
+**Living Document**: Update as needed while maintaining core principles.
