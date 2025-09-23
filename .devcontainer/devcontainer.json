@@ -6,55 +6,116 @@
     "ghcr.io/devcontainers-extra/features/uv:1": {},
     "ghcr.io/devcontainers-extra/features/ruff:1": {},
     "ghcr.io/devcontainers/features/docker-in-docker:2": {
-      "moby": false
+      "moby": false  // Use host Docker daemon
     },
     "ghcr.io/devcontainers/features/node:1": {},
-    "ghcr.io/devcontainers/features/github-cli:1": {},
-    "ghcr.io/devcontainers-extra/features/ripgrep:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
 
   "customizations": {
     "vscode": {
       "extensions": [
+        // Python
         "ms-python.python",
         "ms-python.vscode-pylance",
         "ms-python.debugpy",
         "ms-python.vscode-python-envs",
         "charliermarsh.ruff",
+        // AI assistants
         "Anthropic.claude-code",
         "GitHub.copilot",
         "GitHub.copilot-chat",
+        // Database
         "Supabase.vscode-supabase-extension",
         "mtxr.sqltools",
         "mtxr.sqltools-driver-pg",
+        // Git & GitHub
         "mhutchie.git-graph",
         "GitHub.vscode-pull-request-github",
         "GitHub.vscode-github-actions",
+        // Dev environment
         "ms-vscode-remote.remote-containers",
         "ms-azuretools.vscode-docker",
+        // Configuration files
         "redhat.vscode-yaml",
         "mikestead.dotenv",
-        "editorconfig.editorconfig"
-      ]
+        "editorconfig.editorconfig",
+        // Deno
+        "denoland.vscode-deno"
+      ],
+      "settings": {
+        // Python virtual environment (for VS Code IntelliSense only - use 'uv run' for execution)
+        "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
+        // Disable auto-activation since we use uv run commands
+        "python.terminal.activateEnvironment": false,
+        // Deno settings
+        "deno.enablePaths": [
+          "supabase/functions"
+        ],
+        "deno.lint": true,
+        "deno.unstable": [
+          "bare-node-builtins",
+          "byonm",
+          "sloppy-imports",
+          "unsafe-proto",
+          "webgpu",
+          "broadcast-channel",
+          "worker-options",
+          "cron",
+          "kv",
+          "ffi",
+          "fs",
+          "http",
+          "net"
+        ],
+        "[typescript]": {
+          "editor.defaultFormatter": "denoland.vscode-deno"
+        }
+      }
     }
   },
 
-  "postCreateCommand": ".devcontainer/scripts/post-create.sh",
-  "postStartCommand": ".devcontainer/scripts/post-start.sh",
+  // Lifecycle scripts
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "postStartCommand": "bash .devcontainer/post-start.sh",
 
-  "forwardPorts": [5000, 54321, 54323],
+  "containerEnv": {
+    "UV_LINK_MODE": "copy"  // Avoid hardlink issues in containers
+  },
+
+  // Port forwarding
+  "forwardPorts": [
+    5000,   // Flask API
+    54321,  // Supabase API
+    54322,  // PostgreSQL
+    54323,  // Supabase Studio
+    54324   // Email testing
+  ],
+
   "portsAttributes": {
     "5000": {
       "label": "Flask Backend API",
-      "onAutoForward": "notify"
+      "onAutoForward": "notify",
+      "protocol": "http"
     },
     "54321": {
-      "label": "Supabase Studio",
-      "onAutoForward": "openBrowser"
+      "label": "Supabase API",
+      "onAutoForward": "notify",
+      "protocol": "http"
+    },
+    "54322": {
+      "label": "Supabase Database (PostgreSQL)",
+      "onAutoForward": "silent"
     },
     "54323": {
-      "label": "Supabase Kong API Gateway",
-      "onAutoForward": "notify"
+      "label": "Supabase Studio",
+      "onAutoForward": "openBrowser",
+      "protocol": "http"
+    },
+    "54324": {
+      "label": "Inbucket Email Testing",
+      "onAutoForward": "silent",
+      "protocol": "http"
     }
   },
 

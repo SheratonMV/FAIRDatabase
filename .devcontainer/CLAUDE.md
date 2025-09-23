@@ -1,120 +1,52 @@
 # DevContainer Configuration Guide
 
-## Naming Conventions
+## Quick Reference
+
+**Base Image:** `mcr.microsoft.com/devcontainers/python:3.13`
+**Package Manager:** uv (exclusively - never use pip)
+**Database:** Supabase (auto-starts on container start)
+
+## Lifecycle Scripts
+
+### post-create.sh (runs once)
+- Git safe directory configuration
+- Python environment setup (uv sync)
+- npm and Supabase CLI installation
+- Claude Code CLI and MCP setup
+
+### post-start.sh (runs on each start)
+- Starts Supabase services automatically
+- Displays comprehensive command reference
+
+## Access Points
+
+- **Flask Backend:** http://localhost:5000 (run `cd backend && ./run.sh`)
+- **Supabase Studio:** http://localhost:54323 (auto-starts)
+- **Supabase API:** http://localhost:54321 (auto-starts)
+
+## Development Conventions
 
 ### Shell Scripts
-All shell scripts MUST use **kebab-case** (dash-separated lowercase) naming:
-- ✅ Correct: `post-create.sh`, `mcp-setup.sh`, `validate-setup.sh`
-- ❌ Incorrect: `postCreate.sh`, `post_create.sh`, `PostCreate.sh`
+- **Naming:** Use kebab-case (`post-create.sh`, not `postCreate.sh`)
+- **Style:** Emoji-enhanced output with progress indicators
+- **Structure:** Unicode boxes for sections (═ for headers, ─ for subsections)
 
-This is the standard convention for shell scripts and ensures consistency across the project.
+### Python Package Management
 
-## Python Package Management
+**Use uv exclusively** - never use pip directly:
+- Add dependency: `uv add <package>`
+- Add dev dependency: `uv add --group dev <package>`
+- Sync dependencies: `uv sync --all-groups`
+- Run commands: `uv run python app.py`
 
-### Using uv Exclusively with pyproject.toml
+All dependencies managed via `backend/pyproject.toml`
 
-This devcontainer uses **uv** as the exclusive Python package manager with a modern pyproject.toml configuration. Do NOT use pip directly.
-
-**uv Commands to Use**:
-```bash
-# Sync all dependencies (including dev)
-uv sync --all-groups
-
-# Sync only production dependencies
-uv sync
-
-# Add a new production dependency
-uv add flask sqlalchemy
-
-# Add a development dependency
-uv add --group dev pytest ruff
-
-# Remove a dependency
-uv remove package-name
-
-# Update all dependencies
-uv sync --upgrade
-
-# List installed packages
-uv pip list
-
-# Run commands in the virtual environment
-uv run python app.py
-uv run pytest
-uv run ruff check .
-```
-
-**Key Benefits**:
-- Lightning-fast dependency resolution
-- Automatic virtual environment management
-- Lock file for reproducible builds (uv.lock)
-- Modern pyproject.toml configuration
-- Native support for dependency groups
-
-**Never Use**:
-- `pip install ...` (use `uv add` instead)
-- `python -m pip ...` (use `uv` commands instead)
-- `pip3 ...` (use `uv` commands instead)
-- `requirements.txt` (managed via pyproject.toml now)
-
-## Base Image
-
-**Definitive Base Image**: `mcr.microsoft.com/devcontainers/python:3.13`
-
-This is the standardized base image for the FAIRDatabase development environment. This choice provides:
-
-- Python 3.13 (latest stable release)
-- Debian 12 (bookworm) base OS
-- Long-term support until October 2029
-- Optimal balance of modern features and stability
-
-### Do Not Use
-
-- `dev-3.13` - Unstable development builds
-- `latest` - Unpredictable version changes
-- `bullseye`/`buster` - Outdated Debian versions
-- `trixie` - Unreleased testing version
 
 ## VS Code Extensions
 
-### Extension Selection Rationale
-
-**Python Development** (5 extensions)
-- Core Python support with debugging and environment management
-- Ruff for fast linting/formatting (replaces Black, isort, flake8)
-
-**AI Assistance** (3 extensions)
-- Claude Code for primary AI assistance
-- GitHub Copilot with chat for code completion
-
-**Database** (3 extensions)
-- Supabase extension for native Supabase integration
-- SQLTools for general SQL development with PostgreSQL driver
-
-**Git & GitHub** (3 extensions)
-- Git Graph for visual branch management
-- GitHub integration for PRs and Actions
-
-**Container Development** (2 extensions)
-- Remote Containers for devcontainer support
-- Docker for container management
-
-**Configuration** (3 extensions)
-- YAML, dotenv, and editorconfig for configuration files
-
-### Rejected Extensions
-
-**Database Clients** - Avoided redundancy:
-- `cweijan.vscode-postgresql-client2` - Supabase extension covers this
-- `ckolkman.vscode-postgres` - SQLTools is sufficient
-- `ms-ossdata.vscode-pgsql` - Redundant with SQLTools
-
-**Container Extensions** - Kept minimal:
-- `docker.docker` - ms-azuretools.vscode-docker is more comprehensive
-- `ms-vscode-remote.vscode-remote-extensionpack` - Too many unnecessary extensions
-- `GitHub.codespaces` - Not using GitHub Codespaces
-
-**Git Tools**:
-- `eamodio.gitlens` - Git Graph provides cleaner visualization
-
-Any changes to the extension list must be explicitly approved and documented here.
+Configured in `devcontainer.json`:
+- **Python:** Core support, Pylance, debugger, Ruff
+- **AI:** Claude Code, GitHub Copilot
+- **Database:** Supabase, SQLTools with PostgreSQL
+- **Git/GitHub:** Git Graph, PR support, Actions
+- **Other:** Docker, YAML, dotenv, Deno (for Supabase functions)
