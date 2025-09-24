@@ -11,13 +11,6 @@ FAIRDatabase implements **FAIR data principles** for research data management:
 
 A simple, pragmatic web interface for researchers to manage and share data following FAIR principles.
 
-## Repository Information
-
-- **Working Fork**: [github.com/seijispieker/FAIRDatabase](https://github.com/seijispieker/FAIRDatabase) (current)
-- **Original Repository**: [github.com/SheratonMV/FAIRDatabase](https://github.com/SheratonMV/FAIRDatabase)
-
-**Important**: All development should occur in the fork. Never push directly to the original repository.
-
 ## Technology Stack
 
 - **Backend**: Python/Flask (may migrate to FastAPI)
@@ -26,33 +19,30 @@ A simple, pragmatic web interface for researchers to manage and share data follo
 - **Testing**: pytest framework
 - **Package Management**: uv with pyproject.toml
 
-## Prerequisites
-
-Before setting up the development environment, ensure you have:
-- **Docker Desktop** or **Docker Engine** installed
-- **Git** for version control
-- Additional tools based on your chosen setup method (see below)
-
 ## Development Environment Setup
 
 Choose one of the following methods to set up your development environment:
+
+**Note:** First-time setup takes 5-10 minutes to download all tools, dependencies, and Docker images. Subsequent starts are much faster.
 
 ### Option 1: VS Code with Dev Container (Recommended)
 
 The easiest way to get started with a full-featured development environment.
 
-1. **Install Prerequisites**
-   - [Visual Studio Code](https://code.visualstudio.com/)
-   - [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+**Prerequisites:**
+- Docker Desktop or Docker Engine
+- Git
+- [Visual Studio Code](https://code.visualstudio.com/)
+- [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 
-2. **Clone and Open**
+1. **Clone and Open**
    ```bash
    git clone https://github.com/seijispieker/FAIRDatabase.git
    cd FAIRDatabase
    ```
    Open the folder in VS Code (File → Open Folder)
 
-3. **Start Development Environment**
+2. **Start Development Environment**
    - VS Code will detect the dev container configuration
    - Click **"Reopen in Container"** when prompted
    - Wait for the container to build (first time: ~5-10 minutes)
@@ -61,6 +51,8 @@ The easiest way to get started with a full-featured development environment.
 ### Option 2: GitHub Codespaces (Cloud-Based)
 
 No local setup required - develop entirely in the browser.
+
+**Prerequisites:** None - just a GitHub account
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=seijispieker%2FFAIRDatabase)
 
@@ -78,6 +70,11 @@ No local setup required - develop entirely in the browser.
 ### Option 3: DevContainer CLI (Command Line)
 
 For developers who prefer command-line workflows.
+
+**Prerequisites:**
+- Docker Desktop or Docker Engine
+- Git
+- Node.js and npm (for DevContainer CLI installation)
 
 1. **Install DevContainer CLI**
    ```bash
@@ -119,23 +116,10 @@ Your development environment comes pre-configured with:
   - GitHub CLI - Repository management
   - Docker-in-Docker - Container operations
 
-## Getting Started
+## Running the Application
 
-Once your environment is ready (see CLAUDE.md for development principles):
+Once your environment is ready:
 
-### Verify Setup
-```bash
-# Check Python
-python --version
-
-# Check Supabase status
-npx supabase status
-
-# Check database connection
-npx supabase db reset
-```
-
-### Run the Application
 ```bash
 # Navigate to backend
 cd backend
@@ -152,251 +136,9 @@ The application will be available at:
 - **Supabase Studio**: http://localhost:54321
 - **API Gateway**: http://localhost:54323
 
-## Port Information
-
-The following ports are automatically forwarded:
-
-| Port  | Service                    | Description                          |
-|-------|----------------------------|--------------------------------------|
-| 5000  | Flask Backend API          | Main application API                 |
-| 54321 | Supabase Studio            | Database management UI               |
-| 54323 | Supabase Kong API Gateway  | API gateway for Supabase services   |
-
-## Quick Start Commands
-
-### Backend Development
-```bash
-cd backend
-uv sync --all-groups     # Install dependencies
-uv run pytest            # Run tests
-uv run python app.py     # Start Flask app
-ruff check .             # Lint code
-ruff format .            # Format code
-```
-
-### Database Management
-```bash
-# Check status
-npx supabase status
-
-# Reset database
-npx supabase db reset
-
-# Stop services
-npx supabase stop
-
-# Restart services
-npx supabase start
-```
-
-## First-Time Setup Notes
-
-⏱️ **Initial Setup Time**: The first container build takes 5-10 minutes as it:
-- Downloads all development tools
-- Installs Python and Node dependencies
-- Downloads Supabase Docker images (~1.5GB)
-- Initializes the local database
-
-Subsequent starts are much faster (under a minute).
-
 ## Troubleshooting
 
-### Container Won't Start
-- Ensure Docker is running: `docker version`
-- Check available disk space: `docker system df`
-- Try rebuilding: `devcontainer rebuild --workspace-folder .`
-
-### Supabase Not Accessible
-- Check if services are running: `npx supabase status`
-- Restart services: `npx supabase stop && npx supabase start`
-- Check logs: `docker logs supabase-db`
-
-### Port Already in Use
-- Check for conflicting services: `lsof -i :5000` (or relevant port)
-- Stop conflicting services or change the port in configuration
-
-### Slow Performance
-- Increase Docker resource allocation in Docker Desktop settings
-- Ensure you have at least 4GB RAM allocated to Docker
-- Consider using the simplified devcontainer for faster builds
-
-## Supabase Version Management
-
-### Version Pinning Strategy
-
-This project uses version pinning to ensure consistent development environments:
-
-- **Supabase CLI**: Version `2.40.7` (pinned in `package.json`)
-- **Docker Images**: Controlled by the Supabase CLI version
-- **Database**: PostgreSQL 17 (configured in `supabase/config.toml`)
-
-The Supabase CLI version determines which Docker image versions are used. Each CLI version pins specific versions of:
-- PostgreSQL database
-- Supabase Studio
-- Auth service
-- Storage service
-- Realtime service
-- Other Supabase components
-
-### Checking Current Versions
-
-```bash
-# Check Supabase CLI version
-npx supabase --version
-
-# Check running service versions
-npx supabase status
-
-# Verify version matches package.json
-cat package.json | grep supabase
-```
-
-### Updating Supabase Safely
-
-⚠️ **Important**: Always test updates in a development environment first!
-
-#### 1. Check for Updates
-```bash
-# Check latest available version
-npm view supabase version
-
-# Check for breaking changes
-# Visit: https://github.com/supabase/cli/releases
-```
-
-#### 2. Update Process
-```bash
-# 1. Stop current services
-npx supabase stop
-
-# 2. Backup your local database (if needed)
-npx supabase db dump > backup.sql
-
-# 3. Update package.json with new version
-npm install --save-dev supabase@latest
-
-# 4. Install the new version
-npm install
-
-# 5. Start services with new version
-npx supabase start
-
-# 6. Run migrations (if any)
-npx supabase db reset
-
-# 7. Test your application thoroughly
-```
-
-#### 3. Commit the Changes
-```bash
-# If everything works, commit the updated versions
-git add package.json package-lock.json
-git commit -m "chore: update Supabase CLI to version X.Y.Z"
-```
-
-### Rollback Procedure
-
-If issues occur after updating:
-
-```bash
-# 1. Stop services
-npx supabase stop
-
-# 2. Revert package.json and package-lock.json
-git checkout HEAD -- package.json package-lock.json
-
-# 3. Reinstall previous version
-npm ci
-
-# 4. Restart services
-npx supabase start
-
-# 5. Restore database if needed
-npx supabase db reset
-psql -h localhost -p 54322 -U postgres -d postgres < backup.sql
-```
-
-### Version Compatibility
-
-- **Node.js**: Requires version 18 or higher
-- **Docker**: Requires Docker Engine 20.10 or higher
-- **PostgreSQL**: Version 17 (major version must match remote database)
-
-### Troubleshooting Version Issues
-
-#### Version Mismatch Warning
-If you see a version mismatch warning on container startup:
-```bash
-# Install the correct version from package.json
-cd /workspaces/FAIRDatabase
-npm install
-```
-
-#### Docker Image Updates
-Supabase Docker images are updated monthly. To get the latest security patches:
-```bash
-# Pull latest images for current CLI version
-npx supabase stop
-docker system prune -a  # Optional: clean old images
-npx supabase start
-```
-
-## Project Structure
-
-```
-FAIRDatabase/
-├── backend/           # Flask application (see backend/CLAUDE.md)
-│   ├── src/          # Application source code
-│   ├── tests/        # Test files
-│   └── CLAUDE.md     # Backend-specific conventions
-├── frontend/         # Web interface
-│   ├── templates/    # HTML templates
-│   └── CLAUDE.md     # Frontend-specific conventions
-├── supabase/         # Database configuration
-│   └── config.toml   # Supabase settings
-├── static/           # Static assets
-├── .devcontainer/    # Development container config
-│   └── CLAUDE.md     # DevContainer documentation
-├── .github/          # GitHub workflows
-├── package.json      # Node dependencies
-├── CLAUDE.md        # Project-wide conventions
-└── README.md        # This file
-```
-
-## Core Development Philosophy
-
-**Start simple. Add complexity only when proven necessary.**
-
-Key principles:
-- **KISS**: The simplest working solution is best
-- **YAGNI**: Build only what's required now
-- **DRY**: Single source of truth (but duplication > wrong abstraction)
-- **Single Responsibility**: Each component does one thing well
-- **Fail Fast**: Detect and report errors immediately
-- **Explicit Over Implicit**: Code should clearly express intent
-
-See [CLAUDE.md](./CLAUDE.md) for comprehensive development guidelines.
-
-## Important Notes
-
-⚠️ **Current Status**:
-- Existing code may not follow all CLAUDE.md standards
-- Refactoring expected as project evolves
-- **When contributing**: Prioritize CLAUDE.md principles over existing patterns
-- Check subdirectory CLAUDE.md files for context-specific guidance
-
-## Contributing
-
-1. Read [CLAUDE.md](./CLAUDE.md) first
-2. Check subdirectory CLAUDE.md files for context
-3. Work in fork only (never push to original)
-4. Follow established principles over existing patterns
-5. Update CLAUDE.md if patterns/workflows change
-
-## Support
-
-For issues and questions:
-- Check the [troubleshooting section](#troubleshooting)
-- Review existing [GitHub Issues](https://github.com/seijispieker/FAIRDatabase/issues)
-- Create a new issue if your problem persists
-- Consult CLAUDE.md files for development guidelines
+- **Minimum requirements not met:** Container requires 2 CPUs, 2GB RAM, and 8GB storage
+- **Container issues:** Ensure Docker is running (`docker version`)
+- **Supabase not accessible:** Restart services (`npx supabase stop && npx supabase start`)
+- **Port conflicts:** Check for services using the same port (`lsof -i :5000`)
