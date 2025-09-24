@@ -16,7 +16,8 @@
 
 ### post-start.sh (runs on each start)
 - Starts Supabase services automatically
-- Displays comprehensive command reference
+- Creates backend .env file with Supabase configuration
+- Displays quick command reference for Flask and pytest
 
 ## Access Points
 

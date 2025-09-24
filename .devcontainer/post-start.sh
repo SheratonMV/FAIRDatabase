@@ -1,87 +1,44 @@
 #!/bin/bash
-# Start services when the container starts
 set -e
 
-# Start Supabase database and related services
-echo "🚀 Starting Supabase services..."
-npx supabase start
-echo "✅ Supabase started successfully"
+echo "╔═══════════════════════════════════════════════════════════════════╗"
+echo "║            🚀 Starting Development Environment                    ║"
+echo "╚═══════════════════════════════════════════════════════════════════╝"
+echo ""
 
-# Display useful commands for managing services
+# Start Supabase
+echo "🔄 Starting Supabase services..."
+npx supabase start
+
+# Create backend .env file (always create since it's not tracked in git)
+echo "📝 Creating backend .env file..."
+cat > /workspaces/FAIRDatabase/backend/.env << 'EOF'
+# Auto-generated for local development
+ENV=development
+SECRET_KEY=dev-secret-key-for-local-testing
+UPLOAD_FOLDER=./uploads
+
+# Supabase Local Development
+SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+
+# PostgreSQL Direct Connection
+POSTGRES_HOST=127.0.0.1
+POSTGRES_PORT=54322
+POSTGRES_USER=postgres
+POSTGRES_SECRET=postgres
+POSTGRES_DB_NAME=postgres
+EOF
+
 echo ""
-echo "═══════════════════════════════════════════════════════════════"
-echo "                 FAIRDATABASE DEVELOPMENT COMMANDS             "
-echo "═══════════════════════════════════════════════════════════════"
+echo "╔═══════════════════════════════════════════════════════════════════╗"
+echo "║                    ✅ Environment Ready!                          ║"
+echo "╚═══════════════════════════════════════════════════════════════════╝"
 echo ""
-echo "┌─────────────────────────────────────────────────────────────┐"
-echo "│ BACKEND COMMANDS                                            │"
-echo "└─────────────────────────────────────────────────────────────┘"
-echo "  Start Flask backend:"
-echo "    cd backend && ./run.sh"
-echo "    # or: cd backend && uv run python app.py"
-echo ""
-echo "  Run tests:"
-echo "    cd backend && ./run_test.sh"
-echo "    # or: cd backend && uv run pytest"
-echo ""
-echo "  Run specific tests:"
-echo "    cd backend && uv run pytest tests/test_auth.py"
-echo ""
-echo "  Run with coverage:"
-echo "    cd backend && uv run pytest --cov=src --cov-report=term-missing"
-echo ""
-echo "┌─────────────────────────────────────────────────────────────┐"
-echo "│ DATABASE COMMANDS (SUPABASE)                                │"
-echo "└─────────────────────────────────────────────────────────────┘"
-echo "  Check service status:"
-echo "    npx supabase status"
-echo ""
-echo "  Stop all services:"
-echo "    npx supabase stop"
-echo ""
-echo "  Reset database (WARNING: deletes all data):"
-echo "    npx supabase db reset"
-echo ""
-echo "  View logs:"
-echo "    npx supabase logs"
-echo ""
-echo "  Access database studio:"
-echo "    npx supabase status  # Check for Studio URL"
-echo ""
-echo "┌─────────────────────────────────────────────────────────────┐"
-echo "│ PACKAGE MANAGEMENT (UV)                                     │"
-echo "└─────────────────────────────────────────────────────────────┘"
-echo "  Sync dependencies:"
-echo "    cd backend && uv sync --all-groups"
-echo ""
-echo "  Add dependency:"
-echo "    cd backend && uv add <package-name>"
-echo ""
-echo "  Add dev dependency:"
-echo "    cd backend && uv add --group dev <package-name>"
-echo ""
-echo "  Update dependencies:"
-echo "    cd backend && uv sync --upgrade"
-echo ""
-echo "┌─────────────────────────────────────────────────────────────┐"
-echo "│ CODE QUALITY                                                │"
-echo "└─────────────────────────────────────────────────────────────┘"
-echo "  Run linter:"
-echo "    cd backend && uv run ruff check ."
-echo ""
-echo "  Fix linting issues:"
-echo "    cd backend && uv run ruff check . --fix"
-echo ""
-echo "  Format code:"
-echo "    cd backend && uv run ruff format ."
-echo ""
-echo "  Type checking:"
-echo "    cd backend && uv run mypy src/"
-echo ""
-echo "┌─────────────────────────────────────────────────────────────┐"
-echo "│ QUICK START                                                 │"
-echo "└─────────────────────────────────────────────────────────────┘"
-echo "  1. Database is already running (started automatically)"
-echo "  2. Start backend: cd backend && ./run.sh"
-echo "  3. Open browser: http://localhost:5000"
+echo "┌─── Quick Commands ──────────────────────────────────────────────┐"
+echo "│                                                                 │"
+echo "│  🔥 Start Flask:    cd backend && uv run flask run              │"
+echo "│  🧪 Run tests:      cd backend && uv run pytest                 │"
+echo "│                                                                 │"
+echo "└─────────────────────────────────────────────────────────────────┘"
 echo ""

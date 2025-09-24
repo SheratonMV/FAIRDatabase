@@ -1,6 +1,6 @@
 {
   "name": "FAIRDatabase Development Environment",
-  "image": "mcr.microsoft.com/devcontainers/python:3.13",
+  "image": "mcr.microsoft.com/devcontainers/python:3.13-bookworm",
 
   "features": {
     "ghcr.io/devcontainers-extra/features/uv:1": {},
@@ -46,6 +46,10 @@
         "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
         // Disable auto-activation since we use uv run commands
         "python.terminal.activateEnvironment": false,
+        // Disable automatic port forwarding completely
+        "remote.autoForwardPorts": false,
+        "remote.autoForwardPortsSource": "process",
+        "remote.restoreForwardedPorts": false,
         // Deno settings
         "deno.enablePaths": [
           "supabase/functions"
@@ -73,49 +77,28 @@
     }
   },
 
-  // Lifecycle scripts
-  "postCreateCommand": "bash .devcontainer/post-create.sh",
-  "postStartCommand": "bash .devcontainer/post-start.sh",
-
-  "containerEnv": {
-    "UV_LINK_MODE": "copy"  // Avoid hardlink issues in containers
-  },
-
-  // Port forwarding
-  "forwardPorts": [
-    5000,   // Flask API
-    54321,  // Supabase API
-    54322,  // PostgreSQL
-    54323,  // Supabase Studio
-    54324   // Email testing
-  ],
-
+  // Port forwarding strategy:
+  // - Disable automatic port detection to avoid unexpected forwards
+  // - Explicitly list only the ports we need
+  // - Use appropriate onAutoForward behaviors per service
+  "forwardPorts": [5000, 54321, 54323, 54324, 54327],
   "portsAttributes": {
     "5000": {
-      "label": "Flask Backend API",
-      "onAutoForward": "notify",
-      "protocol": "http"
-    },
-    "54321": {
-      "label": "Supabase API",
-      "onAutoForward": "notify",
-      "protocol": "http"
-    },
-    "54322": {
-      "label": "Supabase Database (PostgreSQL)",
-      "onAutoForward": "silent"
+      "label": "Flask development server",
+      "onAutoForward": "openBrowser"
     },
     "54323": {
       "label": "Supabase Studio",
-      "onAutoForward": "openBrowser",
-      "protocol": "http"
+      "onAutoForward": "notify"
     },
-    "54324": {
-      "label": "Inbucket Email Testing",
-      "onAutoForward": "silent",
-      "protocol": "http"
+    "*": {
+      "onAutoForward": "ignore"
     }
   },
+
+  // Lifecycle scripts
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "postStartCommand": "bash .devcontainer/post-start.sh",
 
   "remoteUser": "vscode"
 }
