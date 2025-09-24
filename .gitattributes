@@ -1,0 +1,325 @@
+# Git Attributes Configuration
+# https://git-scm.com/docs/gitattributes
+# Last updated: 2025
+
+##############################################################################
+# Auto-detect text files and normalize line endings to LF on checkin
+##############################################################################
+* text=auto
+
+##############################################################################
+# Source Code - Force LF line endings
+##############################################################################
+
+# Python
+*.py        text eol=lf diff=python
+*.pyi       text eol=lf diff=python
+*.pyx       text eol=lf diff=python
+*.pxd       text eol=lf diff=python
+*.py3       text eol=lf diff=python
+*.pyw       text eol=lf diff=python
+*.pyz       text eol=lf diff=python
+
+# JavaScript/TypeScript
+*.js        text eol=lf
+*.jsx       text eol=lf
+*.ts        text eol=lf linguist-language=TypeScript
+*.tsx       text eol=lf linguist-language=TypeScript
+*.mjs       text eol=lf
+*.cjs       text eol=lf
+*.vue       text eol=lf
+
+# Web technologies
+*.html      text eol=lf diff=html
+*.htm       text eol=lf diff=html
+*.css       text eol=lf diff=css
+*.scss      text eol=lf diff=css
+*.sass      text eol=lf
+*.less      text eol=lf
+*.styl      text eol=lf
+*.xml       text eol=lf
+*.svg       text eol=lf
+
+# Data formats
+*.json      text eol=lf
+*.json5     text eol=lf
+*.geojson   text eol=lf
+*.jsonl     text eol=lf
+*.ndjson    text eol=lf
+*.csv       text eol=lf
+*.tsv       text eol=lf
+*.sql       text eol=lf
+*.graphql   text eol=lf
+*.gql       text eol=lf
+
+##############################################################################
+# Configuration Files
+##############################################################################
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.toml      text eol=lf
+*.ini       text eol=lf
+*.cfg       text eol=lf
+*.conf      text eol=lf
+*.config    text eol=lf
+.env        text eol=lf
+.env.*      text eol=lf
+*.properties text eol=lf
+
+# Package managers
+package.json      text eol=lf
+package-lock.json text eol=lf linguist-generated=true
+yarn.lock         text eol=lf linguist-generated=true
+pnpm-lock.yaml    text eol=lf linguist-generated=true
+Pipfile           text eol=lf
+Pipfile.lock      text eol=lf linguist-generated=true
+poetry.lock       text eol=lf linguist-generated=true
+pyproject.toml    text eol=lf
+requirements*.txt text eol=lf
+uv.lock           text eol=lf linguist-generated=true
+
+# Build tool configs
+tsconfig*.json    text eol=lf
+jsconfig*.json    text eol=lf
+webpack*.js       text eol=lf
+vite*.js          text eol=lf
+vite*.ts          text eol=lf
+rollup*.js        text eol=lf
+*.config.js       text eol=lf
+*.config.ts       text eol=lf
+*.config.mjs      text eol=lf
+
+# Linting and formatting
+.eslint*          text eol=lf
+.prettier*        text eol=lf
+.stylelint*       text eol=lf
+.markdownlint*    text eol=lf
+.editorconfig     text eol=lf
+pyrightconfig*    text eol=lf
+setup.cfg         text eol=lf
+pytest.ini        text eol=lf
+tox.ini           text eol=lf
+.flake8           text eol=lf
+.pylintrc         text eol=lf
+.isort.cfg        text eol=lf
+
+# Git files
+.gitignore        text eol=lf
+.gitattributes    text eol=lf
+.gitmodules       text eol=lf
+.gitconfig        text eol=lf
+.mailmap          text eol=lf
+
+# CI/CD
+.github/**/*.yml  text eol=lf
+.github/**/*.yaml text eol=lf
+.gitlab-ci*.yml   text eol=lf
+.travis.yml       text eol=lf
+azure-pipelines*.yml text eol=lf
+Jenkinsfile       text eol=lf
+
+# Docker
+Dockerfile*       text eol=lf
+docker-compose*.yml text eol=lf
+docker-compose*.yaml text eol=lf
+.dockerignore     text eol=lf
+containerfile*    text eol=lf
+
+##############################################################################
+# Documentation
+##############################################################################
+*.md              text eol=lf diff=markdown
+*.markdown        text eol=lf diff=markdown
+*.mdown           text eol=lf diff=markdown
+*.mkd             text eol=lf diff=markdown
+*.mdx             text eol=lf
+*.rst             text eol=lf
+*.txt             text eol=lf
+*.adoc            text eol=lf
+*.asciidoc        text eol=lf
+README*           text eol=lf
+CHANGELOG*        text eol=lf
+CONTRIBUTING*     text eol=lf
+LICENSE*          text eol=lf
+AUTHORS*          text eol=lf
+NOTICE*           text eol=lf
+COPYING*          text eol=lf
+CLAUDE.md         text eol=lf
+PRINCIPLES.md     text eol=lf
+
+##############################################################################
+# Shell Scripts - Platform specific
+##############################################################################
+
+# Unix shell scripts (force LF)
+*.sh              text eol=lf
+*.bash            text eol=lf
+*.zsh             text eol=lf
+*.fish            text eol=lf
+*.ksh             text eol=lf
+*.csh             text eol=lf
+
+# Windows scripts (force CRLF)
+*.bat             text eol=crlf
+*.cmd             text eol=crlf
+*.ps1             text eol=crlf
+*.psm1            text eol=crlf
+*.psd1            text eol=crlf
+
+##############################################################################
+# Templates
+##############################################################################
+*.ejs             text eol=lf
+*.hbs             text eol=lf
+*.handlebars      text eol=lf
+*.pug             text eol=lf
+*.jade            text eol=lf
+*.haml            text eol=lf
+*.slim            text eol=lf
+*.twig            text eol=lf
+*.njk             text eol=lf
+*.jinja           text eol=lf
+*.jinja2          text eol=lf
+*.j2              text eol=lf
+*.mustache        text eol=lf
+
+##############################################################################
+# Jupyter Notebooks - treat as text for better diffs
+##############################################################################
+*.ipynb           text eol=lf diff=json
+
+##############################################################################
+# Binary Files
+##############################################################################
+
+# Images
+*.png             binary
+*.jpg             binary
+*.jpeg            binary
+*.gif             binary
+*.ico             binary
+*.webp            binary
+*.avif            binary
+*.bmp             binary
+*.tiff            binary
+*.tif             binary
+
+# Fonts
+*.woff            binary
+*.woff2           binary
+*.ttf             binary
+*.eot             binary
+*.otf             binary
+
+# Documents
+*.pdf             binary
+*.doc             binary
+*.docx            binary
+*.xls             binary
+*.xlsx            binary
+*.ppt             binary
+*.pptx            binary
+*.odt             binary
+*.ods             binary
+*.odp             binary
+
+# Archives
+*.zip             binary
+*.tar             binary
+*.gz              binary
+*.bz2             binary
+*.7z              binary
+*.rar             binary
+*.xz              binary
+*.Z               binary
+
+# Python compiled
+*.pyc             binary
+*.pyo             binary
+*.pyd             binary
+*.so              binary
+*.egg             binary
+*.whl             binary
+
+# Node/JS compiled
+*.node            binary
+*.wasm            binary
+
+# Databases
+*.db              binary
+*.sqlite          binary
+*.sqlite3         binary
+*.s3db            binary
+
+# Media
+*.mp3             binary
+*.mp4             binary
+*.m4a             binary
+*.wav             binary
+*.flac            binary
+*.aac             binary
+*.ogg             binary
+*.avi             binary
+*.mov             binary
+*.wmv             binary
+*.webm            binary
+*.mkv             binary
+*.flv             binary
+
+# Other binaries
+*.exe             binary
+*.dll             binary
+*.dylib           binary
+*.app             binary
+*.deb             binary
+*.rpm             binary
+*.dmg             binary
+*.pkg             binary
+*.msi             binary
+
+##############################################################################
+# Linguist Language Detection (GitHub)
+##############################################################################
+
+# Mark vendored files
+vendor/**         linguist-vendored
+node_modules/**   linguist-vendored
+*.min.js          linguist-vendored
+*.min.css         linguist-vendored
+*-min.js          linguist-vendored
+*-min.css         linguist-vendored
+*.bundle.js       linguist-vendored
+
+# Mark generated files
+*.generated.*     linguist-generated
+*_generated.*     linguist-generated
+
+# Ensure main languages are detectable
+*.py              linguist-detectable
+*.js              linguist-detectable
+*.ts              linguist-detectable
+*.jsx             linguist-detectable
+*.tsx             linguist-detectable
+
+# Mark documentation
+docs/**           linguist-documentation
+*.md              linguist-documentation=false
+
+##############################################################################
+# Export Ignore - Files to exclude from archives (git archive)
+##############################################################################
+.github/          export-ignore
+.gitattributes    export-ignore
+.gitignore        export-ignore
+.editorconfig     export-ignore
+tests/            export-ignore
+test/             export-ignore
+specs/            export-ignore
+spec/             export-ignore
+*.test.js         export-ignore
+*.spec.js         export-ignore
+*.test.ts         export-ignore
+*.spec.ts         export-ignore
+__tests__/        export-ignore
+coverage/         export-ignore
+.nyc_output/      export-ignore

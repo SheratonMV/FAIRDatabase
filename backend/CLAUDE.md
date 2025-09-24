@@ -4,7 +4,17 @@ This file provides comprehensive Python-specific guidance for the FAIRDatabase b
 
 ## 📋 Core Development Philosophy
 
-### Python Zen Principles (PEP 20)
+**Start simple. Add complexity only when proven necessary.**
+
+This backend guide follows and extends the project-wide philosophy from root CLAUDE.md:
+- **KISS** - Keep It Simple, Stupid
+- **YAGNI** - You Aren't Gonna Need It
+- **DRY** - Don't Repeat Yourself (but duplication > wrong abstraction)
+- **Single Responsibility** - Each module/class/function does ONE thing well
+- **Fail Fast** - Detect and report errors immediately
+- **Explicit Over Implicit** - Code should clearly express intent
+
+### Python-Specific Principles (PEP 20)
 - **Explicit is better than implicit**
 - **Simple is better than complex**
 - **Complex is better than complicated**
@@ -15,18 +25,22 @@ This file provides comprehensive Python-specific guidance for the FAIRDatabase b
 - **There should be one-- and preferably only one --obvious way to do it**
 
 ### Design Principles Priority
-1. **Security First** - Never compromise on security, even for performance
-2. **Correctness** - Working code over elegant code
-3. **Maintainability** - Code for the next developer (including future you)
-4. **Testability** - If it's hard to test, it's poorly designed
-5. **Performance** - Optimize only after profiling and measuring
+1. **Correctness** - Working code over elegant code
+2. **Simplicity** - Start simple, add complexity only when proven necessary
+3. **Security** - Never compromise on security
+4. **Maintainability** - Code for the next developer (including future you)
+5. **Testability** - If it's hard to test, it's poorly designed
+6. **Performance** - Optimize only after profiling and measuring
 
-### SOLID Principles Applied
-- **Single Responsibility**: Each module/class/function does ONE thing well
-- **Open/Closed**: Extend through addition, not modification
-- **Liskov Substitution**: Subtypes must be substitutable for base types
-- **Interface Segregation**: Many specific interfaces over one general-purpose
-- **Dependency Inversion**: Depend on abstractions, not concretions
+### Progressive Complexity (Python Context)
+Start left, move right only when needed:
+```
+Function → Class → Module → Package
+Dict → DataClass → Pydantic Model → Domain Model
+Direct Call → Callback → Event System
+Hardcoded → Config → Environment Variable
+Flask → Flask with extensions → FastAPI (if needed)
+```
 
 ## 🐍 Python Standards & Conventions
 
@@ -39,12 +53,11 @@ import sys
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
-import pydantic
-from fastapi import FastAPI, HTTPException
+from flask import Flask, request, jsonify
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
-from app.models.user import User
+from config import config
+from src.models.user import User
 ```
 
 ### Type Hints (PEP 484)
@@ -86,77 +99,66 @@ UserData: TypeAlias = Dict[str, Any]
 ```
 backend/
 ├── CLAUDE.md                # This file
-├── pyproject.toml          # Project configuration (managed by UV)
-├── requirements.txt        # Generated dependencies (do not edit manually)
-├── .env.example           # Environment variables template
-├── .env                   # Local environment (never commit)
+├── pyproject.toml          # Project configuration and dependencies
+├── uv.lock                 # Lock file for reproducible builds
+├── pytest.ini              # Pytest configuration
+├── app.py                  # Flask application entry point
+├── config.py               # Configuration settings
+├── .venv/                 # Virtual environment (auto-created by uv)
 │
-├── app/                   # Main application package
+├── src/                   # Main application package
 │   ├── __init__.py
-│   ├── main.py           # FastAPI/Flask application entry point
-│   │
-│   ├── api/              # API endpoints
+│   ├── auth/              # Authentication module
 │   │   ├── __init__.py
-│   │   ├── v1/           # API version 1
-│   │   │   ├── __init__.py
-│   │   │   ├── endpoints/
-│   │   │   │   ├── users.py
-│   │   │   │   └── auth.py
-│   │   │   └── dependencies.py
-│   │   └── health.py     # Health check endpoints
+│   │   ├── routes.py
+│   │   ├── helpers.py
+│   │   ├── decorators.py
+│   │   └── form.py
 │   │
-│   ├── core/             # Core functionality
+│   ├── dashboard/         # Dashboard module
 │   │   ├── __init__.py
-│   │   ├── config.py     # Settings management (Pydantic)
-│   │   ├── security.py   # Security utilities
-│   │   ├── database.py   # Database connection
-│   │   └── exceptions.py # Custom exceptions
+│   │   ├── routes.py
+│   │   └── helpers.py
 │   │
-│   ├── models/           # Database models
+│   ├── data/              # Data management module
 │   │   ├── __init__.py
-│   │   ├── base.py       # Base model class
-│   │   ├── user.py
-│   │   └── mixins.py     # Reusable model mixins
+│   │   ├── routes.py
+│   │   ├── helpers.py
+│   │   └── form.py
 │   │
-│   ├── schemas/          # Pydantic schemas
+│   ├── main/              # Main module
 │   │   ├── __init__.py
-│   │   ├── user.py
-│   │   └── common.py     # Shared schemas
+│   │   ├── routes.py
+│   │   └── helpers.py
 │   │
-│   ├── services/         # Business logic
+│   ├── privacy/           # Privacy module
 │   │   ├── __init__.py
-│   │   ├── auth.py
-│   │   └── user.py
+│   │   ├── routes.py
+│   │   ├── helpers.py
+│   │   └── form.py
 │   │
-│   └── utils/            # Utilities
-│       ├── __init__.py
-│       ├── validators.py
-│       └── helpers.py
+│   ├── anonymization/     # Anonymization module (NEW)
+│   │   ├── __init__.py
+│   │   ├── k_anonymity.py
+│   │   ├── enforce_privacy.py
+│   │   ├── normalized_entropy.py
+│   │   ├── p_29.py
+│   │   ├── t_closeness.py
+│   │   ├── checks/        # Validation checks
+│   │   └── utils/         # Helper utilities
+│   │
+│   ├── exceptions.py      # Custom exceptions
+│   └── form_handler.py    # Form handling utilities
 │
-├── tests/                # Test suite (mirrors app structure)
-│   ├── __init__.py
-│   ├── conftest.py      # Pytest fixtures
-│   ├── test_main.py
-│   ├── api/
-│   │   └── v1/
-│   │       └── test_users.py
-│   ├── services/
-│   │   └── test_auth.py
-│   └── utils/
-│       └── test_validators.py
-│
-├── migrations/           # Database migrations (Alembic)
-│   ├── alembic.ini
-│   └── versions/
-│
-└── scripts/             # Utility scripts
-    ├── init_db.py
-    └── seed_data.py
+└── tests/                # Test suite
+    ├── __init__.py
+    ├── conftest.py      # Pytest fixtures
+    └── test_*.py        # Test files
 ```
 
 ## 📝 Documentation Standards
 
-### Google-Style Docstrings
+### Google-Style Docstrings (Keep It Simple)
 ```python
 def calculate_fair_score(
     data_quality: float,
@@ -174,67 +176,17 @@ def calculate_fair_score(
         interoperability: Interoperability score from 0.0 to 1.0.
         reusability: Reusability score from 0.0 to 1.0.
         weights: Optional weight dictionary for each component.
-            Defaults to equal weighting if not provided.
 
     Returns:
         Weighted FAIR score between 0.0 and 1.0.
 
     Raises:
         ValueError: If any score is outside the 0.0-1.0 range.
-        TypeError: If weights are provided but not as a dictionary.
-
-    Example:
-        >>> score = calculate_fair_score(0.8, 0.9, 0.7, 0.85)
-        >>> print(f"FAIR Score: {score:.2%}")
-        FAIR Score: 81.25%
-
-    Note:
-        This implementation follows the FAIR data principles as
-        defined in https://www.go-fair.org/fair-principles/
     """
     # Implementation here
     pass
 ```
 
-### Class Documentation
-```python
-class DatasetManager:
-    """
-    Manages FAIR dataset operations and metadata.
-
-    This class provides a high-level interface for managing datasets
-    according to FAIR principles, including metadata validation,
-    access control, and provenance tracking.
-
-    Attributes:
-        repository: Database repository for dataset persistence.
-        validator: FAIR compliance validator instance.
-        cache: Optional caching layer for performance.
-
-    Example:
-        >>> manager = DatasetManager(repository=repo)
-        >>> dataset = manager.create_dataset(metadata)
-        >>> manager.validate_fair_compliance(dataset.id)
-    """
-
-    def __init__(
-        self,
-        repository: DatasetRepository,
-        validator: Optional[FairValidator] = None,
-        cache: Optional[CacheInterface] = None
-    ):
-        """
-        Initialize the DatasetManager.
-
-        Args:
-            repository: Repository instance for data persistence.
-            validator: Optional FAIR validator. Creates default if None.
-            cache: Optional cache implementation for performance.
-        """
-        self.repository = repository
-        self.validator = validator or FairValidator()
-        self.cache = cache
-```
 
 ## 🧪 Testing Standards
 
@@ -245,9 +197,8 @@ import pytest
 from unittest.mock import Mock, patch
 from datetime import datetime, UTC
 
-from app.services.user import UserService
-from app.schemas.user import UserCreate
-from app.core.exceptions import UserNotFoundError
+from src.services.user import UserService
+from src.schemas.user import UserCreate
 
 
 class TestUserService:
@@ -279,15 +230,6 @@ class TestUserService:
         assert user.id == expected_id
         assert user.email == valid_user_data.email
 
-    def test_create_user_duplicate_email(self, service, valid_user_data):
-        """Test that duplicate email raises appropriate error."""
-        # Arrange
-        service.repository.find_by_email.return_value = Mock()
-
-        # Act & Assert
-        with pytest.raises(ValueError, match="Email already exists"):
-            service.create_user(valid_user_data)
-
     @pytest.mark.parametrize("invalid_email", [
         "notanemail",
         "@example.com",
@@ -297,13 +239,8 @@ class TestUserService:
     ])
     def test_create_user_invalid_email(self, service, invalid_email):
         """Test various invalid email formats."""
-        user_data = UserCreate(
-            email=invalid_email,
-            username="testuser"
-        )
-
         with pytest.raises(ValueError, match="Invalid email"):
-            service.create_user(user_data)
+            service.create_user(invalid_email)
 ```
 
 ### Testing Requirements
@@ -319,10 +256,9 @@ class TestUserService:
 
 ## 🔐 Security Implementation
 
-### Authentication & Authorization
+### Authentication & Authorization (Simple & Secure)
 ```python
 from passlib.context import CryptContext
-from jose import JWTError, jwt
 from datetime import datetime, timedelta, UTC
 import secrets
 
@@ -336,31 +272,6 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify password against hash."""
     return pwd_context.verify(plain_password, hashed_password)
-
-# JWT tokens
-def create_access_token(
-    data: Dict[str, Any],
-    expires_delta: Optional[timedelta] = None
-) -> str:
-    """
-    Create JWT access token with expiration.
-
-    Security considerations:
-    - Use strong secret key (min 256 bits)
-    - Set reasonable expiration times
-    - Include necessary claims only
-    - Use HTTPS in production
-    """
-    to_encode = data.copy()
-    expire = datetime.now(UTC) + (expires_delta or timedelta(minutes=15))
-    to_encode.update({"exp": expire, "iat": datetime.now(UTC)})
-
-    encoded_jwt = jwt.encode(
-        to_encode,
-        settings.SECRET_KEY,
-        algorithm=settings.ALGORITHM
-    )
-    return encoded_jwt
 
 # Secure random tokens
 def generate_reset_token(length: int = 32) -> str:
@@ -574,6 +485,20 @@ async def fair_database_exception_handler(
     )
 ```
 
+## 🔍 Search & Analysis Guidelines
+
+### CRITICAL: Use Appropriate Tools
+```bash
+# Use grep with appropriate flags for better results
+grep -r "pattern" .       # Recursive search
+grep -l "pattern" *.py    # List matching files
+
+# Find files efficiently
+find . -name "*.py"       # Find Python files
+```
+
+**Note**: While grep is available, consider using IDE search features or language-specific tools when appropriate for better performance and functionality.
+
 ## 🗄️ Database Standards
 
 ### SQLAlchemy Models
@@ -702,40 +627,51 @@ class BaseRepository(Generic[T]):
 
 ## 🛠️ Development Environment
 
-### Package Management with UV
+### Package Management with UV (Exclusive)
 ```bash
-# NEVER edit pyproject.toml dependencies manually
-# ALWAYS use UV commands
+# IMPORTANT: Use UV exclusively with pyproject.toml - NEVER use pip directly
 
 # Install UV (if not installed)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Create virtual environment
-uv venv
+# Sync all dependencies (including dev)
+uv sync --all-groups
 
-# Activate environment (Linux/Mac)
-source .venv/bin/activate
-
-# Sync dependencies
+# Sync only production dependencies
 uv sync
 
-# Add production dependency
+# Add production dependencies
 uv add fastapi pydantic sqlalchemy
 
-# Add development dependency
-uv add --dev pytest pytest-cov pytest-asyncio black ruff mypy
+# Add development dependencies
+uv add --group dev pytest pytest-cov ruff mypy
 
-# Remove package
+# Remove dependencies
 uv remove package-name
 
 # Update all dependencies
 uv sync --upgrade
 
-# Run commands in environment
-uv run python app/main.py
+# List installed packages
+uv pip list
+
+# Run commands in virtual environment
+uv run python app.py
 uv run pytest
 uv run ruff check .
+uv run mypy src/
+
+# Or activate venv and run directly
+source .venv/bin/activate
+python app.py
+pytest
+ruff check .
 ```
+
+**Project Structure**:
+- `pyproject.toml` - Project configuration and dependencies
+- `uv.lock` - Lock file for reproducible builds (auto-generated, don't edit)
+- `.venv/` - Virtual environment (auto-created by uv)
 
 ### Environment Variables
 ```python
@@ -784,291 +720,115 @@ def get_settings() -> Settings:
 settings = get_settings()
 ```
 
-## 🎯 Pre-commit Hooks
-
-### Configuration (.pre-commit-config.yaml)
-```yaml
-repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.0
-    hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.7.0
-    hooks:
-      - id: mypy
-        additional_dependencies: [types-all]
-
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-added-large-files
-      - id: check-merge-conflict
-      - id: detect-private-key
-
-  - repo: https://github.com/python-poetry/poetry
-    rev: 1.7.0
-    hooks:
-      - id: poetry-check
-```
 
 ## ⚡ Performance Optimization
 
-### Async/Await Best Practices
+### Only Optimize When Needed
+1. **Profile first**: Measure before optimizing
+2. **Focus on bottlenecks**: 80/20 rule applies
+3. **Simple caching**: Use `functools.lru_cache` for expensive computations
+4. **Database queries**: Use eager loading only when N+1 is proven issue
+
 ```python
-import asyncio
-from typing import List
-import httpx
+from functools import lru_cache
 
-async def fetch_data(url: str) -> dict:
-    """Fetch data asynchronously."""
-    async with httpx.AsyncClient() as client:
-        response = await client.get(url)
-        return response.json()
-
-async def fetch_multiple(urls: List[str]) -> List[dict]:
-    """Fetch multiple URLs concurrently."""
-    tasks = [fetch_data(url) for url in urls]
-    return await asyncio.gather(*tasks)
-
-# Database queries
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-
-async def get_users_async(
-    db: AsyncSession,
-    skip: int = 0,
-    limit: int = 100
-) -> List[User]:
-    """Get users with async database query."""
-    stmt = select(User).offset(skip).limit(limit)
-    result = await db.execute(stmt)
-    return result.scalars().all()
-```
-
-### Caching Strategy
-```python
-from functools import lru_cache, cache
-from typing import Optional
-import redis
-import json
-
-# In-memory caching for expensive computations
 @lru_cache(maxsize=128)
 def expensive_calculation(param: int) -> float:
     """Cache results of expensive calculations."""
     # Complex computation
     return result
-
-# Redis caching for distributed systems
-class RedisCache:
-    """Redis-based caching implementation."""
-
-    def __init__(self, redis_url: str):
-        self.redis = redis.from_url(redis_url)
-
-    def get(self, key: str) -> Optional[Any]:
-        """Get value from cache."""
-        value = self.redis.get(key)
-        return json.loads(value) if value else None
-
-    def set(
-        self,
-        key: str,
-        value: Any,
-        expire: Optional[int] = None
-    ) -> None:
-        """Set value in cache with optional expiration."""
-        self.redis.set(
-            key,
-            json.dumps(value),
-            ex=expire
-        )
-
-    def delete(self, key: str) -> None:
-        """Delete key from cache."""
-        self.redis.delete(key)
 ```
 
 ## 📊 Monitoring & Observability
 
-### Metrics Collection
+### Simple Health Checks
 ```python
-from prometheus_client import Counter, Histogram, Gauge
-import time
+from flask import Flask, jsonify
 
-# Define metrics
-request_count = Counter(
-    "app_requests_total",
-    "Total number of requests",
-    ["method", "endpoint", "status"]
-)
+app = Flask(__name__)
 
-request_duration = Histogram(
-    "app_request_duration_seconds",
-    "Request duration in seconds",
-    ["method", "endpoint"]
-)
-
-active_users = Gauge(
-    "app_active_users",
-    "Number of active users"
-)
-
-# Use in middleware
-async def metrics_middleware(request: Request, call_next):
-    """Collect request metrics."""
-    start_time = time.time()
-
-    response = await call_next(request)
-
-    duration = time.time() - start_time
-    request_count.labels(
-        method=request.method,
-        endpoint=request.url.path,
-        status=response.status_code
-    ).inc()
-
-    request_duration.labels(
-        method=request.method,
-        endpoint=request.url.path
-    ).observe(duration)
-
-    return response
-```
-
-## 🚀 Deployment Readiness
-
-### Health Checks
-```python
-from fastapi import APIRouter, status
-from sqlalchemy import text
-
-router = APIRouter(tags=["health"])
-
-@router.get("/health", status_code=status.HTTP_200_OK)
-async def health_check():
+@app.route("/health")
+def health_check():
     """Basic health check endpoint."""
-    return {"status": "healthy"}
+    return jsonify({"status": "healthy"})
 
-@router.get("/health/ready", status_code=status.HTTP_200_OK)
-async def readiness_check(db: Session):
-    """Check if application is ready to serve requests."""
+@app.route("/ready")
+def readiness_check():
+    """Check if application is ready."""
     try:
         # Check database connection
-        db.execute(text("SELECT 1"))
-
-        # Check other critical dependencies
-        # ...
-
-        return {"status": "ready"}
+        db.execute("SELECT 1")
+        return jsonify({"status": "ready"})
     except Exception as e:
-        logger.error(f"Readiness check failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Service not ready"
-        )
-
-@router.get("/health/live", status_code=status.HTTP_200_OK)
-async def liveness_check():
-    """Check if application is alive."""
-    return {"status": "alive"}
+        return jsonify({"status": "not ready", "error": str(e)}), 503
 ```
 
 ## 📋 Development Checklist
 
 ### Before Starting Development
 - [ ] Read root CLAUDE.md for project-wide conventions
-- [ ] Check Python version compatibility (3.10+)
-- [ ] Set up virtual environment with UV
-- [ ] Configure `.env` from `.env.example`
-- [ ] Install pre-commit hooks
-- [ ] Run existing tests to ensure setup
+- [ ] Understand the simplest solution first
+- [ ] Check if feature already exists
+- [ ] Question if the feature is needed (YAGNI)
 
 ### While Developing
+- [ ] Start with the simplest working solution
+- [ ] Add complexity only when proven necessary
 - [ ] Follow PEP 8 and project conventions
-- [ ] Add type hints to all functions
-- [ ] Write Google-style docstrings
-- [ ] Keep functions under 50 lines
-- [ ] Keep files under 500 lines
+- [ ] Add type hints to functions
+- [ ] Write simple docstrings (no novels)
+- [ ] Keep functions under 30 lines when possible
 - [ ] Handle errors explicitly
-- [ ] Log important operations
-- [ ] Validate all inputs
+- [ ] Validate inputs at boundaries
 
 ### Before Committing
-- [ ] Write/update tests (minimum 80% coverage)
-- [ ] Run test suite: `uv run pytest`
+- [ ] Run tests: `uv run pytest`
 - [ ] Run linter: `uv run ruff check .`
 - [ ] Format code: `uv run ruff format .`
-- [ ] Type check: `uv run mypy app/`
-- [ ] Update documentation if needed
+- [ ] Type check: `uv run mypy src/` (if configured)
 - [ ] Ensure no secrets in code
+- [ ] Question: "Can this be simpler?"
 
 ### Security Checklist
 - [ ] No hardcoded credentials
-- [ ] All inputs validated with Pydantic
+- [ ] Inputs validated with Pydantic
 - [ ] SQL queries use parameterization
 - [ ] Passwords hashed with bcrypt
 - [ ] Authentication required for protected endpoints
-- [ ] Rate limiting implemented
-- [ ] CORS configured properly
-- [ ] Sensitive data not logged
 
-## 🔍 Debugging & Troubleshooting
-
-### Debug Tools
-```python
-# Use ipdb for interactive debugging
-import ipdb; ipdb.set_trace()
-
-# Use rich for better tracebacks
-from rich.traceback import install
-install(show_locals=True)
-
-# Profile performance
-import cProfile
-import pstats
-
-def profile_function():
-    """Profile function execution."""
-    profiler = cProfile.Profile()
-    profiler.enable()
-
-    # Code to profile
-    result = expensive_operation()
-
-    profiler.disable()
-    stats = pstats.Stats(profiler)
-    stats.sort_stats('cumulative')
-    stats.print_stats(10)
-
-    return result
-```
 
 ## ⚠️ Common Pitfalls to Avoid
 
-1. **Never use mutable default arguments**
+1. **Overengineering**
    ```python
-   # ❌ Wrong
-   def add_item(item, items=[]):
-       items.append(item)
-       return items
+   # ❌ Wrong - too complex for simple need
+   class UserManagerFactoryInterface(ABC):
+       @abstractmethod
+       def create_user_service(self) -> UserServiceInterface:
+           pass
 
-   # ✅ Correct
-   def add_item(item, items=None):
-       if items is None:
-           items = []
-       items.append(item)
-       return items
+   # ✅ Correct - simple and direct
+   def create_user(username: str, email: str) -> User:
+       return User(username=username, email=email)
    ```
 
-2. **Always use timezone-aware datetimes**
+2. **Premature Abstraction**
+   ```python
+   # ❌ Wrong - abstraction with single use
+   class DataProcessor(ABC):
+       @abstractmethod
+       def process(self, data): pass
+
+   class UserDataProcessor(DataProcessor):
+       def process(self, data):
+           return data.upper()
+
+   # ✅ Correct - direct implementation
+   def process_user_data(data: str) -> str:
+       return data.upper()
+   ```
+
+3. **Always use timezone-aware datetimes**
    ```python
    # ❌ Wrong
    from datetime import datetime
@@ -1079,38 +839,15 @@ def profile_function():
    now = datetime.now(UTC)
    ```
 
-3. **Don't catch all exceptions blindly**
-   ```python
-   # ❌ Wrong
-   try:
-       process_data()
-   except:
-       pass
-
-   # ✅ Correct
-   try:
-       process_data()
-   except ValidationError as e:
-       logger.warning(f"Validation failed: {e}")
-       raise
-   ```
-
 ## 📚 References & Resources
 
 ### Essential Documentation
 - [PEP 8 - Style Guide](https://pep8.org/)
-- [PEP 484 - Type Hints](https://www.python.org/dev/peps/pep-0484/)
 - [PEP 20 - The Zen of Python](https://www.python.org/dev/peps/pep-0020/)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Flask Documentation](https://flask.palletsprojects.com/)
 - [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
-- [Pydantic Documentation](https://docs.pydantic.dev/)
 - [Pytest Documentation](https://docs.pytest.org/)
-
-### Security Resources
-- [OWASP Python Security](https://owasp.org/www-project-top-ten/)
-- [Python Security Best Practices](https://python.readthedocs.io/en/latest/library/security_warnings.html)
-- [SQL Injection Prevention](https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html)
 
 ---
 
-**Remember**: This document defines the gold standard for our Python backend. When in doubt, prioritize security, correctness, and maintainability over cleverness or premature optimization.
+**Remember**: Start simple. Add complexity only when proven necessary. The best code is code that doesn't exist. The second best is simple code that works.

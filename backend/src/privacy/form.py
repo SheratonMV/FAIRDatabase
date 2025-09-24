@@ -4,8 +4,8 @@ Handlers for privacy processing and differential privacy noise addition in data 
 
 from flask import request, session
 from src.form_handler import BaseHandler
-from AnonyBiome.anonymization.enforce_privacy import enforce_privacy
-from AnonyBiome.anonymization.p_29 import P_29_score
+from src.anonymization.enforce_privacy import enforce_privacy
+from src.anonymization.p_29 import P_29_score
 from .helpers import add_noise_to_df, validate_column_selection
 from src.exceptions import GenericExceptionHandler
 
