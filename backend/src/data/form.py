@@ -8,7 +8,7 @@ from flask import request, session, current_app
 from werkzeug.utils import secure_filename
 
 from src.exceptions import GenericExceptionHandler
-from AnonyBiome.anonymization.p_29 import P_29_score
+from src.anonymization.p_29 import P_29_score
 from .helpers import (
     allowed_file,
     calculate_missing_percentages,
