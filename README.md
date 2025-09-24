@@ -2,14 +2,14 @@
 
 ## Project Overview
 
-FAIRDatabase is a system implementing **FAIR data principles** for managing research data:
+FAIRDatabase implements **FAIR data principles** for research data management:
 
-- **F**indable: Data has persistent identifiers and rich metadata
-- **A**ccessible: Clear protocols for data retrieval and access
-- **I**nteroperable: Uses standard formats and vocabularies
-- **R**eusable: Includes licenses and provenance information
+- **F**indable: Persistent identifiers and rich metadata
+- **A**ccessible: Clear retrieval protocols
+- **I**nteroperable: Standard formats and vocabularies
+- **R**eusable: Licenses and provenance
 
-The project provides a web-based interface for researchers to manage and share their data following these principles.
+A simple, pragmatic web interface for researchers to manage and share data following FAIR principles.
 
 ## Repository Information
 
@@ -162,29 +162,19 @@ The following ports are automatically forwarded:
 | 54321 | Supabase Studio            | Database management UI               |
 | 54323 | Supabase Kong API Gateway  | API gateway for Supabase services   |
 
-## Development Workflow
+## Quick Start Commands
 
-### Python Development
+### Backend Development
 ```bash
 cd backend
-
-# Sync dependencies
-uv sync --all-groups
-
-# Run tests
-uv run pytest
-
-# Lint code
-ruff check .
-
-# Format code
-ruff format .
-
-# Run application
-uv run python app.py
+uv sync --all-groups     # Install dependencies
+uv run pytest            # Run tests
+uv run python app.py     # Start Flask app
+ruff check .             # Lint code
+ruff format .            # Format code
 ```
 
-### Supabase Management
+### Database Management
 ```bash
 # Check status
 npx supabase status
@@ -373,34 +363,35 @@ FAIRDatabase/
 └── README.md        # This file
 ```
 
-## Development Philosophy
+## Core Development Philosophy
 
-**Core Principle: Start simple. Add complexity only when proven necessary.**
+**Start simple. Add complexity only when proven necessary.**
 
-This project follows key development principles:
-- **KISS** (Keep It Simple): The simplest solution is usually the best
-- **YAGNI** (You Aren't Gonna Need It): Build only what's required now
-- **DRY** (Don't Repeat Yourself): Single source of truth for knowledge
+Key principles:
+- **KISS**: The simplest working solution is best
+- **YAGNI**: Build only what's required now
+- **DRY**: Single source of truth (but duplication > wrong abstraction)
 - **Single Responsibility**: Each component does one thing well
 - **Fail Fast**: Detect and report errors immediately
+- **Explicit Over Implicit**: Code should clearly express intent
 
-For detailed development guidelines, see [CLAUDE.md](./CLAUDE.md).
+See [CLAUDE.md](./CLAUDE.md) for comprehensive development guidelines.
 
 ## Important Notes
 
-⚠️ **Current Codebase Status**:
-- The existing code may not follow all standards defined in CLAUDE.md
-- Major refactoring is expected in the future
-- When contributing, prioritize following the principles in CLAUDE.md over matching existing patterns
+⚠️ **Current Status**:
+- Existing code may not follow all CLAUDE.md standards
+- Refactoring expected as project evolves
+- **When contributing**: Prioritize CLAUDE.md principles over existing patterns
 - Check subdirectory CLAUDE.md files for context-specific guidance
 
 ## Contributing
 
-1. Read [CLAUDE.md](./CLAUDE.md) for development principles
-2. Check relevant subdirectory CLAUDE.md files
-3. Follow the Git workflow rules (work in fork only)
-4. Ensure your development environment is properly configured
-5. Update documentation if your changes affect patterns or workflows
+1. Read [CLAUDE.md](./CLAUDE.md) first
+2. Check subdirectory CLAUDE.md files for context
+3. Work in fork only (never push to original)
+4. Follow established principles over existing patterns
+5. Update CLAUDE.md if patterns/workflows change
 
 ## Support
 
