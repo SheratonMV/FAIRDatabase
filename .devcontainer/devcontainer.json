@@ -81,7 +81,7 @@
   // - Disable automatic port detection to avoid unexpected forwards
   // - Explicitly list only the ports we need
   // - Use appropriate onAutoForward behaviors per service
-  "forwardPorts": [5000, 54321, 54323, 54324, 54327],
+  "forwardPorts": [5000, 54321, 54323],
   "portsAttributes": {
     "5000": {
       "label": "Flask development server",
@@ -96,11 +96,27 @@
     }
   },
 
+  // Environment variables for local development
+  "containerEnv": {
+    "ENV": "development",
+    "SECRET_KEY": "dev-secret-key-for-local-testing",
+    "UPLOAD_FOLDER": "./uploads",
+
+    // Supabase Local Development
+    "SUPABASE_URL": "http://127.0.0.1:54321",
+    "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU",
+
+    // PostgreSQL Direct Connection
+    "POSTGRES_HOST": "127.0.0.1",
+    "POSTGRES_PORT": "54322",
+    "POSTGRES_USER": "postgres",
+    "POSTGRES_SECRET": "postgres",
+    "POSTGRES_DB_NAME": "postgres"
+  },
+
   // Lifecycle scripts
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "postStartCommand": "bash .devcontainer/post-start.sh",
-
-  "remoteUser": "vscode",
 
   // Minimum host requirements
   "hostRequirements": {
