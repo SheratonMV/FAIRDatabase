@@ -21,87 +21,71 @@ A simple, pragmatic web interface for researchers to manage and share data follo
 
 ## Development Environment Setup
 
-Choose one of the following methods to set up your development environment:
+This project uses **Development Containers** for consistent, reproducible development following FAIR principles.
 
-**Note:** First-time setup takes 5-10 minutes to download all tools, dependencies, and Docker images. Subsequent starts are much faster.
-
-### Option 1: VS Code with Dev Container (Recommended)
-
-The easiest way to get started with a full-featured development environment.
-
-**Prerequisites:**
-- Docker Desktop or Docker Engine
+### Prerequisites
 - Git
-- [Visual Studio Code](https://code.visualstudio.com/)
-- [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+- Container runtime (Docker, Podman, or compatible)
+- Development tool of choice (see methods below)
 
-1. **Clone and Open**
-   ```bash
-   git clone https://github.com/seijispieker/FAIRDatabase.git
-   cd FAIRDatabase
-   ```
-   Open the folder in VS Code (File → Open Folder)
+### Setup Methods
 
-2. **Start Development Environment**
-   - VS Code will detect the dev container configuration
-   - Click **"Reopen in Container"** when prompted
-   - Wait for the container to build (first time: ~5-10 minutes)
-   - The terminal will show when Supabase is ready
+#### 1. VS Code + Dev Containers
+**Best for:** Full IDE experience with debugging and extensions
+**Requirements:** VS Code + [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 
-### Option 2: GitHub Codespaces (Cloud-Based)
+```bash
+git clone https://github.com/seijispieker/FAIRDatabase.git
+cd FAIRDatabase
+code .
+```
+Click "Reopen in Container" when prompted. First build ~5-10 minutes.
 
-No local setup required - develop entirely in the browser.
+#### 2. devcontainer CLI
+**Best for:** Terminal workflows, automation, CI/CD
+**Requirements:** Node.js
 
-**Prerequisites:** None - just a GitHub account
+```bash
+# Install CLI
+npm install -g @devcontainers/cli
+
+# Start container
+devcontainer up --workspace-folder .
+
+# Enter container
+devcontainer exec --workspace-folder . bash
+```
+
+#### 3. Podman (Docker Alternative)
+**Best for:** Rootless containers, enhanced security
+**Requirements:** Podman installed
+
+```bash
+# Enable Docker compatibility
+systemctl --user enable podman.socket
+alias docker=podman
+
+# Use with devcontainer CLI or VS Code
+DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock code .
+```
+
+#### 4. GitHub Codespaces
+**Best for:** Zero local setup, instant start
+**Requirements:** GitHub account (120-180 hours free/month)
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=seijispieker%2FFAIRDatabase)
 
-1. **Create a Codespace**
-   - Click the button above, or
-   - Navigate to the repository on GitHub
-   - Click the **Code** button → **Codespaces** tab
-   - Click **"Create codespace on main"**
+#### 5. code-server (Self-Hosted)
+**Best for:** VS Code in browser, team environments
+**Requirements:** Server or local machine with Docker
 
-2. **Wait for Setup**
-   - The codespace will automatically build and configure everything
-   - This includes all dependencies and Supabase initialization
-   - You'll have a full VS Code environment in your browser
-
-### Option 3: DevContainer CLI (Command Line)
-
-For developers who prefer command-line workflows.
-
-**Prerequisites:**
-- Docker Desktop or Docker Engine
-- Git
-- Node.js and npm (for DevContainer CLI installation)
-
-1. **Install DevContainer CLI**
-   ```bash
-   npm install -g @devcontainers/cli
-   ```
-
-2. **Clone Repository**
-   ```bash
-   git clone https://github.com/seijispieker/FAIRDatabase.git
-   cd FAIRDatabase
-   ```
-
-3. **Start and Enter Container**
-   ```bash
-   # Build and open an interactive shell in the container
-   devcontainer up --workspace-folder . && \
-   devcontainer exec --workspace-folder . bash
-   ```
-
-   Or separately:
-   ```bash
-   # Build and start the container
-   devcontainer up --workspace-folder .
-
-   # Open an interactive shell in the running container
-   devcontainer exec --workspace-folder . bash
-   ```
+```bash
+# Quick start
+docker run -it --init -p 8080:8080 \
+  -v "$(pwd):/home/coder/project" \
+  -v "/var/run/docker.sock:/var/run/docker.sock" \
+  codercom/code-server:latest
+```
 
 ## What's Included
 
@@ -138,7 +122,64 @@ The application will be available at:
 
 ## Troubleshooting
 
-- **Minimum requirements not met:** Container requires 2 CPUs, 2GB RAM, and 8GB storage
-- **Container issues:** Ensure Docker is running (`docker version`)
-- **Supabase not accessible:** Restart services (`npx supabase stop && npx supabase start`)
-- **Port conflicts:** Check for services using the same port (`lsof -i :5000`)
+### Common Issues
+
+#### Container Won't Start
+```bash
+# Check Docker/Podman is running
+docker version
+
+# Clean and rebuild
+docker system prune -a
+devcontainer rebuild --workspace-folder .
+```
+
+#### Port Already in Use
+```bash
+# Find process using port (Linux/macOS)
+lsof -i :5000
+
+# Change port in .devcontainer/devcontainer.json
+"forwardPorts": [5001, 54321, 54323]
+```
+
+#### Permission Denied
+```bash
+# Linux: Add user to docker group
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Fix file permissions
+sudo chown -R $(id -u):$(id -g) .
+```
+
+#### Slow Performance
+- **macOS**: Use OrbStack or Colima instead of Docker Desktop
+- **Windows**: Clone repo inside WSL2, not Windows filesystem
+- **All platforms**: Increase Docker resources in settings
+
+#### Supabase Won't Start
+```bash
+npx supabase stop --no-backup
+npx supabase start
+```
+
+#### Quick Diagnostics
+```bash
+# System info
+docker info | grep -E "CPUs|Total Memory"
+docker system df
+
+# Container logs
+docker ps -a
+docker logs <container-id>
+
+# Test services
+curl http://localhost:5000       # Flask
+curl http://localhost:54321      # Supabase
+```
+
+## Getting Help
+
+- **Found a bug?** Open an issue on [GitHub](https://github.com/seijispieker/FAIRDatabase/issues)
+- **Questions?** Review the [Dev Containers Documentation](https://containers.dev/)
