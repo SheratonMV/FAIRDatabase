@@ -142,6 +142,9 @@ Your development environment comes pre-configured with:
 Once your environment is ready:
 
 ```bash
+# Start Supabase (required first time and after container restart)
+npx supabase start
+
 # Navigate to backend
 cd backend
 
