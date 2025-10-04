@@ -142,7 +142,7 @@ Your development environment comes pre-configured with:
 Once your environment is ready:
 
 ```bash
-# Start Supabase (required first time and after container restart)
+# Start Supabase
 npx supabase start
 
 # Navigate to backend
@@ -162,101 +162,65 @@ The application will be available at:
 
 ## Troubleshooting
 
-### Common Issues
+### Container Issues
 
-#### Container Won't Start
+**Container Won't Start**
 ```bash
-# Check Docker/Podman is running
-docker version
-
-# Clean and rebuild
-docker system prune -a
-devcontainer rebuild --workspace-folder .
+docker version                                    # Verify Docker is running
+docker stop $(docker ps -aq) 2>/dev/null || true  # Stop all containers
+docker system prune -a --volumes -f               # Remove all unused resources
+docker builder prune --all -f                     # Clean build cache
 ```
 
-#### Port Already in Use
-```bash
-# Find process using port (Linux/macOS)
-lsof -i :5000
+**Permission Denied**
 
-# Change port in .devcontainer/devcontainer.json
-"forwardPorts": [5001, 54321, 54323]
-```
+Follow the [official Docker post-install steps](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user):
 
-#### Permission Denied
 ```bash
-# Linux: Add user to docker group
 sudo usermod -aG docker $USER
-newgrp docker
-
-# Fix file permissions
-sudo chown -R $(id -u):$(id -g) .
 ```
 
-#### Slow Performance
+Then **log out and log back in** (or restart your container).
+
+**Port Already in Use**
+```bash
+lsof -i :5000                                     # Find process using port
+# Change port in .devcontainer/devcontainer.json: "forwardPorts": [5001, 54321, 54323]
+```
+
+### Service Issues
+
+**Supabase Won't Start**
+```bash
+npx supabase stop --no-backup && npx supabase start
+```
+
+**Flask/Backend Issues**
+```bash
+docker logs <container-id>                        # Check container logs
+curl http://localhost:5000                        # Test Flask
+curl http://localhost:54321                       # Test Supabase
+```
+
+### Performance
+
 - **macOS**: Use Rancher Desktop or Colima instead of Docker Desktop
 - **Windows**: Clone repo inside WSL2, not Windows filesystem
-- **All platforms**: Increase Docker resources in settings
+- **All**: Increase Docker resources (Memory/CPU) in settings
 
-#### Supabase Won't Start
+### Remote Development
+
+**Connection Issues**
 ```bash
-npx supabase stop --no-backup
-npx supabase start
+ssh user@remote-server.com                        # Test SSH connection
+ssh user@remote "docker version"                  # Verify remote Docker
+ssh user@remote "sudo usermod -aG docker $USER"   # Fix remote permissions
 ```
 
-#### Remote Setup Issues
-
-These issues apply when using any remote development method (VS Code Remote-SSH, DevPod, Docker context):
-
-**SSH Connection Fails**
+**Port Forwarding**
 ```bash
-# Test SSH connection first
-ssh user@remote-server.com
-
-# Enable verbose logging
-ssh -v user@remote-server.com
-
-# Check SSH key permissions
-chmod 600 ~/.ssh/id_rsa
-chmod 644 ~/.ssh/id_rsa.pub
-```
-
-**Remote Container Won't Start**
-```bash
-# Verify Docker is running on remote
-ssh user@remote-server.com "docker version"
-
-# Check remote Docker permissions
-ssh user@remote-server.com "docker ps"
-
-# Add remote user to docker group (on remote machine)
-ssh user@remote-server.com "sudo usermod -aG docker $USER"
-```
-
-**Port Forwarding Not Working**
-```bash
-# Check port forwarding in your tool (VS Code Ports panel, DevPod settings, etc.)
-# Or manually forward via SSH
-ssh -L 5000:localhost:5000 user@remote-server.com
-```
-
-#### Quick Diagnostics
-```bash
-# System info
-docker info | grep -E "CPUs|Total Memory"
-docker system df
-
-# Container logs
-docker ps -a
-docker logs <container-id>
-
-# Test services
-curl http://localhost:5000       # Flask
-curl http://localhost:54321      # Supabase
-
-# Remote diagnostics
-ssh user@remote "docker ps"
-ssh user@remote "docker logs <container-id>"
+ssh -L 5000:localhost:5000 user@remote-server.com # Manual port forward
+# Or use your tool's port forwarding (VS Code Ports panel, DevPod settings)
 ```
 
 ## Getting Help
