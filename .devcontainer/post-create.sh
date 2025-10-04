@@ -7,12 +7,6 @@ echo "║       🔧 Setting up FAIRDatabase Development Environment          �
 echo "╚═══════════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Configure Git for safe directory and pull strategy
-echo "📝 Configuring Git settings..."
-git config --global --add safe.directory "${PWD}"
-git config --global pull.rebase false
-echo "✅ Git configured"
-
 # Setup Python environment with uv
 if [ -f "backend/pyproject.toml" ]; then
     echo "🐍 Setting up Python environment..."
@@ -60,11 +54,6 @@ echo "│                                                                 │"
 echo "│  🚀 Start Flask application:                                    │"
 echo "│     cd backend                                                  │"
 echo "│     uv run flask run                                            │"
-echo "│                                                                 │"
-echo "│  🌐 Application URLs:                                           │"
-echo "│     • Flask Backend:    http://localhost:5000                   │"
-echo "│     • Supabase Studio:  http://localhost:54321                  │"
-echo "│     • API Gateway:      http://localhost:54323                  │"
 echo "│                                                                 │"
 echo "└─────────────────────────────────────────────────────────────────┘"
 echo ""
