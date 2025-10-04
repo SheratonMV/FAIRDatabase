@@ -3,9 +3,9 @@
   "image": "mcr.microsoft.com/devcontainers/python:3.13-bookworm",
 
   "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
     "ghcr.io/devcontainers-extra/features/uv:1": {},
     "ghcr.io/devcontainers-extra/features/ruff:1": {},
-    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
     "ghcr.io/devcontainers/features/node:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
@@ -16,8 +16,6 @@
         // Python
         "ms-python.python",
         "ms-python.vscode-pylance",
-        "ms-python.debugpy",
-        "ms-python.vscode-python-envs",
         "charliermarsh.ruff",
         // AI assistants
         "Anthropic.claude-code",
@@ -25,6 +23,7 @@
         "GitHub.copilot-chat",
         // Database
         "Supabase.vscode-supabase-extension",
+        "Supabase.postgrestools",
         "mtxr.sqltools",
         "mtxr.sqltools-driver-pg",
         // Git & GitHub
@@ -32,90 +31,37 @@
         "GitHub.vscode-pull-request-github",
         "GitHub.vscode-github-actions",
         // Dev environment
-        "ms-vscode-remote.remote-containers",
         "ms-azuretools.vscode-docker",
         // Configuration files
         "redhat.vscode-yaml",
-        "mikestead.dotenv",
-        "editorconfig.editorconfig",
-        // Deno
-        "denoland.vscode-deno"
-      ],
-      "settings": {
-        // Python virtual environment (for VS Code IntelliSense only - use 'uv run' for execution)
-        "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
-        // Disable auto-activation since we use uv run commands
-        "python.terminal.activateEnvironment": false,
-        // Disable automatic port forwarding completely
-        "remote.autoForwardPorts": false,
-        "remote.autoForwardPortsSource": "process",
-        "remote.restoreForwardedPorts": false,
-        // Deno settings
-        "deno.enablePaths": [
-          "supabase/functions"
-        ],
-        "deno.lint": true,
-        "deno.unstable": [
-          "bare-node-builtins",
-          "byonm",
-          "sloppy-imports",
-          "unsafe-proto",
-          "webgpu",
-          "broadcast-channel",
-          "worker-options",
-          "cron",
-          "kv",
-          "ffi",
-          "fs",
-          "http",
-          "net"
-        ],
-        "[typescript]": {
-          "editor.defaultFormatter": "denoland.vscode-deno"
-        }
-      }
+        "mikestead.dotenv"
+      ]
     }
   },
 
-  // Port forwarding strategy:
-  // - Disable automatic port detection to avoid unexpected forwards
-  // - Explicitly list only the ports we need
-  // - Use appropriate onAutoForward behaviors per service
-  "forwardPorts": [5000, 54321, 54323],
+  // Lifecycle scripts
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  // Forward ports
+  "forwardPorts": [5000, 54321, 54322, 54323, 54324],
   "portsAttributes": {
     "5000": {
-      "label": "Flask development server",
-      "onAutoForward": "openBrowser"
+      "label": "Flask Backend"
+    },
+    "54321": {
+      "label": "Supabase API"
+    },
+    "54322": {
+      "label": "PostgreSQL"
     },
     "54323": {
       "label": "Supabase Studio",
       "onAutoForward": "notify"
     },
-    "*": {
-      "onAutoForward": "ignore"
+    "54324": {
+      "label": "Inbucket (Email)"
     }
   },
-
-  // Environment variables for local development
-  "containerEnv": {
-    "ENV": "development",
-    "SECRET_KEY": "dev-secret-key-for-local-testing",
-    "UPLOAD_FOLDER": "./uploads",
-
-    // Supabase Local Development
-    "SUPABASE_URL": "http://127.0.0.1:54321",
-    "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU",
-
-    // PostgreSQL Direct Connection
-    "POSTGRES_HOST": "127.0.0.1",
-    "POSTGRES_PORT": "54322",
-    "POSTGRES_USER": "postgres",
-    "POSTGRES_SECRET": "postgres",
-    "POSTGRES_DB_NAME": "postgres"
-  },
-
-  // Lifecycle scripts
-  "postCreateCommand": "bash .devcontainer/post-create.sh",
 
   // Minimum host requirements
   "hostRequirements": {

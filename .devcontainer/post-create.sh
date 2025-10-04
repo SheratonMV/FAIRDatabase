@@ -27,10 +27,14 @@ echo "📦 Updating npm to latest version..."
 npm install -g npm@latest
 echo "✅ npm updated"
 
-# Install Supabase CLI for database management
-echo "🗄️ Installing Supabase CLI..."
-npm install supabase --save-dev
-echo "✅ Supabase CLI installed"
+# Initialize Supabase for local development (if not already initialized)
+if [ ! -d "supabase" ]; then
+    echo "🔧 Initializing Supabase for local development..."
+    npx supabase init
+    echo "✅ Supabase initialized"
+else
+    echo "ℹ️ Supabase already initialized"
+fi
 
 # Install Claude Code CLI for AI assistance
 echo "🤖 Installing Claude Code CLI..."
