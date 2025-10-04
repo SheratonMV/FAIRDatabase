@@ -4,26 +4,24 @@
 
 **Base Image:** `mcr.microsoft.com/devcontainers/python:3.13`
 **Package Manager:** uv (exclusively - never use pip)
-**Database:** Supabase (auto-starts on container start)
+**Database:** Supabase (manual start required: `npx supabase start`)
 
 ## Lifecycle Scripts
 
-### post-create.sh (runs once)
+### post-create.sh (runs once on container creation)
 - Git safe directory configuration
 - Python environment setup (uv sync)
 - npm and Supabase CLI installation
 - Claude Code CLI and MCP setup
+- Displays setup notes and quick command reference
 
-### post-start.sh (runs on each start)
-- Starts Supabase services automatically
-- Creates backend .env file with Supabase configuration
-- Displays quick command reference for Flask and pytest
+**Note**: Supabase is NOT auto-started. Users must manually run `npx supabase start` before using the backend.
 
 ## Access Points
 
 - **Flask Backend:** http://localhost:5000 (run `cd backend && ./run.sh`)
-- **Supabase Studio:** http://localhost:54323 (auto-starts)
-- **Supabase API:** http://localhost:54321 (auto-starts)
+- **Supabase Studio:** http://localhost:54323 (after running `npx supabase start`)
+- **Supabase API:** http://localhost:54321 (after running `npx supabase start`)
 
 ## Development Conventions
 
