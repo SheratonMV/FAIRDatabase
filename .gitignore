@@ -526,6 +526,10 @@ notes.txt
 # Abstra
 .abstra/
 
+# Uploaded files (sensitive user data)
+uploads/
+backend/uploads/
+
 ##############################################################################
 # Optional: Lock files
 # Uncomment if you don't want to track lock files
