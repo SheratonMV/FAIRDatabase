@@ -154,6 +154,12 @@ env.bak/
 venv.bak/
 pythonenv*
 
+# Project-specific environment files
+backend/.env
+backend/tests/.env.test
+!backend/.env.example
+!backend/tests/.env.test.example
+
 # Spyder project settings
 .spyderproject
 .spyproject
