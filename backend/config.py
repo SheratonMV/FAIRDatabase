@@ -1,7 +1,11 @@
+import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
-import os
+# Load .env from backend directory (works regardless of CWD)
+backend_dir = Path(__file__).parent
+dotenv_path = backend_dir / '.env'
+load_dotenv(dotenv_path, override=True)
 
 import psycopg2
 
