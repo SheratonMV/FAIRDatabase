@@ -154,7 +154,6 @@ uv run flask run --debug
 |---------|-----|-------------|
 | Flask App | http://localhost:5000 | Main application |
 | Supabase Studio | http://localhost:54321 | Database management UI |
-| API Gateway | http://localhost:54323 | Supabase API endpoint |
 | Inbucket | http://localhost:54324 | Email testing interface |
 
 ### First Steps

@@ -36,33 +36,8 @@
         "ms-azuretools.vscode-docker",
         // Configuration files
         "redhat.vscode-yaml",
-        "mikestead.dotenv",
-        "denoland.vscode-deno"
-      ],
-      "settings": {
-        "[typescript]": {
-          "editor.defaultFormatter": "denoland.vscode-deno"
-        },
-        "deno.enablePaths": [
-          "supabase/functions"
-        ],
-        "deno.lint": true,
-        "deno.unstable": [
-          "bare-node-builtins",
-          "byonm",
-          "sloppy-imports",
-          "unsafe-proto",
-          "webgpu",
-          "broadcast-channel",
-          "worker-options",
-          "cron",
-          "kv",
-          "ffi",
-          "fs",
-          "http",
-          "net"
-        ]
-      }
+        "mikestead.dotenv"
+      ]
     }
   },
 
@@ -88,7 +63,7 @@
   "forwardPorts": [5000, 54323, 54324],
   "portsAttributes": {
     "5000": {
-      "label": "Flask Backend",
+      "label": "Flask App",
       "onAutoForward": "notify"
     },
     "54323": {
