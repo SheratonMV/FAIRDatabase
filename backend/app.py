@@ -15,7 +15,7 @@ from src.privacy.routes import routes as privacy_routes
 from src.main.routes import routes as main_routes
 
 
-def create_app(db_name=None):
+def create_app(db_name=None, env=None):
     """Construct the core application of Flask. Holds an
     optional argument to override the databse URI, this is used
     for Pytest."""
@@ -27,6 +27,8 @@ def create_app(db_name=None):
     app.config.from_object(Config)
     if db_name is not None:
         app.config["POSTGRES_DB_NAME"] = db_name
+    if env is not None:
+        app.config["ENV"] = env
 
     # Ensure upload folder exists
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
