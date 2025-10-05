@@ -23,102 +23,90 @@ A simple, pragmatic web interface for researchers to manage and share data follo
 
 This project uses **Development Containers** for consistent, reproducible development following FAIR principles.
 
-### Prerequisites
+### Development Methods
 
-Choose your development method, then install only what's needed:
+Choose based on your setup complexity preference (simplest first):
 
-| Method | Required Prerequisites | Optional |
-|--------|----------------------|----------|
-| **GitHub Codespaces** | GitHub account | - |
-| **VS Code Dev Containers** | VS Code + Dev Containers extension + Container runtime¹ | - |
-| **DevPod** | DevPod + Container runtime¹ | - |
-| **Dev Container CLI** | Node.js 20+ + Container runtime¹ | - |
-| **Local Development** | Python 3.13+ + Node.js 20+ + PostgreSQL | Container runtime¹ |
+| Method | Setup Time | Use When You Want | What You Need |
+|--------|------------|-------------------|---------------|
+| **[1. GitHub Codespaces](#1-github-codespaces)** | 2-3 min | Zero local setup, instant cloud development | GitHub account only |
+| **[2. VS Code Dev Containers](#2-vs-code-dev-containers)** | 5-10 min | Full IDE experience with debugging | VS Code + Docker/Podman¹ |
+| **[3. DevPod](#3-devpod)** | 5-10 min | Flexibility to use any IDE or backend | DevPod + Docker/Podman¹ |
+| **[4. Dev Container CLI](#4-dev-container-cli)** | 5-10 min | Terminal-based workflow or CI/CD | Node.js + Docker/Podman¹ |
 
-¹ **Container Runtime Options**:
-- **macOS/Windows**: [Docker Desktop](https://docs.docker.com/get-docker/), [Rancher Desktop](https://rancherdesktop.io/), [Podman Desktop](https://podman.io/)
-- **Linux**: [Docker Engine](https://docs.docker.com/engine/install/), [Podman](https://podman.io/)
-- **Remote**: Install on remote machine (not locally) when using SSH/remote development
+¹ **Need a Container Runtime?** Choose one:
+- **Quick Setup:** [Docker Desktop](https://docs.docker.com/get-docker/) (macOS/Windows) or [Rancher Desktop](https://rancherdesktop.io/) (all platforms)
+- **Linux:** [Docker Engine](https://docs.docker.com/engine/install/) (native performance)
+- **Alternative:** [Podman](https://podman.io/) (rootless containers, all platforms)
 
-Choose your setup method:
+### 1. GitHub Codespaces
 
-| Method | Best For | Remote Support | Prerequisites |
-|--------|----------|----------------|---------------|
-| **GitHub Codespaces** | Instant start, zero setup | ☁️ Cloud-native | GitHub account |
-| **VS Code + Dev Containers** | Full IDE with debugging | ✅ Via Remote-SSH | VS Code + container runtime (local or remote) |
-| **DevPod** | GUI + multi-backend flexibility | ✅ SSH/K8s/Cloud | DevPod + container runtime (local or remote) |
-| **DevContainer CLI** | Terminal workflows, CI/CD | ✅ Via Docker context | Node.js 20+ + container runtime (local or remote) |
-
-### GitHub Codespaces
-**Best for:** Instant start without installing anything locally
-
-**Prerequisites:**
-- GitHub account (120-180 free hours/month)
-
-**Setup:**
+**Zero Setup Cloud Development** • Free tier: 120-180 hours/month
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/seijispieker/FAIRDatabase)
 
-Click the badge above. Your environment will be ready in ~2-3 minutes.
+Click the badge above and wait 2-3 minutes. That's it!
 
-### VS Code Dev Containers
-**Best for:** Full-featured IDE with debugging, extensions, and IntelliSense
-**Default:** Local development (supports remote via SSH/WSL/tunnels)
+---
 
-**Additional Prerequisites:**
-- **For local:** VS Code with [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-- **For remote:** VS Code with [Remote Development extension pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.vscode-remote-extensionpack) (includes Dev Containers + Remote-SSH/Tunnels/WSL)
+### 2. VS Code Dev Containers
 
-**Quick Start (Local):**
+**Full IDE with Debugging** • Works locally or remotely
 
+#### Prerequisites
+- [VS Code](https://code.visualstudio.com/)
+- [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+- Docker or Podman (see table above)
+
+#### Setup
 ```bash
 git clone https://github.com/seijispieker/FAIRDatabase.git
 cd FAIRDatabase
 code .
 ```
 
-Click "Reopen in Container" when prompted. First build takes ~5-10 minutes.
+When prompted, click **"Reopen in Container"**. First build: ~5-10 minutes.
 
-**Remote Development:** VS Code Dev Containers works on remote hosts via SSH, tunnels, or WSL. See [VS Code Remote Development docs](https://code.visualstudio.com/docs/remote/remote-overview) for setup.
+#### Remote Options
+- **Remote Development:** Install [Remote Development extension pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.vscode-remote-extensionpack)
+- **More Info:** [VS Code Remote Development Overview](https://code.visualstudio.com/docs/remote/remote-overview)
 
-**Learn More:** [Dev Containers Documentation](https://code.visualstudio.com/docs/devcontainers/containers)
+---
 
-### DevPod
-**Best for:** Multi-backend flexibility (local/remote/cloud) with GUI or CLI, works with any IDE
-**Default:** Local development (easily switch to remote/cloud providers)
+### 3. DevPod
 
-**Additional Prerequisites:**
-- [DevPod Desktop or CLI](https://devpod.sh/docs/getting-started/install) installed
+**Any IDE, Any Backend** • GUI or CLI interface
 
-**Quick Start (Local):**
+#### Prerequisites
+- [DevPod](https://devpod.sh/docs/getting-started/install)
+- Docker or Podman (see table above)
 
+#### Setup
 ```bash
-# CLI
+# CLI: Create and open workspace
 devpod provider add docker
 devpod up github.com/seijispieker/FAIRDatabase
-devpod ide use vscode
 
-# Or use DevPod Desktop GUI:
-# 1. Add Docker provider
-# 2. Create workspace from: github.com/seijispieker/FAIRDatabase
-# 3. Select your IDE
+# GUI: Open DevPod Desktop → New Workspace → Enter: github.com/seijispieker/FAIRDatabase
 ```
 
-**Remote/Cloud:** DevPod supports SSH, Kubernetes, AWS, Azure, GCP and more. See [DevPod Providers](https://devpod.sh/docs/managing-providers/add-provider) for setup.
+#### Remote Options
+- Supports SSH, Kubernetes, AWS, Azure, GCP
+- **More Info:** [DevPod Providers](https://devpod.sh/docs/managing-providers/add-provider)
 
-**Learn More:** [DevPod Documentation](https://devpod.sh/docs/what-is-devpod) | [Creating Workspaces](https://devpod.sh/docs/developing-in-workspaces/create-a-workspace)
+---
 
-### Dev Container CLI
-**Best for:** Automation, CI/CD, terminal-only workflows, or non-VS Code editors
-**Default:** Local development (supports remote via Docker contexts)
+### 4. Dev Container CLI
 
-**Additional Prerequisites:**
-- [Node.js 20+](https://nodejs.org/en/download)
+**Terminal Workflows & CI/CD** • No GUI needed
 
-**Quick Start (Local):**
+#### Prerequisites
+- [Node.js 20+](https://nodejs.org/)
+- Docker or Podman (see table above)
 
+#### Setup
 ```bash
-# Install
+# Install CLI
 npm install -g @devcontainers/cli
 
 # Clone and start
@@ -126,20 +114,20 @@ git clone https://github.com/seijispieker/FAIRDatabase.git
 cd FAIRDatabase
 devcontainer up --workspace-folder .
 
-# Execute commands in container
+# Enter container
 devcontainer exec --workspace-folder . bash
 ```
 
-**Remote Development:** Works with Docker contexts to target remote hosts (via Docker's context system; not explicitly documented in CLI docs). See [Docker contexts](https://docs.docker.com/engine/context/working-with-contexts/) for setup.
-
-**Learn More:** [Dev Container CLI GitHub](https://github.com/devcontainers/cli) | [VS Code DevContainer CLI](https://code.visualstudio.com/docs/devcontainers/devcontainer-cli)
+#### Remote Options
+- Use Docker contexts for remote hosts
+- **More Info:** [Dev Container CLI](https://github.com/devcontainers/cli)
 
 ## What's Included
 
 Your development environment comes pre-configured with:
 
 - **Python 3.13** - Latest Python version with uv package manager
-- **Node.js 20+** - For frontend tooling and package management
+- **Node.js 22.20** - For frontend tooling and package management
 - **Supabase** - Local PostgreSQL database with authentication
 - **Development Tools**:
   - `uv` - Fast Python package manager
@@ -152,17 +140,11 @@ Your development environment comes pre-configured with:
 ### Quick Start
 
 ```bash
-# 1. Start Supabase (first time takes ~2 minutes)
+# 1. Start Supabase (first time takes ~5 minutes)
 npx supabase start
 
-# Note the Anon Key and Service Key shown in output
-# Default credentials will be displayed in the terminal
-
-# 2. Setup backend
+# 2. Start application
 cd backend
-uv sync --all-groups              # Install dependencies
-
-# 3. Start application
 uv run flask run --debug
 ```
 
