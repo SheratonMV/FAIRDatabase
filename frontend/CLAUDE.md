@@ -5,8 +5,11 @@ This file provides comprehensive frontend-specific guidance for the FAIRDatabase
 ## 📋 Frontend Overview
 
 The FAIRDatabase frontend currently uses server-side templates with Flask/Jinja2. The frontend is organized into:
-- **templates/**: Jinja2 HTML templates organized by feature
-- **public/**: Static assets (CSS, JavaScript, images)
+- **frontend/templates/**: Jinja2 HTML templates organized by feature
+- **frontend/public/**: Logo images only (avatar1.png, metahealth_logo.svg, metahealth_small.png)
+- **static/**: Static assets at ROOT level (CSS, JavaScript, images)
+
+**IMPORTANT**: Main static assets (CSS, JS, images) are in `/static/` at the ROOT level, NOT in `frontend/public/`
 
 ## 🎨 Current Technology Stack
 
@@ -16,19 +19,21 @@ The FAIRDatabase frontend currently uses server-side templates with Flask/Jinja2
 - Dynamic content rendered server-side
 
 ### Frontend Assets
-- **CSS**: Custom stylesheets in `public/css/`
-- **JavaScript**: Vanilla JS for interactivity
-- **Bootstrap**: For responsive design (if present)
+- **CSS**: Main stylesheet at `/static/styles.css`
+- **JavaScript**: Main script at `/static/script.js`
+- **Images**: Located in `/static/img/`
+- **No Build Process**: No webpack, vite, or bundler (yet)
+- **No Framework**: Vanilla JavaScript only
 
 ## 🏗️ Directory Structure
 
 ```
 frontend/
 ├── CLAUDE.md          # This file
-├── public/            # Static assets
-│   ├── css/          # Stylesheets
-│   ├── js/           # JavaScript files
-│   └── images/       # Images and icons
+├── public/            # Logo images ONLY
+│   ├── avatar1.png
+│   ├── metahealth_logo.svg
+│   └── metahealth_small.png
 └── templates/         # Jinja2 templates
     ├── auth/         # Authentication pages
     ├── dashboard/    # Dashboard views
@@ -36,6 +41,14 @@ frontend/
     ├── documentation/# Documentation pages
     ├── federated_learning/
     └── privacy/      # Privacy-related pages
+
+static/                # Static assets (at ROOT level, not in frontend/)
+├── styles.css        # Main stylesheet
+├── script.js         # Main JavaScript
+└── img/              # Image assets
+    ├── avatar1.png
+    ├── metahealth_logo.svg
+    └── metahealth_small.png
 ```
 
 ## 🔧 Development Guidelines
@@ -76,10 +89,10 @@ The frontend is scheduled for modernization:
 ## 🔒 Security Considerations
 
 ### Template Security
-- **XSS Prevention**: Always escape user input
-- **CSRF Protection**: Use Flask-WTF tokens
+- **XSS Prevention**: Always escape user input with `{{ variable|e }}` or rely on Jinja2's autoescaping
+- **CSRF Protection**: Use Flask's session-based CSRF protection
 - **Content Security Policy**: Implement CSP headers
-- **Input Validation**: Validate on both client and server
+- **Input Validation**: Validate on both client and server (server-side uses custom handler classes)
 
 ### Asset Security
 - Serve static files through Flask in development
@@ -89,38 +102,72 @@ The frontend is scheduled for modernization:
 
 ## 📝 Form Handling
 
+**IMPORTANT**: This project uses **custom handler classes** (NOT Flask-WTF or Pydantic)
+
 ### Form Guidelines
 ```jinja2
-{# Use Flask-WTF for forms #}
+{# Simple HTML forms - backend uses custom handler classes #}
 <form method="POST" action="{{ url_for('route_name') }}">
-    {{ form.hidden_tag() }}  {# CSRF token #}
+    <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email"
+               id="email"
+               name="email"
+               class="form-control"
+               required>
+    </div>
 
     <div class="form-group">
-        {{ form.field.label }}
-        {{ form.field(class="form-control") }}
-        {% if form.field.errors %}
-            <div class="invalid-feedback">
-                {{ form.field.errors[0] }}
-            </div>
-        {% endif %}
+        <label for="password">Password</label>
+        <input type="password"
+               id="password"
+               name="password"
+               class="form-control"
+               required>
     </div>
+
+    <button type="submit" class="btn btn-primary">Submit</button>
 </form>
+
+{# Flash messages for validation errors #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
 ```
+
+### Backend Form Processing
+Forms are processed server-side using custom handler classes:
+- `LoginHandler`, `RegisterHandler` in `backend/src/auth/form.py`
+- `BaseHandler` in `backend/src/form_handler.py`
+- Handlers extract data from `request.form`
+- Validation errors sent back via `flash()` messages
+- See `backend/CLAUDE.md` for handler class details
 
 ## 🎯 Component Patterns
 
 ### Reusable Macros
 Create macros for common UI patterns:
 ```jinja2
-{% macro render_field(field) %}
+{% macro render_input_field(name, label, type="text", required=true) %}
     <div class="form-group">
-        {{ field.label }}
-        {{ field(class="form-control") }}
-        {% if field.errors %}
-            <span class="error">{{ field.errors[0] }}</span>
-        {% endif %}
+        <label for="{{ name }}">{{ label }}</label>
+        <input type="{{ type }}"
+               id="{{ name }}"
+               name="{{ name }}"
+               class="form-control"
+               {% if required %}required{% endif %}>
     </div>
 {% endmacro %}
+
+{# Usage #}
+{{ render_input_field("email", "Email Address", type="email") }}
+{{ render_input_field("password", "Password", type="password") }}
 ```
 
 ### Flash Messages
