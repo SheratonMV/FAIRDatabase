@@ -36,10 +36,10 @@ This backend guide follows and extends the project-wide philosophy from root CLA
 Start left, move right only when needed:
 ```
 Function → Class → Module → Package
-Dict → DataClass → Pydantic Model → Domain Model
+Dict → DataClass → Custom Model
 Direct Call → Callback → Event System
 Hardcoded → Config → Environment Variable
-Flask → Flask with extensions → FastAPI (if needed)
+Flask → Flask with extensions → Consider FastAPI (future)
 ```
 
 ## 🐍 Python Standards & Conventions
@@ -51,31 +51,26 @@ Flask → Flask with extensions → FastAPI (if needed)
 import os
 import sys
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
 
-from flask import Flask, request, jsonify
-from sqlalchemy.orm import Session
+from flask import Flask, request, jsonify, session
+from supabase import Client
 
-from config import config
-from src.models.user import User
+from config import Config, supabase_extension
+from src.exceptions import GenericExceptionHandler
 ```
 
 ### Type Hints (PEP 484)
 ```python
-# Always use type hints for function signatures
+# Use type hints for function signatures when helpful
+from typing import Optional, Dict, Any
+
 def process_user_data(
-    user_id: int,
+    user_id: str,
     data: Dict[str, Any],
-    session: Optional[Session] = None
-) -> Optional[User]:
+    optional_param: Optional[str] = None
+) -> Dict[str, Any]:
     """Process and validate user data."""
     pass
-
-# Use TypeAlias for complex types
-from typing import TypeAlias
-
-UserId: TypeAlias = int
-UserData: TypeAlias = Dict[str, Any]
 ```
 
 ### Naming Conventions
@@ -83,16 +78,14 @@ UserData: TypeAlias = Dict[str, Any]
 - **Classes**: `PascalCase`
 - **Constants**: `UPPER_SNAKE_CASE`
 - **Private**: `_leading_underscore`
-- **Name mangling**: `__double_leading_underscore` (avoid unless necessary)
-- **Type aliases**: `PascalCase`
-- **Enum members**: `UPPER_SNAKE_CASE`
+- **Blueprints**: `{module}_routes` (e.g., `auth_routes`, `data_routes`)
+- **Templates**: `{module}/{action}.html` (e.g., `auth/login.html`)
 
 ### File Organization Limits
 - **Maximum file length**: 500 lines
 - **Maximum function length**: 50 lines
 - **Maximum class length**: 100 lines
 - **Maximum cyclomatic complexity**: 10
-- **Maximum module imports**: 20
 
 ## 📁 Project Structure
 
@@ -101,44 +94,36 @@ backend/
 ├── CLAUDE.md                # This file
 ├── pyproject.toml          # Project configuration and dependencies
 ├── uv.lock                 # Lock file for reproducible builds
-├── pytest.ini              # Pytest configuration
 ├── app.py                  # Flask application entry point
 ├── config.py               # Configuration settings
-├── .venv/                 # Virtual environment (auto-created by uv)
 │
 ├── src/                   # Main application package
 │   ├── __init__.py
+│   │
 │   ├── auth/              # Authentication module
-│   │   ├── __init__.py
-│   │   ├── routes.py
-│   │   ├── helpers.py
-│   │   ├── decorators.py
-│   │   └── form.py
+│   │   ├── routes.py      # Blueprint and route handlers
+│   │   ├── helpers.py     # Business logic utilities
+│   │   └── form.py        # Form handler classes
 │   │
 │   ├── dashboard/         # Dashboard module
-│   │   ├── __init__.py
 │   │   ├── routes.py
 │   │   └── helpers.py
 │   │
 │   ├── data/              # Data management module
-│   │   ├── __init__.py
 │   │   ├── routes.py
 │   │   ├── helpers.py
 │   │   └── form.py
 │   │
-│   ├── main/              # Main module
-│   │   ├── __init__.py
+│   ├── main/              # Main/home module
 │   │   ├── routes.py
 │   │   └── helpers.py
 │   │
 │   ├── privacy/           # Privacy module
-│   │   ├── __init__.py
 │   │   ├── routes.py
 │   │   ├── helpers.py
 │   │   └── form.py
 │   │
-│   ├── anonymization/     # Anonymization module (NEW)
-│   │   ├── __init__.py
+│   ├── anonymization/     # Data anonymization module
 │   │   ├── k_anonymity.py
 │   │   ├── enforce_privacy.py
 │   │   ├── normalized_entropy.py
@@ -147,492 +132,547 @@ backend/
 │   │   ├── checks/        # Validation checks
 │   │   └── utils/         # Helper utilities
 │   │
-│   ├── exceptions.py      # Custom exceptions
-│   └── form_handler.py    # Form handling utilities
+│   ├── exceptions.py      # Custom exception classes
+│   └── form_handler.py    # Base form handler
 │
 └── tests/                # Test suite
-    ├── __init__.py
     ├── conftest.py      # Pytest fixtures
-    └── test_*.py        # Test files
+    ├── .env.test       # Test environment variables
+    └── */              # Module-specific tests
 ```
 
-## 📝 Documentation Standards
+## 🔧 Technology Stack & Dependencies
 
-### Google-Style Docstrings (Keep It Simple)
+### Current Dependencies (from pyproject.toml)
+
+**Production:**
+```toml
+flask>=3.1.0              # Web framework
+werkzeug>=3.1.3          # WSGI utilities
+psycopg2-binary>=2.9.10  # PostgreSQL adapter
+pandas>=2.2.3            # Data manipulation
+sqlalchemy>=2.0.40       # SQL toolkit (used sparingly)
+supabase>=2.15.1         # Backend-as-a-Service (Auth + DB)
+flask-cors>=5.0.1        # CORS support
+flask-limiter>=3.12      # Rate limiting
+python-dotenv>=1.1.0     # Environment variable loading
+```
+
+**Development:**
+```toml
+pytest>=8.3.4            # Testing framework
+pytest-cov>=6.0.0        # Coverage reporting
+pytest-mock>=3.14.0      # Mocking utilities
+ruff>=0.9.2              # Linter and formatter
+mypy>=1.14.1             # Type checker
+```
+
+### Key Technology Choices
+
+- **Flask** (not FastAPI): Simple, synchronous web framework
+- **Supabase**: Handles authentication, database, storage
+- **PostgreSQL**: Direct connections via psycopg2
+- **No ORM**: Minimal SQLAlchemy usage, mostly raw SQL
+- **No Pydantic**: Plain Python classes and dicts
+- **No WTForms**: Custom handler classes for forms
+
+## 📝 Flask Application Structure
+
+### Application Factory Pattern
+
 ```python
-def calculate_fair_score(
-    data_quality: float,
-    accessibility: float,
-    interoperability: float,
-    reusability: float,
-    weights: Optional[Dict[str, float]] = None
-) -> float:
+# app.py
+from flask import Flask, g
+from config import Config, supabase_extension, limiter, get_db, teardown_db
+
+def create_app(db_name=None):
     """
-    Calculate FAIR compliance score for a dataset.
+    Construct the core Flask application.
 
     Args:
-        data_quality: Quality score from 0.0 to 1.0.
-        accessibility: Accessibility score from 0.0 to 1.0.
-        interoperability: Interoperability score from 0.0 to 1.0.
-        reusability: Reusability score from 0.0 to 1.0.
-        weights: Optional weight dictionary for each component.
-
-    Returns:
-        Weighted FAIR score between 0.0 and 1.0.
-
-    Raises:
-        ValueError: If any score is outside the 0.0-1.0 range.
+        db_name: Optional database name override for testing
     """
-    # Implementation here
-    pass
+    app = Flask(
+        __name__,
+        template_folder=os.path.abspath("../frontend/templates"),
+        static_folder=os.path.abspath("../static"),
+    )
+    app.config.from_object(Config)
+
+    if db_name is not None:
+        app.config["POSTGRES_DB_NAME"] = db_name
+
+    # Register blueprints
+    app.register_blueprint(main_routes, url_prefix="/")
+    app.register_blueprint(auth_routes, url_prefix="/auth")
+    app.register_blueprint(dashboard_routes, url_prefix="/dashboard")
+    app.register_blueprint(data_routes, url_prefix="/data")
+    app.register_blueprint(privacy_routes, url_prefix="/privacy")
+
+    # Initialize extensions
+    if app.config["ENV"] != "testing":
+        limiter.init_app(app)
+
+    supabase_extension.init_app(app)
+    app.teardown_appcontext(teardown_db)
+
+    @app.before_request
+    def before_request():
+        """Establish database connection for the current request."""
+        g.db = get_db()
+
+    return app
 ```
 
+### Blueprint Pattern
+
+```python
+# src/auth/routes.py
+from flask import Blueprint, render_template, request, redirect, url_for
+
+routes = Blueprint("auth_routes", __name__)
+
+@routes.route("/login", methods=["GET", "POST"])
+def login():
+    """Handle user login."""
+    if request.method == "GET":
+        return render_template("auth/login.html")
+
+    # POST request
+    from src.auth.form import LoginHandler
+    handler = LoginHandler()
+    return handler.handle_auth()
+
+@routes.route("/logout")
+def logout():
+    """Handle user logout."""
+    session.clear()
+    return redirect(url_for("main_routes.index"))
+```
+
+## 🎨 Form Handling Pattern
+
+### Custom Handler Classes (NOT WTForms)
+
+The codebase uses custom handler classes that extract data from `request.form`:
+
+```python
+# src/auth/form.py
+from flask import request, session, render_template, redirect, url_for, flash
+from supabase import AuthApiError
+from config import supabase_extension
+
+class LoginHandler:
+    """Handle user login using Supabase authentication."""
+
+    def __init__(self):
+        try:
+            self.email = request.form.get("email", "")
+            self.password = request.form.get("password", "")
+        except (AttributeError, KeyError):
+            self.email = self.password = None
+
+    def handle_auth(self):
+        """Authenticate user and redirect to dashboard on success."""
+        if not self.email or not self.password:
+            flash("Email and password are required", "danger")
+            return render_template("auth/login.html"), 400
+
+        try:
+            signup_resp = supabase_extension.client.auth.sign_in_with_password(
+                {"email": self.email, "password": self.password}
+            )
+        except AuthApiError:
+            flash("Invalid email or password", "danger")
+            return render_template("auth/login.html"), 400
+
+        session["email"] = self.email
+        session["user"] = signup_resp.user.id
+
+        return redirect(url_for("dashboard_routes.dashboard"))
+```
+
+### Base Handler Pattern
+
+For data operations, use the BaseHandler:
+
+```python
+# src/form_handler.py
+import pandas as pd
+from flask import session
+from src.exceptions import GenericExceptionHandler
+
+class BaseHandler:
+    """Base class for handling session-based data operations."""
+
+    def __init__(self):
+        self._session = session
+        self._ctx = {
+            "user_email": self._session.get("email"),
+        }
+        self._filepath = None
+
+    def _load_dataframe(self):
+        """Load DataFrame from uploaded file path in session."""
+        try:
+            self._filepath = self._filepath or self._session.get("uploaded_filepath", "")
+
+            if not self._filepath:
+                raise GenericExceptionHandler(
+                    "No valid uploaded file found in session.",
+                    status_code=400
+                )
+
+            df = pd.read_csv(self._filepath)
+            if df.empty:
+                raise GenericExceptionHandler("Uploaded file is empty.", status_code=400)
+
+            return df
+
+        except pd.errors.ParserError as e:
+            raise GenericExceptionHandler(
+                f"Failed to parse CSV file: {str(e)}",
+                status_code=400
+            )
+```
+
+## 🔐 Authentication & Security
+
+### Supabase Authentication (NOT Custom JWT)
+
+Authentication is handled entirely by Supabase:
+
+```python
+# Login
+from config import supabase_extension
+
+response = supabase_extension.client.auth.sign_in_with_password({
+    "email": email,
+    "password": password
+})
+
+# Store in session
+session["email"] = email
+session["user"] = response.user.id
+
+# Get current user
+user = supabase_extension.client.auth.get_user()
+```
+
+### Session Management
+
+```python
+from flask import session
+
+# Set session data
+session["email"] = user_email
+session["user"] = user_id
+session["uploaded_filepath"] = filepath
+
+# Get session data
+user_email = session.get("email")
+
+# Clear session (logout)
+session.clear()
+```
+
+### Authentication Decorator
+
+```python
+# src/auth/decorators.py
+from functools import wraps
+from flask import session, redirect, url_for, flash
+
+def login_required(f):
+    """Require user to be logged in."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user" not in session:
+            flash("Please log in to access this page.", "warning")
+            return redirect(url_for("auth_routes.login"))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Usage
+@routes.route("/dashboard")
+@login_required
+def dashboard():
+    return render_template("dashboard/index.html")
+```
+
+## ⚙️ Configuration
+
+### Environment-Based Config (NOT Pydantic)
+
+```python
+# config.py
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class Config:
+    """Application configuration settings."""
+
+    ENV = os.getenv("ENV")
+    SECRET_KEY = os.getenv("SECRET_KEY", "supersecret")
+    UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "./uploads")
+    ALLOWED_EXTENSIONS = {"csv"}
+    MAX_CONTENT_LENGTH = 16 * 1000 * 10000
+
+    # Supabase
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+    # PostgreSQL
+    POSTGRES_HOST = os.getenv("POSTGRES_HOST")
+    POSTGRES_PORT = os.getenv("POSTGRES_PORT")
+    POSTGRES_USER = os.getenv("POSTGRES_USER")
+    POSTGRES_SECRET = os.getenv("POSTGRES_SECRET")
+    POSTGRES_DB_NAME = os.getenv("POSTGRES_DB_NAME")
+```
+
+### Supabase Extension
+
+```python
+# config.py (continued)
+from flask import g, current_app
+from supabase import Client, ClientOptions, create_client
+
+class Supabase:
+    """Supabase integration class."""
+
+    def __init__(self, app=None, client_options: dict | None = None):
+        self.client_options = client_options
+        if app is not None:
+            self.init_app(app)
+
+    def init_app(self, app):
+        """Initialize Flask app with Supabase configuration."""
+        app.config.setdefault("SUPABASE_URL", Config.SUPABASE_URL)
+        app.config.setdefault("SUPABASE_SERVICE_ROLE_KEY", Config.SUPABASE_SERVICE_ROLE_KEY)
+        app.teardown_appcontext(self.teardown)
+
+    def teardown(self, exception):
+        """Clean up Supabase client after each request."""
+        g.pop("supabase_client", None)
+
+    @property
+    def client(self) -> Client:
+        """Lazily initialize and return Supabase client."""
+        if "supabase_client" not in g:
+            url = current_app.config["SUPABASE_URL"]
+            key = current_app.config.get("SUPABASE_SERVICE_ROLE_KEY")
+
+            if not url or not key:
+                raise RuntimeError("Supabase URL or KEY not configured properly.")
+
+            options = self.client_options
+            if options and not isinstance(options, ClientOptions):
+                options = ClientOptions(**options)
+
+            g.supabase_client = create_client(url, key, options=options)
+
+        return g.supabase_client
+
+supabase_extension = Supabase()
+```
+
+## 🗄️ Database Access
+
+### Direct PostgreSQL Connections
+
+```python
+# config.py (continued)
+import psycopg2
+from psycopg2 import OperationalError
+
+def init_db():
+    """Establish PostgreSQL database connection."""
+    try:
+        config = current_app.config
+        conn = psycopg2.connect(
+            host=config["POSTGRES_HOST"],
+            port=config["POSTGRES_PORT"],
+            user=config["POSTGRES_USER"],
+            password=config["POSTGRES_SECRET"],
+            database=config["POSTGRES_DB_NAME"],
+        )
+        return conn
+    except OperationalError as e:
+        print(f"[ERROR] Failed to connect to DB: {e}")
+        return None
+
+def get_db():
+    """Get database connection for current request."""
+    if "db" not in g:
+        g.db = init_db()
+    return g.db
+
+def teardown_db(exception):
+    """Close database connection after request."""
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
+```
+
+### Executing Queries
+
+```python
+from flask import g
+
+def get_datasets_for_user(user_id: str):
+    """Get all datasets for a user."""
+    db = g.db
+    cursor = db.cursor()
+
+    try:
+        cursor.execute(
+            "SELECT * FROM datasets WHERE user_id = %s ORDER BY created_at DESC",
+            (user_id,)
+        )
+        results = cursor.fetchall()
+        return results
+    finally:
+        cursor.close()
+```
+
+## 🚨 Error Handling
+
+### Custom Exception Class
+
+```python
+# src/exceptions.py
+class GenericExceptionHandler(Exception):
+    """Custom exception for application-level errors."""
+
+    status_code = 400
+
+    def __init__(self, message, status_code=None, payload=None, redirect_to=None):
+        super().__init__()
+        self.message = message
+        self.status_code = status_code or self.status_code
+        self.payload = payload
+        self.redirect_to = redirect_to
+
+    def to_dict(self):
+        rv = dict(self.payload or {})
+        rv["message"] = self.message
+        return rv
+```
+
+### Error Handling in Routes
+
+```python
+from src.exceptions import GenericExceptionHandler
+from flask import flash, redirect, url_for
+
+@routes.route("/process", methods=["POST"])
+def process_data():
+    try:
+        # Process data
+        result = perform_operation()
+        return render_template("success.html", result=result)
+
+    except GenericExceptionHandler as e:
+        flash(e.message, "danger")
+        if e.redirect_to:
+            return redirect(url_for(e.redirect_to)), e.status_code
+        return render_template("error.html"), e.status_code
+
+    except Exception as e:
+        flash(f"Unexpected error: {str(e)}", "danger")
+        return redirect(url_for("main_routes.index")), 500
+```
+
+## 📊 Logging
+
+### Flask's Built-in Logger (NOT Structlog)
+
+```python
+from flask import current_app
+
+# In routes or helpers
+current_app.logger.info("Processing dataset upload")
+current_app.logger.warning(f"Invalid file format: {filename}")
+current_app.logger.error(f"Database connection failed: {e}")
+
+# Configure in app.py if needed
+import logging
+
+app.logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter(
+    '[%(asctime)s] %(levelname)s in %(module)s: %(message)s'
+))
+app.logger.addHandler(handler)
+```
 
 ## 🧪 Testing Standards
 
-### Test Structure
+### Test Structure with Pytest
+
 ```python
-# tests/test_user_service.py
+# tests/test_auth.py
 import pytest
-from unittest.mock import Mock, patch
-from datetime import datetime, UTC
+from flask import session
 
-from src.services.user import UserService
-from src.schemas.user import UserCreate
+def test_login_success(client, app):
+    """Test successful user login."""
+    response = client.post("/auth/login", data={
+        "email": "test@example.com",
+        "password": "password123"
+    })
 
+    assert response.status_code == 302  # Redirect
 
-class TestUserService:
-    """Test suite for UserService."""
+    with client.session_transaction() as sess:
+        assert sess["email"] == "test@example.com"
+        assert "user" in sess
 
-    @pytest.fixture
-    def service(self, mock_repository):
-        """Provide UserService instance with mocked dependencies."""
-        return UserService(repository=mock_repository)
+def test_login_invalid_credentials(client):
+    """Test login with invalid credentials."""
+    response = client.post("/auth/login", data={
+        "email": "test@example.com",
+        "password": "wrongpassword"
+    })
 
-    @pytest.fixture
-    def valid_user_data(self):
-        """Provide valid user creation data."""
-        return UserCreate(
-            email="test@example.com",
-            username="testuser",
-            full_name="Test User"
-        )
-
-    def test_create_user_success(self, service, valid_user_data):
-        """Test successful user creation."""
-        # Arrange
-        expected_id = 123
-
-        # Act
-        user = service.create_user(valid_user_data)
-
-        # Assert
-        assert user.id == expected_id
-        assert user.email == valid_user_data.email
-
-    @pytest.mark.parametrize("invalid_email", [
-        "notanemail",
-        "@example.com",
-        "user@",
-        "",
-        None
-    ])
-    def test_create_user_invalid_email(self, service, invalid_email):
-        """Test various invalid email formats."""
-        with pytest.raises(ValueError, match="Invalid email"):
-            service.create_user(invalid_email)
+    assert response.status_code == 400
+    assert b"Invalid email or password" in response.data
 ```
 
-### Testing Requirements
-- **Minimum coverage**: 80% (critical paths 100%)
-- **Test categories**:
-  - Unit tests (isolated components)
-  - Integration tests (component interactions)
-  - End-to-end tests (complete workflows)
-- **Test naming**: `test_<what>_<condition>_<expected_result>`
-- **Use fixtures** for setup and teardown
-- **Mock external dependencies** appropriately
-- **Test both success and failure paths**
+### Fixtures
 
-## 🔐 Security Implementation
-
-### Authentication & Authorization (Simple & Secure)
 ```python
-from passlib.context import CryptContext
-from datetime import datetime, timedelta, UTC
-import secrets
+# tests/conftest.py
+import pytest
+from backend.app import create_app
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+@pytest.fixture
+def app():
+    """Create Flask app for testing."""
+    app = create_app(db_name="test_database")
+    app.config["TESTING"] = True
+    app.config["ENV"] = "testing"
+    yield app
 
-def hash_password(password: str) -> str:
-    """Hash password using bcrypt with automatic salt."""
-    return pwd_context.hash(password)
+@pytest.fixture
+def client(app):
+    """Create test client."""
+    return app.test_client()
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password against hash."""
-    return pwd_context.verify(plain_password, hashed_password)
-
-# Secure random tokens
-def generate_reset_token(length: int = 32) -> str:
-    """Generate cryptographically secure random token."""
-    return secrets.token_urlsafe(length)
-```
-
-### SQL Injection Prevention
-```python
-from sqlalchemy import text
-from sqlalchemy.orm import Session
-
-# ❌ NEVER do this - vulnerable to SQL injection
-def get_user_unsafe(db: Session, username: str):
-    query = f"SELECT * FROM users WHERE username = '{username}'"
-    return db.execute(text(query))
-
-# ✅ Use parameterized queries
-def get_user_safe(db: Session, username: str):
-    query = text("SELECT * FROM users WHERE username = :username")
-    return db.execute(query, {"username": username})
-
-# ✅ Better: Use ORM queries
-def get_user_orm(db: Session, username: str):
-    return db.query(User).filter(User.username == username).first()
-```
-
-### Input Validation
-```python
-from pydantic import BaseModel, Field, EmailStr, validator
-from typing import Optional
-import re
-
-class UserCreate(BaseModel):
-    """User creation schema with comprehensive validation."""
-
-    email: EmailStr
-    username: str = Field(
-        ...,
-        min_length=3,
-        max_length=50,
-        regex="^[a-zA-Z0-9_-]+$"
-    )
-    password: str = Field(..., min_length=8, max_length=100)
-    full_name: Optional[str] = Field(None, max_length=100)
-
-    @validator("password")
-    def validate_password_strength(cls, v):
-        """Ensure password meets security requirements."""
-        if not re.search(r"[A-Z]", v):
-            raise ValueError("Password must contain uppercase letter")
-        if not re.search(r"[a-z]", v):
-            raise ValueError("Password must contain lowercase letter")
-        if not re.search(r"\d", v):
-            raise ValueError("Password must contain digit")
-        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
-            raise ValueError("Password must contain special character")
-        return v
-
-    @validator("username")
-    def validate_username_reserved(cls, v):
-        """Check username against reserved words."""
-        RESERVED = {"admin", "root", "api", "system"}
-        if v.lower() in RESERVED:
-            raise ValueError(f"Username '{v}' is reserved")
-        return v
-```
-
-## 🚨 Error Handling & Logging
-
-### Custom Exceptions
-```python
-# app/core/exceptions.py
-class FAIRDatabaseError(Exception):
-    """Base exception for all application errors."""
-    pass
-
-class ValidationError(FAIRDatabaseError):
-    """Raised when validation fails."""
-    def __init__(self, field: str, message: str):
-        self.field = field
-        self.message = message
-        super().__init__(f"{field}: {message}")
-
-class AuthenticationError(FAIRDatabaseError):
-    """Raised when authentication fails."""
-    pass
-
-class AuthorizationError(FAIRDatabaseError):
-    """Raised when user lacks required permissions."""
-    pass
-
-class ResourceNotFoundError(FAIRDatabaseError):
-    """Raised when requested resource doesn't exist."""
-    def __init__(self, resource_type: str, resource_id: Any):
-        self.resource_type = resource_type
-        self.resource_id = resource_id
-        super().__init__(f"{resource_type} with id {resource_id} not found")
-```
-
-### Structured Logging
-```python
-import logging
-import structlog
-from typing import Any, Dict
-
-# Configure structured logging
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer()
-    ],
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    cache_logger_on_first_use=True,
-)
-
-logger = structlog.get_logger()
-
-# Usage examples
-def process_dataset(dataset_id: int, user_id: int) -> Dict[str, Any]:
-    """Process dataset with structured logging."""
-    log = logger.bind(dataset_id=dataset_id, user_id=user_id)
-
-    try:
-        log.info("dataset_processing_started")
-
-        # Processing logic here
-        result = perform_processing()
-
-        log.info(
-            "dataset_processing_completed",
-            duration=result.duration,
-            records_processed=result.count
-        )
-        return result
-
-    except ValidationError as e:
-        log.warning(
-            "dataset_validation_failed",
-            error=str(e),
-            field=e.field
-        )
-        raise
-
-    except Exception as e:
-        log.error(
-            "dataset_processing_error",
-            error=str(e),
-            exc_info=True
-        )
-        raise
-```
-
-### Error Response Handling
-```python
-from fastapi import HTTPException, Request, status
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-
-async def validation_exception_handler(
-    request: Request,
-    exc: RequestValidationError
-) -> JSONResponse:
-    """Handle validation errors with consistent format."""
-    errors = []
-    for error in exc.errors():
-        errors.append({
-            "field": ".".join(str(loc) for loc in error["loc"]),
-            "message": error["msg"],
-            "type": error["type"]
-        })
-
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={
-            "error": "Validation Error",
-            "details": errors,
-            "timestamp": datetime.now(UTC).isoformat()
-        }
-    )
-
-async def fair_database_exception_handler(
-    request: Request,
-    exc: FAIRDatabaseError
-) -> JSONResponse:
-    """Handle application-specific errors."""
-    status_code = status.HTTP_400_BAD_REQUEST
-
-    if isinstance(exc, ResourceNotFoundError):
-        status_code = status.HTTP_404_NOT_FOUND
-    elif isinstance(exc, AuthenticationError):
-        status_code = status.HTTP_401_UNAUTHORIZED
-    elif isinstance(exc, AuthorizationError):
-        status_code = status.HTTP_403_FORBIDDEN
-
-    return JSONResponse(
-        status_code=status_code,
-        content={
-            "error": exc.__class__.__name__,
-            "message": str(exc),
-            "timestamp": datetime.now(UTC).isoformat()
-        }
-    )
-```
-
-## 🔍 Search & Analysis Guidelines
-
-### CRITICAL: Use Appropriate Tools
-```bash
-# Use grep with appropriate flags for better results
-grep -r "pattern" .       # Recursive search
-grep -l "pattern" *.py    # List matching files
-
-# Find files efficiently
-find . -name "*.py"       # Find Python files
-```
-
-**Note**: While grep is available, consider using IDE search features or language-specific tools when appropriate for better performance and functionality.
-
-## 🗄️ Database Standards
-
-### SQLAlchemy Models
-```python
-from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship, declarative_base
-from datetime import datetime, UTC
-import uuid
-
-Base = declarative_base()
-
-class TimestampMixin:
-    """Mixin for automatic timestamp management."""
-    created_at = Column(
-        DateTime(timezone=True),
-        nullable=False,
-        default=lambda: datetime.now(UTC)
-    )
-    updated_at = Column(
-        DateTime(timezone=True),
-        nullable=False,
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC)
-    )
-
-class User(Base, TimestampMixin):
-    """User model following database naming conventions."""
-    __tablename__ = "users"
-
-    # Primary key with entity-specific naming
-    user_id = Column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4
-    )
-
-    # User fields
-    email = Column(String(255), unique=True, nullable=False, index=True)
-    username = Column(String(50), unique=True, nullable=False, index=True)
-    hashed_password = Column(String(255), nullable=False)
-
-    # Status fields
-    is_active = Column(Boolean, default=True, nullable=False)
-    is_verified = Column(Boolean, default=False, nullable=False)
-
-    # Relationships
-    datasets = relationship("Dataset", back_populates="owner")
-
-    def __repr__(self):
-        return f"<User(user_id={self.user_id}, username={self.username})>"
-```
-
-### Database Naming Conventions
-- **Tables**: Plural, snake_case (`users`, `datasets`, `access_logs`)
-- **Primary Keys**: `{entity}_id` (`user_id`, `dataset_id`)
-- **Foreign Keys**: `{referenced_entity}_id` (`owner_user_id`)
-- **Timestamps**: `{action}_at` (`created_at`, `verified_at`)
-- **Booleans**: `is_{state}` or `has_{property}` (`is_active`, `has_metadata`)
-- **Counts**: `{entity}_count` (`download_count`)
-
-### Repository Pattern
-```python
-from typing import Generic, TypeVar, Optional, List
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
-
-T = TypeVar("T")
-
-class BaseRepository(Generic[T]):
-    """Base repository with common CRUD operations."""
-
-    def __init__(self, model: T, db: Session):
-        self.model = model
-        self.db = db
-
-    def get(self, id: Any) -> Optional[T]:
-        """Get entity by primary key."""
-        return self.db.query(self.model).filter(
-            self.model.id == id
-        ).first()
-
-    def get_multi(
-        self,
-        skip: int = 0,
-        limit: int = 100
-    ) -> List[T]:
-        """Get multiple entities with pagination."""
-        return self.db.query(self.model).offset(skip).limit(limit).all()
-
-    def create(self, obj_in: BaseModel) -> T:
-        """Create new entity."""
-        db_obj = self.model(**obj_in.dict())
-        self.db.add(db_obj)
-        try:
-            self.db.commit()
-            self.db.refresh(db_obj)
-            return db_obj
-        except IntegrityError as e:
-            self.db.rollback()
-            raise ValueError(f"Integrity error: {e}")
-
-    def update(self, id: Any, obj_in: BaseModel) -> Optional[T]:
-        """Update existing entity."""
-        db_obj = self.get(id)
-        if not db_obj:
-            return None
-
-        for field, value in obj_in.dict(exclude_unset=True).items():
-            setattr(db_obj, field, value)
-
-        self.db.commit()
-        self.db.refresh(db_obj)
-        return db_obj
-
-    def delete(self, id: Any) -> bool:
-        """Delete entity by primary key."""
-        db_obj = self.get(id)
-        if not db_obj:
-            return False
-
-        self.db.delete(db_obj)
-        self.db.commit()
-        return True
+@pytest.fixture
+def runner(app):
+    """Create test CLI runner."""
+    return app.test_cli_runner()
 ```
 
 ## 🛠️ Development Environment
 
 ### Package Management with UV (Exclusive)
-```bash
-# IMPORTANT: Use UV exclusively with pyproject.toml - NEVER use pip directly
 
-# Install UV (if not installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
+```bash
+# IMPORTANT: Use UV exclusively - NEVER use pip directly
 
 # Sync all dependencies (including dev)
 uv sync --all-groups
@@ -641,126 +681,78 @@ uv sync --all-groups
 uv sync
 
 # Add production dependencies
-uv add fastapi pydantic sqlalchemy
+uv add flask sqlalchemy
 
 # Add development dependencies
-uv add --group dev pytest pytest-cov ruff mypy
+uv add --group dev pytest ruff mypy
 
 # Remove dependencies
 uv remove package-name
 
-# Update all dependencies
-uv sync --upgrade
-
-# List installed packages
-uv pip list
-
 # Run commands in virtual environment
-uv run python app.py
+uv run flask run --debug
 uv run pytest
 uv run ruff check .
 uv run mypy src/
 
 # Or activate venv and run directly
 source .venv/bin/activate
-python app.py
-pytest
-ruff check .
+flask run --debug
 ```
 
-**Project Structure**:
-- `pyproject.toml` - Project configuration and dependencies
-- `uv.lock` - Lock file for reproducible builds (auto-generated, don't edit)
-- `.venv/` - Virtual environment (auto-created by uv)
+### Running the Application
 
-### Environment Variables
-```python
-# app/core/config.py
-from pydantic_settings import BaseSettings
-from functools import lru_cache
-from typing import Optional
+```bash
+# Development mode
+cd backend
+uv run flask run --debug
 
-class Settings(BaseSettings):
-    """Application settings with validation."""
-
-    # Application
-    APP_NAME: str = "FAIRDatabase"
-    APP_VERSION: str = "1.0.0"
-    DEBUG: bool = False
-
-    # API
-    API_V1_PREFIX: str = "/api/v1"
-
-    # Security
-    SECRET_KEY: str  # Required, no default
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-
-    # Database
-    DATABASE_URL: str  # Required
-    DATABASE_POOL_SIZE: int = 10
-    DATABASE_MAX_OVERFLOW: int = 20
-
-    # Redis (optional)
-    REDIS_URL: Optional[str] = None
-
-    # CORS
-    BACKEND_CORS_ORIGINS: list[str] = []
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
-
-@lru_cache()
-def get_settings() -> Settings:
-    """Get cached settings instance."""
-    return Settings()
-
-settings = get_settings()
+# Access at http://localhost:5000
 ```
 
+### Code Quality Tools
 
-## ⚡ Performance Optimization
+```bash
+# Format code
+uv run ruff format .
 
-### Only Optimize When Needed
-1. **Profile first**: Measure before optimizing
-2. **Focus on bottlenecks**: 80/20 rule applies
-3. **Simple caching**: Use `functools.lru_cache` for expensive computations
-4. **Database queries**: Use eager loading only when N+1 is proven issue
+# Lint code
+uv run ruff check .
 
-```python
-from functools import lru_cache
+# Fix linting issues automatically
+uv run ruff check --fix .
 
-@lru_cache(maxsize=128)
-def expensive_calculation(param: int) -> float:
-    """Cache results of expensive calculations."""
-    # Complex computation
-    return result
+# Type check (if configured)
+uv run mypy src/
+
+# Run tests
+uv run pytest
+
+# Run tests with coverage
+uv run pytest --cov=src --cov-report=html
 ```
 
-## 📊 Monitoring & Observability
+## 📝 Documentation Standards
 
-### Simple Health Checks
+### Google-Style Docstrings (Keep Simple)
+
 ```python
-from flask import Flask, jsonify
+def upload_dataset(user_id: str, file_path: str, metadata: dict) -> dict:
+    """
+    Upload dataset with metadata to storage.
 
-app = Flask(__name__)
+    Args:
+        user_id: Unique identifier for the user.
+        file_path: Path to the dataset file.
+        metadata: Dictionary containing dataset metadata.
 
-@app.route("/health")
-def health_check():
-    """Basic health check endpoint."""
-    return jsonify({"status": "healthy"})
+    Returns:
+        Dictionary with upload status and dataset ID.
 
-@app.route("/ready")
-def readiness_check():
-    """Check if application is ready."""
-    try:
-        # Check database connection
-        db.execute("SELECT 1")
-        return jsonify({"status": "ready"})
-    except Exception as e:
-        return jsonify({"status": "not ready", "error": str(e)}), 503
+    Raises:
+        GenericExceptionHandler: If upload fails or file is invalid.
+    """
+    pass
 ```
 
 ## 📋 Development Checklist
@@ -769,85 +761,89 @@ def readiness_check():
 - [ ] Read root CLAUDE.md for project-wide conventions
 - [ ] Understand the simplest solution first
 - [ ] Check if feature already exists
-- [ ] Question if the feature is needed (YAGNI)
+- [ ] Question if feature is needed (YAGNI)
 
 ### While Developing
-- [ ] Start with the simplest working solution
-- [ ] Add complexity only when proven necessary
-- [ ] Follow PEP 8 and project conventions
-- [ ] Add type hints to functions
-- [ ] Write simple docstrings (no novels)
-- [ ] Keep functions under 30 lines when possible
-- [ ] Handle errors explicitly
-- [ ] Validate inputs at boundaries
+- [ ] Start with simplest working solution
+- [ ] Follow Flask patterns (blueprints, templates, sessions)
+- [ ] Use custom handler classes for forms
+- [ ] Leverage Supabase for authentication
+- [ ] Use Flask's session for state management
+- [ ] Keep functions under 50 lines when possible
+- [ ] Handle errors with GenericExceptionHandler
+- [ ] Validate inputs early
 
 ### Before Committing
 - [ ] Run tests: `uv run pytest`
 - [ ] Run linter: `uv run ruff check .`
 - [ ] Format code: `uv run ruff format .`
-- [ ] Type check: `uv run mypy src/` (if configured)
 - [ ] Ensure no secrets in code
 - [ ] Question: "Can this be simpler?"
 
 ### Security Checklist
 - [ ] No hardcoded credentials
-- [ ] Inputs validated with Pydantic
-- [ ] SQL queries use parameterization
-- [ ] Passwords hashed with bcrypt
-- [ ] Authentication required for protected endpoints
-
+- [ ] SQL queries use parameterization (%s placeholders)
+- [ ] Supabase handles authentication (don't roll your own)
+- [ ] Session data validated before use
+- [ ] File uploads validated (type, size, content)
 
 ## ⚠️ Common Pitfalls to Avoid
 
-1. **Overengineering**
+1. **Don't Mix Frameworks**
    ```python
-   # ❌ Wrong - too complex for simple need
-   class UserManagerFactoryInterface(ABC):
-       @abstractmethod
-       def create_user_service(self) -> UserServiceInterface:
-           pass
+   # ❌ Wrong - This is Flask, not FastAPI
+   from fastapi import FastAPI
+   from pydantic import BaseModel
 
-   # ✅ Correct - simple and direct
-   def create_user(username: str, email: str) -> User:
-       return User(username=username, email=email)
+   # ✅ Correct - Use Flask patterns
+   from flask import Flask, request
    ```
 
-2. **Premature Abstraction**
+2. **Don't Create Custom Auth**
    ```python
-   # ❌ Wrong - abstraction with single use
-   class DataProcessor(ABC):
-       @abstractmethod
-       def process(self, data): pass
+   # ❌ Wrong - Don't implement JWT yourself
+   def create_jwt_token(user_id):
+       return jwt.encode({"user": user_id}, SECRET)
 
-   class UserDataProcessor(DataProcessor):
-       def process(self, data):
-           return data.upper()
-
-   # ✅ Correct - direct implementation
-   def process_user_data(data: str) -> str:
-       return data.upper()
+   # ✅ Correct - Use Supabase
+   response = supabase_extension.client.auth.sign_in_with_password({
+       "email": email,
+       "password": password
+   })
    ```
 
-3. **Always use timezone-aware datetimes**
+3. **Don't Use SQL String Formatting**
    ```python
-   # ❌ Wrong
-   from datetime import datetime
-   now = datetime.now()
+   # ❌ Wrong - SQL injection vulnerability
+   query = f"SELECT * FROM users WHERE email = '{email}'"
+   cursor.execute(query)
 
-   # ✅ Correct
-   from datetime import datetime, UTC
-   now = datetime.now(UTC)
+   # ✅ Correct - Use parameterized queries
+   cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+   ```
+
+4. **Don't Import WTForms**
+   ```python
+   # ❌ Wrong - We don't use WTForms
+   from flask_wtf import FlaskForm
+   from wtforms import StringField
+
+   # ✅ Correct - Use custom handler classes
+   class LoginHandler:
+       def __init__(self):
+           self.email = request.form.get("email")
    ```
 
 ## 📚 References & Resources
 
 ### Essential Documentation
-- [PEP 8 - Style Guide](https://pep8.org/)
-- [PEP 20 - The Zen of Python](https://www.python.org/dev/peps/pep-0020/)
 - [Flask Documentation](https://flask.palletsprojects.com/)
-- [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
+- [Jinja2 Templates](https://jinja.palletsprojects.com/)
+- [Supabase Python Client](https://supabase.com/docs/reference/python/introduction)
+- [psycopg2 Documentation](https://www.psycopg.org/docs/)
 - [Pytest Documentation](https://docs.pytest.org/)
+- [Ruff Linter](https://docs.astral.sh/ruff/)
 
 ---
 
-**Remember**: Start simple. Add complexity only when proven necessary. The best code is code that doesn't exist. The second best is simple code that works.
+**Remember**: This is a Flask application. Start simple. Use Supabase for auth. Use custom handler classes for forms. The best code is code that doesn't exist. The second best is simple code that works.
