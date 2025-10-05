@@ -103,7 +103,7 @@ devpod ide use vscode
 **Default:** Local development (supports remote via Docker contexts)
 
 **Additional Prerequisites:**
-- [Node.js 20+](https://nodejs.org/en/download)
+- [Node.js 18+](https://nodejs.org/en/download)
 
 **Quick Start (Local):**
 
@@ -120,7 +120,7 @@ devcontainer up --workspace-folder .
 devcontainer exec --workspace-folder . bash
 ```
 
-**Remote Development:** Works with Docker contexts to target remote hosts. See [Docker contexts](https://docs.docker.com/engine/context/working-with-contexts/) for setup.
+**Remote Development:** Works with Docker contexts to target remote hosts (via Docker's context system; not explicitly documented in CLI docs). See [Docker contexts](https://docs.docker.com/engine/context/working-with-contexts/) for setup.
 
 **Learn More:** [Dev Container CLI GitHub](https://github.com/devcontainers/cli) | [VS Code DevContainer CLI](https://code.visualstudio.com/docs/devcontainers/devcontainer-cli)
 
