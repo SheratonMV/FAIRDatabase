@@ -25,10 +25,20 @@ This project uses **Development Containers** for consistent, reproducible develo
 
 ### Prerequisites
 
-**Container Runtime** (location depends on your setup method):
-- **Local development**: Install on your machine - [Docker Desktop](https://docs.docker.com/get-docker/) (Windows/macOS), [Docker Engine](https://docs.docker.com/engine/install/) (Linux), or alternatives like [Podman](https://podman.io/), [Rancher Desktop](https://rancherdesktop.io/), [Colima](https://github.com/abiosoft/colima)
-- **Remote development**: Container runtime must be installed on the remote machine (not locally)
-- **GitHub Codespaces**: No container runtime needed (fully cloud-based)
+Choose your development method, then install only what's needed:
+
+| Method | Required Prerequisites | Optional |
+|--------|----------------------|----------|
+| **GitHub Codespaces** | GitHub account | - |
+| **VS Code Dev Containers** | VS Code + Dev Containers extension + Container runtime¹ | - |
+| **DevPod** | DevPod + Container runtime¹ | - |
+| **Dev Container CLI** | Node.js 20+ + Container runtime¹ | - |
+| **Local Development** | Python 3.13+ + Node.js 20+ + PostgreSQL | Container runtime¹ |
+
+¹ **Container Runtime Options**:
+- **macOS/Windows**: [Docker Desktop](https://docs.docker.com/get-docker/), [Rancher Desktop](https://rancherdesktop.io/), [Podman Desktop](https://podman.io/)
+- **Linux**: [Docker Engine](https://docs.docker.com/engine/install/), [Podman](https://podman.io/)
+- **Remote**: Install on remote machine (not locally) when using SSH/remote development
 
 Choose your setup method:
 
@@ -103,7 +113,7 @@ devpod ide use vscode
 **Default:** Local development (supports remote via Docker contexts)
 
 **Additional Prerequisites:**
-- [Node.js 18+](https://nodejs.org/en/download)
+- [Node.js 20+](https://nodejs.org/en/download)
 
 **Quick Start (Local):**
 
@@ -129,7 +139,7 @@ devcontainer exec --workspace-folder . bash
 Your development environment comes pre-configured with:
 
 - **Python 3.13** - Latest Python version with uv package manager
-- **Node.js** - For frontend tooling and package management
+- **Node.js 20+** - For frontend tooling and package management
 - **Supabase** - Local PostgreSQL database with authentication
 - **Development Tools**:
   - `uv` - Fast Python package manager
@@ -139,26 +149,38 @@ Your development environment comes pre-configured with:
 
 ## Running the Application
 
-Once your environment is ready:
+### Quick Start
 
 ```bash
-# Start Supabase
+# 1. Start Supabase (first time takes ~2 minutes)
 npx supabase start
 
-# Navigate to backend
+# Note the Anon Key and Service Key shown in output
+# Default credentials will be displayed in the terminal
+
+# 2. Setup backend
 cd backend
+uv sync --all-groups              # Install dependencies
 
-# Install dependencies (if needed)
-uv sync --all-groups
-
-# Start Flask application
-uv run flask run
+# 3. Start application
+uv run flask run --debug
 ```
 
-The application will be available at:
-- **Flask Backend**: http://localhost:5000
-- **Supabase Studio**: http://localhost:54321
-- **API Gateway**: http://localhost:54323
+### Access Points
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| Flask App | http://localhost:5000 | Main application |
+| Supabase Studio | http://localhost:54321 | Database management UI |
+| API Gateway | http://localhost:54323 | Supabase API endpoint |
+| Inbucket | http://localhost:54324 | Email testing interface |
+
+### First Steps
+
+1. Navigate to http://localhost:5000
+2. Create an account or login with test user
+3. Upload a dataset with FAIR metadata
+4. Browse and search existing datasets
 
 ## Troubleshooting
 
