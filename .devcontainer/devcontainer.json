@@ -73,6 +73,7 @@
   "containerEnv": {
     "ENV": "development",
     "SECRET_KEY": "dev-secret-key-change-in-production",
+    "FLASK_RUN_HOST": "0.0.0.0",
     "UPLOAD_FOLDER": "./uploads",
     "SUPABASE_URL": "http://127.0.0.1:54321",
     "SUPABASE_SERVICE_ROLE_KEY": "sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz",
@@ -83,17 +84,12 @@
     "POSTGRES_DB_NAME": "postgres"
   },
 
-  // Forward ports
-  "forwardPorts": [5000, 54321, 54322, 54323, 54324],
+  // Forward ports (VS Code)
+  "forwardPorts": [5000, 54323, 54324],
   "portsAttributes": {
     "5000": {
-      "label": "Flask Backend"
-    },
-    "54321": {
-      "label": "Supabase API"
-    },
-    "54322": {
-      "label": "PostgreSQL"
+      "label": "Flask Backend",
+      "onAutoForward": "notify"
     },
     "54323": {
       "label": "Supabase Studio",
@@ -103,6 +99,13 @@
       "label": "Mailpit (Email)"
     }
   },
+
+  // Port mapping for Dev Container CLI and DevPod
+  "runArgs": [
+    "-p", "5000:5000",
+    "-p", "54323:54323",
+    "-p", "54324:54324"
+  ],
 
   // Minimum host requirements
   "hostRequirements": {
