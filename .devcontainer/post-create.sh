@@ -16,6 +16,23 @@ if [ -f "backend/pyproject.toml" ]; then
     echo "✅ Python environment ready"
 fi
 
+# Setup environment files from templates
+echo "⚙️ Setting up environment configuration..."
+if [ ! -f "backend/.env" ]; then
+    cp backend/.env.example backend/.env
+    echo "✅ Created backend/.env from template"
+    echo "⚠️  Review and update values in backend/.env if needed"
+else
+    echo "ℹ️ backend/.env already exists"
+fi
+
+if [ ! -f "backend/tests/.env.test" ]; then
+    cp backend/tests/.env.test.example backend/tests/.env.test
+    echo "✅ Created backend/tests/.env.test from template"
+else
+    echo "ℹ️ backend/tests/.env.test already exists"
+fi
+
 # Update npm to latest version
 echo "📦 Updating npm to latest version..."
 npm install -g npm@latest
