@@ -118,13 +118,23 @@ Remember: The best code is code that doesn't exist. The second best is simple co
 ```
 FAIRDatabase/
 ├── backend/           # Flask app + CLAUDE.md
-│   └── src/          # Application modules
-│       └── anonymization/  # Privacy & anonymization
+│   ├── src/          # Application modules
+│   │   ├── auth/            # Authentication
+│   │   ├── dashboard/       # Dashboard
+│   │   ├── data/            # Data management
+│   │   ├── privacy/         # Privacy features
+│   │   ├── main/            # Main/home routes
+│   │   └── anonymization/   # Privacy & anonymization
+│   ├── tests/        # Test suite
+│   ├── app.py        # Application entry point
+│   ├── config.py     # Configuration
+│   └── pyproject.toml # Dependencies
 ├── frontend/          # Templates + CLAUDE.md
+│   ├── templates/    # Jinja2 templates
+│   └── public/       # Logo images
+├── static/            # Static assets (CSS, JS)
 ├── supabase/          # Database config
-├── static/            # Static assets
-├── .devcontainer/     # Dev container + CLAUDE.md
-└── .github/           # Workflows
+└── .devcontainer/     # Dev container + CLAUDE.md
 ```
 
 ---
