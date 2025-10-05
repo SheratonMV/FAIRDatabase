@@ -75,24 +75,31 @@ When prompted, click **"Reopen in Container"**. First build: ~5-10 minutes.
 
 ### 3. DevPod
 
-**Any IDE, Any Backend** • GUI or CLI interface
+**Any IDE, Any Backend**
 
 #### Prerequisites
 - [DevPod](https://devpod.sh/docs/getting-started/install)
 - Docker or Podman (see table above)
 
-#### Setup
+#### Quick Start
 ```bash
-# CLI: Create and open workspace
+# Add Docker provider
 devpod provider add docker
-devpod up github.com/seijispieker/FAIRDatabase
 
-# GUI: Open DevPod Desktop → New Workspace → Enter: github.com/seijispieker/FAIRDatabase
+# Create workspace
+devpod up github.com/seijispieker/FAIRDatabase
 ```
 
-#### Remote Options
-- Supports SSH, Kubernetes, AWS, Azure, GCP
-- **More Info:** [DevPod Providers](https://devpod.sh/docs/managing-providers/add-provider)
+**Using GUI?** DevPod Desktop → Add Docker provider → New Workspace → `github.com/seijispieker/FAIRDatabase`
+
+**Using Podman?** Configure provider to use Podman instead:
+```bash
+devpod provider add docker
+devpod provider set-options docker --option DOCKER_PATH=$(which podman)
+devpod up github.com/seijispieker/FAIRDatabase
+```
+
+**Other backends:** SSH, Kubernetes, AWS, Azure, GCP ([docs](https://devpod.sh/docs/managing-providers/add-provider))
 
 ---
 
