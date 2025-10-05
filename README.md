@@ -98,7 +98,7 @@ devpod ide use vscode
 
 **Learn More:** [DevPod Documentation](https://devpod.sh/docs/what-is-devpod) | [Creating Workspaces](https://devpod.sh/docs/developing-in-workspaces/create-a-workspace)
 
-### DevContainer CLI
+### Dev Container CLI
 **Best for:** Automation, CI/CD, terminal-only workflows, or non-VS Code editors
 **Default:** Local development (supports remote via Docker contexts)
 
@@ -122,7 +122,7 @@ devcontainer exec --workspace-folder . bash
 
 **Remote Development:** Works with Docker contexts to target remote hosts. See [Docker contexts](https://docs.docker.com/engine/context/working-with-contexts/) for setup.
 
-**Learn More:** [DevContainer CLI Reference](https://github.com/devcontainers/cli) | [VS Code DevContainer CLI](https://code.visualstudio.com/docs/devcontainers/devcontainer-cli)
+**Learn More:** [Dev Container CLI GitHub](https://github.com/devcontainers/cli) | [VS Code DevContainer CLI](https://code.visualstudio.com/docs/devcontainers/devcontainer-cli)
 
 ## What's Included
 
