@@ -1,0 +1,5 @@
+# Ignore all uploaded files in this directory
+*
+
+# But track this .gitignore file itself
+!.gitignore

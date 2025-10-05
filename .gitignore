@@ -533,8 +533,11 @@ notes.txt
 .abstra/
 
 # Uploaded files (sensitive user data)
-uploads/
-backend/uploads/
+# Ignore contents but track the directory structure
+backend/uploads/*
+!backend/uploads/.gitignore
+backend/tests/uploads/*
+!backend/tests/uploads/.gitignore
 
 ##############################################################################
 # Optional: Lock files
