@@ -75,7 +75,7 @@ When prompted, click **"Reopen in Container"**.
 
 ### 3. DevPod
 
-**Any IDE, Any Backend**
+**Any IDE, Any Backend** • Flexible provider support
 
 #### Prerequisites
 - [DevPod](https://devpod.sh/docs/getting-started/install)
@@ -122,6 +122,8 @@ devcontainer exec --workspace-folder . bash
 - Use Docker contexts for remote hosts
 - **More Info:** [Dev Container CLI](https://github.com/devcontainers/cli)
 
+---
+
 ## What's Included
 
 Your development environment comes pre-configured with:
@@ -134,6 +136,8 @@ Your development environment comes pre-configured with:
   - `ruff` - Python linter and formatter
   - GitHub CLI - Repository management
   - Docker-in-Docker - Container operations
+
+---
 
 ## Running the Application
 
@@ -162,6 +166,8 @@ uv run flask run --debug
 2. Create an account or login with test user
 3. Upload a dataset with FAIR metadata
 4. Browse and search existing datasets
+
+---
 
 ## Troubleshooting
 
@@ -228,6 +234,8 @@ ssh user@remote "sudo usermod -aG docker $USER"   # Fix remote permissions
 ssh -L 5000:localhost:5000 user@remote-server.com # Manual port forward
 # Or use your tool's port forwarding (VS Code Ports panel, DevPod settings)
 ```
+
+---
 
 ## Getting Help
 
