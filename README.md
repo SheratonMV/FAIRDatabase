@@ -25,14 +25,14 @@ This project uses **Development Containers** for consistent, reproducible develo
 
 ### Development Methods
 
-Choose based on your setup complexity preference (simplest first):
+Choose based on your setup complexity preference (simplest first). All methods take approximately **2-3 minutes** to set up, plus **~5 minutes** for Supabase on first run.
 
-| Method | Setup Time | Use When You Want | What You Need |
-|--------|------------|-------------------|---------------|
-| **[1. GitHub Codespaces](#1-github-codespaces)** | 2-3 min | Zero local setup, instant cloud development | GitHub account only |
-| **[2. VS Code Dev Containers](#2-vs-code-dev-containers)** | 5-10 min | Full IDE experience with debugging | VS Code + Docker/Podman¹ |
-| **[3. DevPod](#3-devpod)** | 5-10 min | Flexibility to use any IDE or backend | DevPod + Docker/Podman¹ |
-| **[4. Dev Container CLI](#4-dev-container-cli)** | 5-10 min | Terminal-based workflow or CI/CD | Node.js + Docker/Podman¹ |
+| Method | Use When You Want | What You Need |
+|--------|-------------------|---------------|
+| **[1. GitHub Codespaces](#1-github-codespaces)** | Zero local setup, instant cloud development | GitHub account only |
+| **[2. VS Code Dev Containers](#2-vs-code-dev-containers)** | Full IDE experience with debugging | VS Code + Docker/Podman¹ |
+| **[3. DevPod](#3-devpod)** | Flexibility to use any IDE or backend | DevPod + Docker/Podman¹ |
+| **[4. Dev Container CLI](#4-dev-container-cli)** | Terminal-based workflow or CI/CD | Node.js + Docker/Podman¹ |
 
 ¹ **Need a Container Runtime?** Choose one:
 - **Quick Setup:** [Docker Desktop](https://docs.docker.com/get-docker/) (macOS/Windows) or [Rancher Desktop](https://rancherdesktop.io/) (all platforms)
@@ -45,7 +45,7 @@ Choose based on your setup complexity preference (simplest first):
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/seijispieker/FAIRDatabase)
 
-Click the badge above and wait 2-3 minutes. That's it!
+Click the badge above. That's it!
 
 ---
 
@@ -65,7 +65,7 @@ cd FAIRDatabase
 code .
 ```
 
-When prompted, click **"Reopen in Container"**. First build: ~5-10 minutes.
+When prompted, click **"Reopen in Container"**.
 
 #### Remote Options
 - **Remote Development:** Install [Remote Development extension pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.vscode-remote-extensionpack)
@@ -91,13 +91,6 @@ devpod up github.com/seijispieker/FAIRDatabase
 ```
 
 **Using GUI?** DevPod Desktop → Add Docker provider → New Workspace → `github.com/seijispieker/FAIRDatabase`
-
-**Using Podman?** Configure provider to use Podman instead:
-```bash
-devpod provider add docker
-devpod provider set-options docker --option DOCKER_PATH=$(which podman)
-devpod up github.com/seijispieker/FAIRDatabase
-```
 
 **Other backends:** SSH, Kubernetes, AWS, Azure, GCP ([docs](https://devpod.sh/docs/managing-providers/add-provider))
 
