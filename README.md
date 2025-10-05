@@ -168,8 +168,11 @@ The application will be available at:
 ```bash
 docker version                                    # Verify Docker is running
 docker stop $(docker ps -aq) 2>/dev/null || true  # Stop all containers
-docker system prune -a --volumes -f               # Remove all unused resources
-docker builder prune --all -f                     # Clean build cache
+docker system prune -af --volumes                 # Remove containers, images, volumes, networks
+docker builder prune -af                          # Remove ALL build cache
+
+# Optional: Remove ALL volumes (including named volumes) - WARNING: data loss!
+docker volume rm $(docker volume ls -q) 2>/dev/null || true
 ```
 
 **Permission Denied**
