@@ -1,9 +1,15 @@
-import pytest
 import os
+from pathlib import Path
 
+# Load test environment BEFORE importing app
+from dotenv import load_dotenv
+test_dir = Path(__file__).parent
+test_env_path = test_dir / '.env.test'
+load_dotenv(test_env_path, override=True)  # override=True to replace dev vars
+
+import pytest
 from app import create_app, get_db
 from config import supabase_extension
-from dotenv import load_dotenv
 
 
 TEST_EMAIL = "test_user_1@test.com"
@@ -44,29 +50,21 @@ def app():
     """
     Create and configure a Flask app instance for testing.
 
-    This fixture creates a new app configured for testing with a test
-    database. It pushes an application context to enable use of Flask's
-    `current_app` and `g`. The database connection is established before
-    yielding the app, allowing tests to access the app and DB.
+    This fixture creates a new app configured for testing. It uses environment
+    variables from .env.test file loaded at the top of this module.
+    The database connection is established before yielding the app,
+    allowing tests to access the app and DB.
 
     """
-    load_dotenv(os.path.join(os.path.dirname(__file__), ".env.test"))
-
     path = os.path.join(os.path.dirname(__file__), "uploads")
-    app = create_app(os.getenv("POSTGRES_DB_NAME"))
+
+    # Use environment variables from .env.test, override only what's needed for testing
+    app = create_app(db_name=os.getenv("POSTGRES_DB_NAME"), env="testing")
     app.config.update(
         {
             "TESTING": True,
             "SERVER_NAME": "localhost",
             "UPLOAD_FOLDER": path,
-            "SUPABASE_URL": os.getenv("SUPABASE_URL"),
-            "SUPABASE_KEY": os.getenv("SUPABASE_KEY"),
-            "SUPABASE_SERVICE_ROLE_KEY": os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
-            "POSTGRES_DB_NAME": os.getenv("POSTGRES_DB_NAME"),
-            "POSTGRES_USER": os.getenv("POSTGRES_USER"),
-            "POSTGRES_SECRET": os.getenv("POSTGRES_SECRET"),
-            "POSTGRES_PORT": os.getenv("POSTGRES_PORT"),
-            "POSTGRES_HOST": os.getenv("POSTGRES_HOST"),
         }
     )
 
