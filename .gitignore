@@ -152,7 +152,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-pythonenv*
+pythonenv*  
 
 # Project-specific environment files
 backend/.env
