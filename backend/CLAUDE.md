@@ -163,9 +163,25 @@ python-dotenv>=1.1.0     # Environment variable loading
 pytest>=8.3.4            # Testing framework
 pytest-cov>=6.0.0        # Coverage reporting
 pytest-mock>=3.14.0      # Mocking utilities
+pytest-asyncio>=0.25.2   # Async testing support
 ruff>=0.9.2              # Linter and formatter
 mypy>=1.14.1             # Type checker
+ipython>=8.31.0          # Enhanced Python REPL
+ipdb>=0.13.13            # IPython debugger
+rich>=13.9.4             # Rich terminal formatting
+httpx>=0.28.1            # HTTP client for testing
 ```
+
+**Test-Only Dependencies:**
+```toml
+pytest>=8.3.4
+pytest-cov>=6.0.0
+pytest-mock>=3.14.0
+pytest-asyncio>=0.25.2
+httpx>=0.28.1
+```
+
+The project uses dependency groups (`[dependency-groups]`) rather than optional dependencies.
 
 ### Key Technology Choices
 
@@ -185,12 +201,13 @@ mypy>=1.14.1             # Type checker
 from flask import Flask, g
 from config import Config, supabase_extension, limiter, get_db, teardown_db
 
-def create_app(db_name=None):
+def create_app(db_name=None, env=None):
     """
     Construct the core Flask application.
 
     Args:
         db_name: Optional database name override for testing
+        env: Optional environment override for testing
     """
     app = Flask(
         __name__,
@@ -201,6 +218,8 @@ def create_app(db_name=None):
 
     if db_name is not None:
         app.config["POSTGRES_DB_NAME"] = db_name
+    if env is not None:
+        app.config["ENV"] = env
 
     # Register blueprints
     app.register_blueprint(main_routes, url_prefix="/")
@@ -404,11 +423,14 @@ def dashboard():
 
 ### Environment-Based Config (NOT Pydantic)
 
+Environment variables are loaded from `.env` files. A template is provided at `backend/.env.example`.
+
 ```python
 # config.py
 import os
 from dotenv import load_dotenv
 
+# Load from backend/.env (or backend/tests/.env.test for tests)
 load_dotenv()
 
 class Config:
@@ -651,9 +673,8 @@ from backend.app import create_app
 @pytest.fixture
 def app():
     """Create Flask app for testing."""
-    app = create_app(db_name="test_database")
+    app = create_app(db_name="test_database", env="testing")
     app.config["TESTING"] = True
-    app.config["ENV"] = "testing"
     yield app
 
 @pytest.fixture
@@ -685,6 +706,9 @@ uv add flask sqlalchemy
 
 # Add development dependencies
 uv add --group dev pytest ruff mypy
+
+# Add test-only dependencies
+uv add --group test pytest pytest-cov
 
 # Remove dependencies
 uv remove package-name

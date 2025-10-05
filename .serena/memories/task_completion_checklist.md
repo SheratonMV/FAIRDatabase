@@ -56,9 +56,9 @@ uv run mypy src/
 
 ### Security Checklist
 - [ ] No hardcoded credentials
-- [ ] Inputs validated with Pydantic or forms
+- [ ] Inputs validated with custom handler classes
 - [ ] SQL queries use parameterization
-- [ ] Passwords hashed with bcrypt
+- [ ] Use Supabase Auth for authentication (NOT custom password hashing)
 - [ ] Authentication required for protected endpoints
 - [ ] Use timezone-aware datetimes
 

@@ -51,45 +51,36 @@ We use Microsoft's official Python 3.13 devcontainer image which provides:
 
 ## 🔧 Environment Variables
 
-### Application Configuration
+Environment variables are managed via `.env` files, NOT `containerEnv` in devcontainer.json.
 
-```json
-"containerEnv": {
-  "ENV": "development",
-  "SECRET_KEY": "dev-secret-key-change-in-production",
-  "FLASK_RUN_HOST": "0.0.0.0",
-  "UPLOAD_FOLDER": "./uploads"
-}
-```
+### Environment File Setup
 
-**IMPORTANT**: These are development-only values. Never use these in production.
+The post-create script automatically creates environment files from templates:
 
-### Supabase Configuration
+**Production/Development** (`backend/.env`):
+- Created from `backend/.env.example`
+- Contains Flask, Supabase, and PostgreSQL configuration
+- Must be reviewed and updated with actual values
 
-```json
-"containerEnv": {
-  "SUPABASE_URL": "http://127.0.0.1:54321",
-  "SUPABASE_SERVICE_ROLE_KEY": "sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz",
-  "POSTGRES_HOST": "127.0.0.1",
-  "POSTGRES_PORT": "54322",
-  "POSTGRES_USER": "postgres",
-  "POSTGRES_SECRET": "postgres",
-  "POSTGRES_DB_NAME": "postgres"
-}
-```
-
-These are the default local Supabase credentials. The service role key is from Supabase's local development defaults.
+**Testing** (`backend/tests/.env.test`):
+- Created from `backend/tests/.env.test.example`
+- Configured for test environment
 
 ### Key Environment Variables
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `ENV` | Application environment | `development` |
-| `SECRET_KEY` | Flask session secret | Dev-only key |
+| `ENV` | Application environment | `development` or `testing` |
+| `SECRET_KEY` | Flask session secret | Generate with `secrets.token_hex(32)` |
 | `FLASK_RUN_HOST` | Flask bind address | `0.0.0.0` (all interfaces) |
+| `UPLOAD_FOLDER` | File upload directory | `/workspaces/FAIRDatabase/backend/uploads` |
 | `SUPABASE_URL` | Local Supabase instance | `http://127.0.0.1:54321` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service key | From local Supabase instance |
 | `POSTGRES_HOST` | PostgreSQL host | `127.0.0.1` |
 | `POSTGRES_PORT` | PostgreSQL port | `54322` |
+| `POSTGRES_USER` | PostgreSQL user | `postgres` |
+| `POSTGRES_SECRET` | PostgreSQL password | `postgres` |
+| `POSTGRES_DB_NAME` | PostgreSQL database | `postgres` |
 
 ## 🔌 Port Forwarding
 
@@ -147,6 +138,7 @@ The container pre-installs these VS Code extensions:
 - `ms-azuretools.vscode-docker` - Docker support
 - `mhutchie.git-graph` - Git visualization
 - `GitHub.vscode-pull-request-github` - GitHub PR management
+- `GitHub.vscode-github-actions` - GitHub Actions support
 - `redhat.vscode-yaml` - YAML language support
 - `mikestead.dotenv` - .env file support
 
@@ -158,30 +150,43 @@ The container pre-installs these VS Code extensions:
 "postCreateCommand": "bash .devcontainer/post-create.sh"
 ```
 
-The `post-create.sh` script runs automatically after container creation:
+The `post-create.sh` script runs automatically after container creation and performs:
 
-```bash
-#!/bin/bash
-# Install Python dependencies
-cd backend
-uv sync --all-groups
+1. **Python Environment Setup**
+   - Syncs all dependencies with `uv sync --all-groups`
 
-# Note: Supabase is started manually with `npx supabase start`
-```
+2. **Environment Configuration**
+   - Creates `backend/.env` from `backend/.env.example` (if not exists)
+   - Creates `backend/tests/.env.test` from template (if not exists)
+   - **IMPORTANT**: Review and update values in `.env` files as needed
+
+3. **Tool Installation**
+   - Updates npm to latest version
+   - Installs Claude Code CLI globally
+   - Configures Claude Code MCP (Serena) for semantic code analysis
+
+4. **Supabase Initialization**
+   - Initializes Supabase for local development (if not already initialized)
+   - **Note**: Supabase services must be started manually with `npx supabase start`
 
 ### Manual Setup Steps
 
-After container starts:
+After container creation completes:
 
 ```bash
-# 1. Start Supabase (first time takes ~5 minutes to download images)
+# 1. Review and update environment variables (REQUIRED on first run)
+#    Update SUPABASE_SERVICE_ROLE_KEY after starting Supabase
+nano backend/.env
+
+# 2. Start Supabase (first time takes ~5 minutes to download images)
 npx supabase start
+# Copy the service_role key from output and update backend/.env
 
-# 2. Start Flask application
+# 3. Start Flask application
 cd backend
-uv run flask run --debug
+uv run flask run
 
-# 3. Access application at http://localhost:5000
+# 4. Access application at http://localhost:5000
 ```
 
 ## 💻 System Requirements
@@ -215,14 +220,18 @@ Choose one:
 
 ```bash
 # Container starts automatically when you open the workspace
-# Then:
+# Post-create script runs automatically (Python deps, env files, tools)
 
-# 1. Start Supabase
+# 1. Review environment configuration (first time only)
+nano backend/.env
+
+# 2. Start Supabase
 npx supabase start
+# Copy service_role key to backend/.env (first time only)
 
-# 2. Start Flask
+# 3. Start Flask
 cd backend
-uv run flask run --debug
+uv run flask run
 ```
 
 ### Running Tests
@@ -327,36 +336,41 @@ Browse available features: https://containers.dev/features
 
 ### Environment Variables
 
-For development-specific environment variables, edit `.devcontainer/devcontainer.json`:
-
-```json
-"containerEnv": {
-  "YOUR_VAR": "your_value"
-}
-```
-
-For personal/secret values, create `.env` file (gitignored):
+**All environment variables are managed via `.env` files** (gitignored):
 
 ```bash
-# backend/.env
-SECRET_KEY=your-personal-secret
+# Edit backend/.env for development/production settings
+nano backend/.env
+
+# Edit backend/tests/.env.test for test settings
+nano backend/tests/.env.test
 ```
+
+Templates are provided:
+- `backend/.env.example` - Template for development environment
+- `backend/tests/.env.test.example` - Template for test environment
+
+The post-create script automatically creates these files from templates if they don't exist.
 
 ## 🔒 Security Considerations
 
 ### Development Secrets
 
-- **Never commit real secrets** to devcontainer.json
-- Default values are for **local development only**
-- Production secrets must be managed separately
+- **Never commit real secrets** to `.env` files (they are gitignored)
+- Template files (`.env.example`) contain placeholder values only
+- Default values in templates are for **local development only**
+- Production secrets must be managed separately via environment variables
 
 ### Supabase Credentials
 
-The service role key in devcontainer.json is Supabase's well-known local development default. It's:
-- ✅ Safe for local development
-- ✅ Publicly documented
-- ❌ Never used in production
-- ❌ Not a real secret
+Local Supabase credentials are obtained by running `npx supabase start`:
+- Service role key is generated for local instance
+- Copy the key from `npx supabase start` output to `backend/.env`
+- These credentials are:
+  - ✅ Safe for local development
+  - ✅ Only valid for local Supabase instance
+  - ❌ Never used in production
+  - ❌ Not real production secrets
 
 ### Production Environment
 
