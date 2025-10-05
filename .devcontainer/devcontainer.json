@@ -44,21 +44,6 @@
   // Lifecycle scripts
   "postCreateCommand": "bash .devcontainer/post-create.sh",
 
-  // Environment variables for Flask application
-  "containerEnv": {
-    "ENV": "development",
-    "SECRET_KEY": "dev-secret-key-change-in-production",
-    "FLASK_RUN_HOST": "0.0.0.0",
-    "UPLOAD_FOLDER": "./uploads",
-    "SUPABASE_URL": "http://127.0.0.1:54321",
-    "SUPABASE_SERVICE_ROLE_KEY": "sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz",
-    "POSTGRES_HOST": "127.0.0.1",
-    "POSTGRES_PORT": "54322",
-    "POSTGRES_USER": "postgres",
-    "POSTGRES_SECRET": "postgres",
-    "POSTGRES_DB_NAME": "postgres"
-  },
-
   // Forward ports (VS Code)
   "forwardPorts": [5000, 54323, 54324],
   "portsAttributes": {
