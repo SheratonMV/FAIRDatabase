@@ -47,8 +47,6 @@ Choose based on your setup complexity preference (simplest first). All methods t
 
 Click the badge above. That's it!
 
----
-
 ### 2. VS Code Dev Containers
 
 **Full IDE with Debugging** • Works locally or remotely
@@ -71,8 +69,6 @@ When prompted, click **"Reopen in Container"**.
 - **Remote Development:** Install [Remote Development extension pack](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.vscode-remote-extensionpack)
 - **More Info:** [VS Code Remote Development Overview](https://code.visualstudio.com/docs/remote/remote-overview)
 
----
-
 ### 3. DevPod
 
 **Any IDE, Any Backend** • Flexible provider support
@@ -93,8 +89,6 @@ devpod up github.com/seijispieker/FAIRDatabase
 **Using GUI?** DevPod Desktop → Add Docker provider → New Workspace → `github.com/seijispieker/FAIRDatabase`
 
 **Other backends:** SSH, Kubernetes, AWS, Azure, GCP ([docs](https://devpod.sh/docs/managing-providers/add-provider))
-
----
 
 ### 4. Dev Container CLI
 
@@ -122,8 +116,6 @@ devcontainer exec --workspace-folder . bash
 - Use Docker contexts for remote hosts
 - **More Info:** [Dev Container CLI](https://github.com/devcontainers/cli)
 
----
-
 ## What's Included
 
 Your development environment comes pre-configured with:
@@ -136,8 +128,6 @@ Your development environment comes pre-configured with:
   - `ruff` - Python linter and formatter
   - GitHub CLI - Repository management
   - Docker-in-Docker - Container operations
-
----
 
 ## Running the Application
 
@@ -167,18 +157,16 @@ uv run flask run --debug
 3. Upload a dataset with FAIR metadata
 4. Browse and search existing datasets
 
----
-
 ## Troubleshooting
 
 ### Container Issues
 
 **Container Won't Start**
 ```bash
-docker version                                    # Verify Docker is running
+docker version  # Verify Docker is running
 docker stop $(docker ps -aq) 2>/dev/null || true  # Stop all containers
-docker system prune -af --volumes                 # Remove containers, images, volumes, networks
-docker builder prune -af                          # Remove ALL build cache
+docker system prune -af --volumes  # Remove containers, images, volumes, networks
+docker builder prune -af  # Remove ALL build cache
 
 # Optional: Remove ALL volumes (including named volumes) - WARNING: data loss!
 docker volume rm $(docker volume ls -q) 2>/dev/null || true
@@ -196,7 +184,7 @@ Then **log out and log back in** (or restart your container).
 
 **Port Already in Use**
 ```bash
-lsof -i :5000                                     # Find process using port
+lsof -i :5000  # Find process using port
 # Change port in .devcontainer/devcontainer.json: "forwardPorts": [5001, 54321, 54323]
 ```
 
@@ -209,9 +197,9 @@ npx supabase stop --no-backup && npx supabase start
 
 **Flask/Backend Issues**
 ```bash
-docker logs <container-id>                        # Check container logs
-curl http://localhost:5000                        # Test Flask
-curl http://localhost:54321                       # Test Supabase
+docker logs <container-id>  # Check container logs
+curl http://localhost:5000  # Test Flask
+curl http://localhost:54321  # Test Supabase
 ```
 
 ### Performance
@@ -224,18 +212,16 @@ curl http://localhost:54321                       # Test Supabase
 
 **Connection Issues**
 ```bash
-ssh user@remote-server.com                        # Test SSH connection
-ssh user@remote "docker version"                  # Verify remote Docker
-ssh user@remote "sudo usermod -aG docker $USER"   # Fix remote permissions
+ssh user@remote-server.com  # Test SSH connection
+ssh user@remote "docker version"  # Verify remote Docker
+ssh user@remote "sudo usermod -aG docker $USER"  # Fix remote permissions
 ```
 
 **Port Forwarding**
 ```bash
-ssh -L 5000:localhost:5000 user@remote-server.com # Manual port forward
+ssh -L 5000:localhost:5000 user@remote-server.com  # Manual port forward
 # Or use your tool's port forwarding (VS Code Ports panel, DevPod settings)
 ```
-
----
 
 ## Getting Help
 
