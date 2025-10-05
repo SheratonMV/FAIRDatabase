@@ -9,8 +9,8 @@ FAIRDatabase implements FAIR data principles (Findable, Accessible, Interoperabl
 - **Frontend**: HTML templates with static assets
 - **Testing**: pytest framework  
 - **Package Management**: uv with pyproject.toml
-- **Python Version**: 3.10+ (up to 3.13)
-- **Development Tools**: ruff (linter/formatter), mypy (type checker)
+- **Python Version**: >=3.13 (minimum required version)
+- **Development Tools**: ruff (linter/formatter), mypy (type checker), ipython, ipdb, rich
 
 ## Repository Information
 - Working Fork: https://github.com/seijispieker/FAIRDatabase
@@ -36,5 +36,30 @@ The project follows a "Start simple, add complexity only when proven necessary" 
 
 ## Application Endpoints
 - Flask Backend: http://localhost:5000
-- Supabase Studio: http://localhost:54321
-- API Gateway: http://localhost:54323
+- Supabase Studio: http://localhost:54323
+- API Gateway: http://localhost:54321
+
+## Key Dependencies
+
+### Production Dependencies
+- flask>=3.1.0 - Web framework
+- werkzeug>=3.1.3 - WSGI utilities
+- psycopg2-binary>=2.9.10 - PostgreSQL adapter
+- pandas>=2.2.3 - Data manipulation
+- sqlalchemy>=2.0.40 - SQL toolkit (minimal usage)
+- supabase>=2.15.1 - Backend-as-a-Service
+- flask-cors>=5.0.1 - CORS support
+- flask-limiter>=3.12 - Rate limiting
+- python-dotenv>=1.1.0 - Environment variables
+
+### Development Dependencies  
+- pytest>=8.3.4 - Testing framework
+- pytest-cov>=6.0.0 - Coverage reporting
+- pytest-mock>=3.14.0 - Mocking utilities
+- pytest-asyncio>=0.25.2 - Async test support
+- ruff>=0.9.2 - Linter and formatter
+- mypy>=1.14.1 - Type checker
+- ipython>=8.31.0 - Enhanced Python shell
+- ipdb>=0.13.13 - Debugger
+- rich>=13.9.4 - Terminal formatting
+- httpx>=0.28.1 - HTTP client for testing
