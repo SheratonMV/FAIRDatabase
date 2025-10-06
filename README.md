@@ -223,6 +223,13 @@ ssh -L 5000:localhost:5000 user@remote-server.com  # Manual port forward
 # Or use your tool's port forwarding (VS Code Ports panel, DevPod settings)
 ```
 
+## Testing
+
+```bash
+cd backend
+uv run pytest
+```
+
 ## Getting Help
 
 - **Found a bug?** Open an issue on [GitHub](https://github.com/seijispieker/FAIRDatabase/issues)
