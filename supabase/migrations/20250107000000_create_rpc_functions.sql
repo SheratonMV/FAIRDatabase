@@ -6,7 +6,7 @@
 -- INFORMATION SCHEMA FUNCTIONS
 -- ============================================================================
 
--- Get tables containing specific column
+-- Get tables containing specific column (supports pattern matching with ILIKE)
 -- Used by: routes.py:175-184, routes.py:328-337, routes.py:395-410
 CREATE OR REPLACE FUNCTION public.search_tables_by_column(
   search_column TEXT,
@@ -21,7 +21,7 @@ AS $$
   JOIN information_schema.columns c
     ON t.table_name = c.table_name
     AND t.table_schema = c.table_schema
-  WHERE c.column_name = search_column
+  WHERE c.column_name ILIKE '%' || search_column || '%'
     AND t.table_schema = schema_name
     AND t.table_type = 'BASE TABLE'
   ORDER BY 1;
@@ -155,7 +155,7 @@ BEGIN
 
   -- Execute update
   v_sql := format(
-    'UPDATE %I.%I SET %s WHERE id = %L',
+    'UPDATE %I.%I SET %s WHERE rowid = %L',
     schema_name, p_table_name, v_set_clause, p_row_id
   );
 

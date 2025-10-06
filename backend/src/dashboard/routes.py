@@ -23,11 +23,10 @@ from .helpers import (
     file_save_and_read,
 )
 
-from config import Error
+from config import supabase_extension
 from src.exceptions import GenericExceptionHandler
 from src.auth.decorators import login_required
 from io import BytesIO
-from psycopg2 import sql
 
 
 import os
@@ -164,26 +163,17 @@ def display():
     """
     user_email = session.get("email")
     search_term = session.get("search_term")
-    conn = g.db
 
     if request.method == "GET" and search_term:
         search_column, _, _ = search_term
 
         try:
-
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT DISTINCT table_name
-                    FROM information_schema.columns
-                    WHERE column_name ILIKE %s
-                    AND table_schema = '_realtime';
-                    """,
-                    (f"%{search_column}%",),
-                )
-                matching_tables = cur.fetchall()
-        except Error as e:
-            conn.rollback()
+            response = supabase_extension.client.rpc(
+                'search_tables_by_column',
+                {'search_column': search_column}
+            ).execute()
+            matching_tables = [(row['table_name'],) for row in response.data]
+        except Exception as e:
             raise GenericExceptionHandler(
                 f"Schema query failed: {str(e)}", status_code=500
             )
@@ -193,27 +183,22 @@ def display():
 
         for (table,) in matching_tables:
             try:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        """
-                        SELECT column_name
-                        FROM information_schema.columns
-                        WHERE table_schema = '_realtime'
-                        AND table_name = %s;
-                        """,
-                        (table,),
-                    )
-                    columns = [row[0] for row in cur.fetchall()]
+                response = supabase_extension.client.rpc(
+                    'get_table_columns',
+                    {'p_table_name': table}
+                ).execute()
+                columns = [row['column_name'] for row in response.data]
 
-                with conn.cursor() as cur:
-                    cur.execute(
-                        sql.SQL("SELECT * FROM {}.{}").format(
-                            sql.Identifier("_realtime"),
-                            sql.Identifier(table),
-                        )
-                    )
+                response = supabase_extension.client.rpc(
+                    'select_from_table',
+                    {'p_table_name': table, 'p_limit': 1000000}
+                ).execute()
 
-                    rows = cur.fetchall()
+                # Convert JSONB data to tuples matching column order
+                rows = []
+                for row in response.data:
+                    row_data = row['data']
+                    rows.append(tuple(row_data.get(col) for col in columns))
 
                 if not rows:
                     continue
@@ -226,8 +211,7 @@ def display():
                 total_rows += len(rows)
                 total_columns += len(columns)
 
-            except Error as e:
-                conn.rollback()
+            except Exception as e:
                 raise GenericExceptionHandler(
                     f"Schema query failed: {str(e)}", status_code=500
                 )
@@ -292,19 +276,10 @@ def search():
     """
     user_email = session["email"]
     current_path = request.path
-    conn = g.db
 
     if request.method == "GET":
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT DISTINCT table_name
-                FROM information_schema.tables
-                WHERE table_schema = '_realtime';
-            """
-            )
-
-            table_names = [row[0] for row in cur.fetchall()]
+        response = supabase_extension.client.rpc('get_all_tables').execute()
+        table_names = [row['table_name'] for row in response.data]
 
         return render_template(
             "/dashboard/search.html",
@@ -324,30 +299,16 @@ def search():
         session["search_term"] = [search_term, seq_a, seq_na]
 
         try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT DISTINCT table_name
-                    FROM information_schema.columns
-                    WHERE column_name ILIKE %s
-                    AND table_schema = '_realtime';
-                """,
-                    (f"%{search_term}%",),
-                )
-                search_results = [row[0] for row in cur.fetchall()]
+            response = supabase_extension.client.rpc(
+                'search_tables_by_column',
+                {'search_column': search_term}
+            ).execute()
+            search_results = [row['table_name'] for row in response.data]
 
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT DISTINCT table_name
-                    FROM information_schema.tables
-                    WHERE table_schema = '_realtime';
-                """
-                )
-                table_names = [row[0] for row in cur.fetchall()]
+            response = supabase_extension.client.rpc('get_all_tables').execute()
+            table_names = [row['table_name'] for row in response.data]
 
-        except Error as e:
-            conn.rollback()
+        except Exception as e:
             raise GenericExceptionHandler(
                 f"Failed to fetch rows: {str(e)}", status_code=500
             )
@@ -383,54 +344,42 @@ def update():
         description: Error response if the user is not logged in.
     """
     user_email = session["email"]
-    conn = g.db
 
     if request.method == "POST":
         row_id = request.form.get("row_id")
         column_name = request.form.get("column_name")
         new_value = request.form.get("new_value")
 
-        with conn.cursor() as cur:
-            try:
-                cur.execute(
-                    """
-                    SELECT DISTINCT table_name
-                    FROM information_schema.columns
-                    WHERE column_name ILIKE %s
-                    AND table_schema = '_realtime';
-                    """,
-                    (f"%{column_name}%",),
-                )
-            except Error as e:
-                conn.rolback()
-                raise GenericExceptionHandler(
-                    f"Failed to select rows: {str(e)}", status_code=500
-                )
+        try:
+            response = supabase_extension.client.rpc(
+                'search_tables_by_column',
+                {'search_column': column_name}
+            ).execute()
+            tables = [row['table_name'] for row in response.data]
+        except Exception as e:
+            raise GenericExceptionHandler(
+                f"Failed to select rows: {str(e)}", status_code=500
+            )
 
-            tables = [row[0] for row in cur.fetchall()]
+        if not tables:
+            raise GenericExceptionHandler(
+                "No matching data found", status_code=404)
 
-            if not tables:
-                raise GenericExceptionHandler(
-                    "No matching data found", status_code=404)
+        try:
+            for table in tables:
+                supabase_extension.client.rpc(
+                    'update_table_row',
+                    {
+                        'p_table_name': table,
+                        'p_row_id': int(row_id),
+                        'p_updates': {column_name: new_value}
+                    }
+                ).execute()
 
-            try:
-                for table in tables:
-                    cur.execute(
-                        sql.SQL("UPDATE {}.{} SET {} = %s WHERE rowid = %s").format(
-                            sql.Identifier("_realtime"),
-                            sql.Identifier(table),
-                            sql.Identifier(column_name),
-                        ),
-                        (new_value, row_id),
-                    )
-
-            except Error as e:
-                conn.rollback()
-                raise GenericExceptionHandler(
-                    f"Failed to update rows: {str(e)}", status_code=500
-                )
-
-        conn.commit()
+        except Exception as e:
+            raise GenericExceptionHandler(
+                f"Failed to update rows: {str(e)}", status_code=500
+            )
 
     return (
         render_template(
@@ -468,7 +417,6 @@ def table_preview():
     user_email = session.get("email")
     search_term = session.get("search_term", "")
     table_name = request.args.get("table_name")
-    conn = g.db
 
     if not table_name:
         raise GenericExceptionHandler(
@@ -477,59 +425,47 @@ def table_preview():
         )
 
     try:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT table_name
-                FROM information_schema.tables
-                WHERE table_schema = '_realtime'
-                AND table_name = %s;
-                """,
-                (table_name,),
-            )
+        response = supabase_extension.client.rpc(
+            'table_exists',
+            {'p_table_name': table_name}
+        ).execute()
+        table_exists = response.data
 
-            res = cur.fetchone()
-
-    except Error as e:
-        conn.rollback()
+    except Exception as e:
         raise GenericExceptionHandler(
             message=f"Error fetching table information: {str(e)}",
             status_code=500,
         )
 
-    if not res:
+    if not table_exists:
         raise GenericExceptionHandler(
             message=f"Table '{table_name}' not found in _realtime schema.",
             status_code=404,
         )
 
-    with conn.cursor() as cur:
-        try:
-            cur.execute(
-                """
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_schema = '_realtime'
-                AND table_name = %s;
-                """,
-                (table_name,),
-            )
-            columns = [row[0] for row in cur.fetchall()]
+    try:
+        response = supabase_extension.client.rpc(
+            'get_table_columns',
+            {'p_table_name': table_name}
+        ).execute()
+        columns = [row['column_name'] for row in response.data]
 
-            cur.execute(
-                sql.SQL("SELECT * FROM {}.{} LIMIT 100;").format(
-                    sql.Identifier("_realtime"),
-                    sql.Identifier(table_name),
-                )
-            )
-            rows = cur.fetchall()
+        response = supabase_extension.client.rpc(
+            'select_from_table',
+            {'p_table_name': table_name, 'p_limit': 100}
+        ).execute()
 
-        except Error as e:
-            conn.rollback()
-            raise GenericExceptionHandler(
-                message=f"Error selecting data: {str(e)}",
-                status_code=500,
-            )
+        # Convert JSONB data to tuples matching column order
+        rows = []
+        for row in response.data:
+            row_data = row['data']
+            rows.append(tuple(row_data.get(col) for col in columns))
+
+    except Exception as e:
+        raise GenericExceptionHandler(
+            message=f"Error selecting data: {str(e)}",
+            status_code=500,
+        )
 
     df = pd.DataFrame(rows, columns=columns)
     df_preview = df.iloc[:15, :8]
