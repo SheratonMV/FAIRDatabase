@@ -89,6 +89,13 @@ Remember: The best code is code that doesn't exist. The second best is simple co
 - **Testing**: pytest
 - **Package Management**: uv with pyproject.toml
 
+**IMPORTANT - Package Management**:
+- **ALWAYS use `uv` for all Python package operations**
+- Install packages: `uv add <package>`
+- Run scripts: `uv run <command>`
+- Sync dependencies: `uv sync`
+- Never use `pip`, `pip install`, or `python -m pip`
+
 **Note**: Existing code may not follow these standards. Prioritize principles over existing patterns.
 
 ## 📝 Git Workflow

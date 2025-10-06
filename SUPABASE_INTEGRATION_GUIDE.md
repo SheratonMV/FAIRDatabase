@@ -15,12 +15,13 @@
 
 ## 🎯 Mission
 
-**Replace 16 psycopg2 database operations** using:
-- **3 operations** → Supabase migrations (DDL)
-- **11 operations** → PostgreSQL RPC functions (metadata + dynamic queries)
-- **2 operations** → Supabase Python client (simple CRUD)
+**Replace 16 psycopg2 database operations** using a **pragmatic hybrid approach**:
+- **3 operations** → Supabase migrations (DDL schema setup) ✅
+- **11 operations** → PostgreSQL RPC functions (metadata queries) - Step 4
+- **1 operation** → Supabase Python client (static table inserts) ✅
+- **1 operation** → Keep psycopg2 (dynamic table operations) ⚠️
 
-**NOT** migrating everything to Python client - using proper **Supabase ecosystem** (migrations + RPC + client).
+**Key Discovery**: PostgREST schema cache limitations require keeping psycopg2 for dynamic table creation/inserts. Using **Supabase ecosystem where practical** (migrations + RPC + client), **psycopg2 where necessary** (dynamic DDL).
 
 ---
 
@@ -316,63 +317,90 @@ print(result.data)
 
 ---
 
-### Step 3: Migrate Simple CRUD (Days 6-7)
+### Step 3: Migrate Simple CRUD (Days 6-7) ✅ COMPLETED
 
-**Goal**: Replace 2 INSERT operations
+**Goal**: Migrate INSERT operations where practical
 
-#### 3.1 Test Schema Prefix Approach
+**Important Discovery**: PostgREST has schema cache limitations that prevent immediate access to dynamically created tables. This requires a hybrid approach.
 
-```python
-# In helpers.py:120-127 replacement
-# TRY THIS FIRST:
-from config import supabase_extension
-supabase = supabase_extension.client
+#### 3.1 Expose Custom Schema
 
-try:
-    # Option A: Schema prefix (test if this works)
-    response = supabase.table("_realtime.metadata_tables").insert({
-        "table_name": table_name
-    }).execute()
-
-    print(f"✅ Schema prefix works! ID: {response.data[0]['id']}")
-
-except Exception as e:
-    print(f"❌ Schema prefix failed: {e}")
-
-    # Option B: Fallback to RPC
-    response = supabase.rpc("insert_metadata", {
-        "p_table_name": table_name
-    }).execute()
-
-    print(f"✅ RPC fallback works! ID: {response.data}")
+**Update `supabase/config.toml`**:
+```toml
+# Line 13
+schemas = ["public", "graphql_public", "_realtime"]
 ```
 
-#### 3.2 Update Code Based on Test Results
+**Create migration `20250106000003_grant_realtime_permissions.sql`**:
+```sql
+-- Grant usage on schema
+GRANT USAGE ON SCHEMA _realtime TO anon, authenticated, service_role;
 
-**If schema prefix works** (unlikely but possible):
-```python
-# helpers.py:120-127
-response = supabase.table("_realtime.metadata_tables").insert({
-    "table_name": table_name
-}).execute()
-metadata_id = response.data[0]['id']
+-- Grant all privileges on all tables
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA _realtime TO anon, authenticated, service_role;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA _realtime TO anon, authenticated, service_role;
+
+-- Grant privileges on future tables
+ALTER DEFAULT PRIVILEGES IN SCHEMA _realtime
+GRANT ALL ON TABLES TO anon, authenticated, service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA _realtime
+GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
 ```
 
-**If RPC needed** (more likely):
-```python
-# helpers.py:120-127
-response = supabase.rpc("insert_metadata", {
-    "p_table_name": table_name
-}).execute()
-metadata_id = response.data
+**Apply changes**:
+```bash
+npx supabase db reset
 ```
 
-#### 3.3 Test INSERT Operations
+#### 3.2 Migrate Static Table Inserts ✅
+
+**Update `helpers.py:103` (pg_insert_metadata)**:
+```python
+def pg_insert_metadata(cur, schema, table_name, main_table, description, origin):
+    """Insert metadata using Supabase client."""
+    from config import supabase_extension
+
+    schema = pg_sanitize_column(schema).strip('"')
+
+    response = (
+        supabase_extension.client
+        .schema(f"_{schema}")
+        .table("metadata_tables")
+        .insert({
+            "table_name": table_name,
+            "main_table": main_table,
+            "description": description,
+            "origin": origin
+        })
+        .execute()
+    )
+
+    return response.data[0] if response.data else None
+```
+
+#### 3.3 Keep psycopg2 for Dynamic Operations ⚠️
+
+**DO NOT migrate these** (PostgREST schema cache issue):
+- `pg_create_data_table` - Dynamic DDL must use psycopg2
+- `pg_insert_data_rows` - Inserts into dynamic tables must use psycopg2
+
+**Why**: PostgREST caches schema metadata. Dynamically created tables aren't immediately visible via Supabase REST API, even with NOTIFY commands.
+
+**Add permissions grant to `pg_create_data_table`**:
+```python
+# After CREATE TABLE
+cur.execute(f"""
+    GRANT ALL ON TABLE _{schema}.{table_name} TO anon, authenticated, service_role;
+    GRANT USAGE, SELECT ON SEQUENCE _{schema}.{table_name}_rowid_seq TO anon, authenticated, service_role;
+""")
+```
+
+#### 3.4 Test
 
 ```bash
-# Run relevant tests
-cd backend
-uv run pytest tests/dashboard/test_helpers.py -v -k insert
+uv run --directory backend pytest tests/dashboard/test_dashboard.py -v
+# Expected: 3/3 tests passing ✅
 ```
 
 ---
@@ -540,17 +568,26 @@ grep -r "psycopg2" backend/src/
 - [ ] routes.py:508-517
 - [ ] routes.py:519-525
 
-### Simple CRUD Migrated (0/2)
-- [ ] helpers.py:120-127 - INSERT metadata
-- [ ] helpers.py:184-190 - INSERT data
+### Simple CRUD Migrated (1/2)
+- [x] helpers.py:120-127 - INSERT metadata (✅ Migrated to Supabase client)
+- [ ] helpers.py:184-190 - INSERT data (⚠️ Kept psycopg2 due to PostgREST schema cache limitations)
 
 ### Cleanup (0/4)
-- [ ] psycopg2 dependency removed
+- [ ] psycopg2 dependency removed (⚠️ Still needed for DDL and dynamic table operations)
 - [ ] get_db() removed
 - [ ] DDL code removed from helpers.py
-- [ ] All tests passing
+- [ ] All tests passing (✅ 3/3 dashboard tests pass)
 
-**Total Progress**: 7/27 tasks (Step 2 Complete ✅)
+**Total Progress**: 8/27 tasks (Step 3 Partial ✅)
+
+**Step 3 Notes**:
+- ✅ Exposed `_realtime` schema in Supabase config (`config.toml`)
+- ✅ Granted permissions on `_realtime` schema to service roles (migration 20250106000003)
+- ✅ Migrated `pg_insert_metadata` to use Supabase client (static table)
+- ⚠️ Kept `pg_create_data_table` using psycopg2 (dynamic DDL)
+- ⚠️ Kept `pg_insert_data_rows` using psycopg2 (PostgREST can't see dynamically created tables immediately)
+- 📝 Created RPC migration 20250106000004 for `create_data_table()` but not using it (PostgREST cache issue)
+- 📝 Pragmatic approach: Use Supabase for static tables, psycopg2 for dynamic operations
 
 ---
 
@@ -575,19 +612,15 @@ psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -c "SELECT version()"
 cd backend && uv run pytest
 ```
 
-### First Actions (Right Now)
+### ✅ Completed Steps
 
-1. **Read DDL code** from helpers.py:
-   ```bash
-   # Lines 27, 28-39, 74-82
-   ```
+- **Step 1**: DDL to Migrations ✅
+- **Step 2**: Create RPC Functions ✅
+- **Step 3**: Migrate Simple CRUD ✅ (partial - static tables only)
 
-2. **Create first migration**:
-   ```bash
-   touch supabase/migrations/20250106000000_create_realtime_schema.sql
-   ```
+### 🎯 Next Actions
 
-3. **Start implementing Step 1** (DDL to migrations)
+**Continue with Step 4**: Migrate routes.py queries to use RPC functions (11 operations)
 
 ---
 
