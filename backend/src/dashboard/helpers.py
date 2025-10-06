@@ -12,10 +12,18 @@ import csv
 def pg_ensure_schema_and_metadata(cur, schema):
     """
     Ensure PostgreSQL schema and metadata table exist.
+
+    NOTE: Schema and metadata table creation is now handled by Supabase migrations:
+    - supabase/migrations/20250106000000_create_realtime_schema.sql
+    - supabase/migrations/20250106000001_create_metadata_tables.sql
+
+    This function is kept for backward compatibility but no longer creates schema/tables.
+    The schema and metadata_tables are automatically created when migrations are applied.
+
     ---
     tags:
       - database
-    summary: Create _realtime schema and metadata table if missing.
+    summary: Verify _realtime schema and metadata table exist (now handled by migrations).
     parameters:
       - name: cur
         in: code
@@ -23,20 +31,9 @@ def pg_ensure_schema_and_metadata(cur, schema):
         required: true
         description: PostgreSQL cursor for executing commands.
     """
-    schema = pg_sanitize_column(schema)
-    cur.execute(f"CREATE SCHEMA IF NOT EXISTS _{schema};")
-    cur.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS _{schema}.metadata_tables (
-            id SERIAL PRIMARY KEY,
-            table_name TEXT NOT NULL,
-            main_table TEXT NOT NULL,
-            description TEXT,
-            origin TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-    """
-    )
+    # Schema and table creation now handled by Supabase migrations
+    # This function remains for backward compatibility but is now a no-op
+    pass
 
 
 def pg_create_data_table(cur, schema, table_name, columns, patient_col):
