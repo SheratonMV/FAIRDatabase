@@ -555,18 +555,18 @@ grep -r "psycopg2" backend/src/
 - [x] `update_table_row()`
 - [x] `insert_metadata()`
 
-### Routes Migrated (0/11)
-- [ ] routes.py:175-184
-- [ ] routes.py:197-206
-- [ ] routes.py:209-216
-- [ ] routes.py:299-307
-- [ ] routes.py:328-337
-- [ ] routes.py:340-347
-- [ ] routes.py:395-410
-- [ ] routes.py:418-425
-- [ ] routes.py:481-491
-- [ ] routes.py:508-517
-- [ ] routes.py:519-525
+### Routes Migrated (11/11) ✅
+- [x] routes.py:175-184 → `search_tables_by_column` RPC
+- [x] routes.py:197-206 → `get_table_columns` RPC
+- [x] routes.py:209-216 → `select_from_table` RPC
+- [x] routes.py:299-307 → `get_all_tables` RPC
+- [x] routes.py:328-337 → `search_tables_by_column` RPC
+- [x] routes.py:340-347 → `get_all_tables` RPC
+- [x] routes.py:395-410 → `search_tables_by_column` RPC
+- [x] routes.py:418-425 → `update_table_row` RPC
+- [x] routes.py:481-491 → `table_exists` RPC
+- [x] routes.py:508-517 → `get_table_columns` RPC
+- [x] routes.py:519-525 → `select_from_table` RPC
 
 ### Simple CRUD Migrated (1/2)
 - [x] helpers.py:120-127 - INSERT metadata (✅ Migrated to Supabase client)
@@ -578,7 +578,16 @@ grep -r "psycopg2" backend/src/
 - [ ] DDL code removed from helpers.py
 - [ ] All tests passing (✅ 3/3 dashboard tests pass)
 
-**Total Progress**: 8/27 tasks (Step 3 Partial ✅)
+**Total Progress**: 19/27 tasks (Step 4 Complete ✅)
+
+**Step 4 Notes**:
+- ✅ All 11 routes migrated to use RPC functions
+- ✅ Updated `search_tables_by_column` to support ILIKE pattern matching
+- ✅ Fixed `update_table_row` to use `rowid` instead of `id`
+- ✅ Removed unused psycopg2 imports and Error handling
+- ✅ All 3 dashboard tests passing
+- 📝 Removed conn.rollback() calls (RPC transactions are atomic)
+- 📝 Converted JSONB response data to tuples for DataFrame compatibility
 
 **Step 3 Notes**:
 - ✅ Exposed `_realtime` schema in Supabase config (`config.toml`)
@@ -617,10 +626,11 @@ cd backend && uv run pytest
 - **Step 1**: DDL to Migrations ✅
 - **Step 2**: Create RPC Functions ✅
 - **Step 3**: Migrate Simple CRUD ✅ (partial - static tables only)
+- **Step 4**: Update Routes to Use RPC ✅ (all 11 operations migrated)
 
 ### 🎯 Next Actions
 
-**Continue with Step 4**: Migrate routes.py queries to use RPC functions (11 operations)
+**Next**: Integration testing and manual verification of all migrated routes
 
 ---
 
