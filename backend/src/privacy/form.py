@@ -200,10 +200,20 @@ class DifferentialPrivacyHandler(BaseHandler):
             description: Context initialized.
         """
         super().__init__()
+
+        # Load columns for display on GET requests
+        try:
+            df = self._load_dataframe()
+            quasi_idents, sensitive_attr = self._get_quasi_and_sensitive()
+            other_columns = self._get_other_columns(df, quasi_idents, sensitive_attr)
+            columns = other_columns
+        except:
+            columns = []
+
         self._update_context(
             {
                 "current_path": request.path,
-                "columns": False,
+                "columns": columns,
                 "selected_columns": False,
             }
         )

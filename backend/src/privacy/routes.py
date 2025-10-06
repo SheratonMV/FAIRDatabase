@@ -59,4 +59,5 @@ def differential_privacy():
     if request.method == "POST":
         handler.handle_add_noise()
 
-    return render_template("/privacy/differential_privacy.html", **handler.ctx)
+    status_code = 400 if handler.ctx.get("error") else 200
+    return render_template("/privacy/differential_privacy.html", **handler.ctx), status_code
