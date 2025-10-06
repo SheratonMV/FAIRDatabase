@@ -4,17 +4,6 @@
 
 FAIRDatabase implements FAIR data principles (Findable, Accessible, Interoperable, Reusable) for research data management using Flask backend and web frontend.
 
-## 📚 Documentation Hierarchy
-
-1. **Root CLAUDE.md** (this file): Project-wide conventions and principles
-2. **Subdirectory CLAUDE.md files**: Context-specific guidance
-   - `backend/CLAUDE.md`: Python/Flask specific standards
-   - `frontend/CLAUDE.md`: Frontend development guidelines
-   - `.devcontainer/CLAUDE.md`: Development environment setup
-3. **README.md**: User-facing documentation and setup instructions
-
-**Important**: When making changes that affect patterns, workflows, or conventions, update the relevant CLAUDE.md file
-
 ## 🎯 Core Development Philosophy
 
 **Start simple. Add complexity only when proven necessary.**
