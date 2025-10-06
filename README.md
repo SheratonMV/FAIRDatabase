@@ -12,6 +12,11 @@ FAIRDatabase: A FAIR-compliant database for human microbiome research data, bala
 - **Testing**: pytest
 - **Package Manager**: uv
 
+## Documentation
+
+- **[DATABASE.md](./DATABASE.md)** - Database architecture, Supabase RPC functions, hybrid approach explained
+- **[CLAUDE.md](./CLAUDE.md)** - Development philosophy, coding standards, project structure
+
 ## Development Environment Setup
 
 This project uses **[Development Containers](https://containers.dev/)** for consistent, reproducible development environments.

@@ -84,7 +84,7 @@ Remember: The best code is code that doesn't exist. The second best is simple co
 ## 🔧 Technology Stack
 
 - **Backend**: Python/Flask (may migrate to FastAPI)
-- **Database**: Supabase (PostgreSQL)
+- **Database**: Supabase (PostgreSQL) - See [DATABASE.md](./DATABASE.md) for architecture details
 - **Frontend**: HTML templates with static assets
 - **Testing**: pytest
 - **Package Management**: uv with pyproject.toml
@@ -129,8 +129,11 @@ FAIRDatabase/
 │   ├── templates/    # Jinja2 templates
 │   └── public/       # Logo images
 ├── static/            # Static assets (CSS, JS)
-├── supabase/          # Database config
-└── .devcontainer/     # Dev container + CLAUDE.md
+├── supabase/          # Database config & migrations
+├── .devcontainer/     # Dev container + CLAUDE.md
+├── CLAUDE.md          # This file - project guide
+├── DATABASE.md        # Database architecture & reference
+└── README.md          # Project overview
 ```
 
 ---
