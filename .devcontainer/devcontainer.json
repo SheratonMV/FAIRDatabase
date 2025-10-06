@@ -45,10 +45,14 @@
   "postCreateCommand": "bash .devcontainer/post-create.sh",
 
   // Forward ports (VS Code)
-  "forwardPorts": [5000, 54323, 54324],
+  "forwardPorts": [5000, 54322, 54323, 54324],
   "portsAttributes": {
     "5000": {
       "label": "Flask App",
+      "onAutoForward": "notify"
+    },
+    "54322": {
+      "label": "PostgreSQL (Supabase)",
       "onAutoForward": "notify"
     },
     "54323": {
@@ -63,6 +67,7 @@
   // Port mapping for Dev Container CLI and DevPod
   "runArgs": [
     "-p", "5000:5000",
+    "-p", "54322:54322",
     "-p", "54323:54323",
     "-p", "54324:54324"
   ],

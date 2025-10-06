@@ -16,6 +16,11 @@ if [ -f "backend/pyproject.toml" ]; then
     echo "✅ Python environment ready"
 fi
 
+# Install PostgreSQL client tools
+echo "🐘 Installing PostgreSQL client tools..."
+sudo apt update && sudo apt install -y postgresql-client
+echo "✅ PostgreSQL client tools installed"
+
 # Setup environment files from templates
 echo "⚙️ Setting up environment configuration..."
 if [ ! -f "backend/.env" ]; then
