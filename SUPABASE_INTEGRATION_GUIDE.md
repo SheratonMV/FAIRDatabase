@@ -518,13 +518,14 @@ grep -r "psycopg2" backend/src/
 - [ ] `helpers.py:28-39` - CREATE TABLE metadata
 - [ ] `helpers.py:74-82` - CREATE TABLE data
 
-### RPC Functions Created (0/6 unique)
-- [ ] `search_tables_by_column()`
-- [ ] `get_table_columns()`
-- [ ] `table_exists()`
-- [ ] `get_all_tables()`
-- [ ] `select_from_table()`
-- [ ] `update_table_row()`
+### RPC Functions Created (7/7 unique)
+- [x] `search_tables_by_column()`
+- [x] `get_table_columns()`
+- [x] `table_exists()`
+- [x] `get_all_tables()`
+- [x] `select_from_table()`
+- [x] `update_table_row()`
+- [x] `insert_metadata()`
 
 ### Routes Migrated (0/11)
 - [ ] routes.py:175-184
@@ -549,7 +550,7 @@ grep -r "psycopg2" backend/src/
 - [ ] DDL code removed from helpers.py
 - [ ] All tests passing
 
-**Total Progress**: 0/26 tasks
+**Total Progress**: 7/27 tasks (Step 2 Complete ✅)
 
 ---
 
