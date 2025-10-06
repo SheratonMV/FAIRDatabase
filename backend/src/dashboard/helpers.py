@@ -39,6 +39,11 @@ def pg_ensure_schema_and_metadata(cur, schema):
 def pg_create_data_table(cur, schema, table_name, columns, patient_col):
     """
     Create chunked PostgreSQL data table for a CSV column set.
+
+    NOTE: This function continues to use psycopg2 for DDL operations.
+    Dynamic table creation via Supabase REST API has schema cache refresh issues.
+    For CRUD operations, we use Supabase client (see pg_insert_data_rows).
+
     ---
     tags:
       - database
@@ -49,6 +54,11 @@ def pg_create_data_table(cur, schema, table_name, columns, patient_col):
         type: psycopg2.extensions.cursor
         required: true
         description: PostgreSQL cursor object.
+      - name: schema
+        in: code
+        type: string
+        required: true
+        description: Schema name (e.g., 'realtime').
       - name: table_name
         in: code
         type: string
@@ -78,10 +88,25 @@ def pg_create_data_table(cur, schema, table_name, columns, patient_col):
     """
     )
 
+    # Grant permissions for Supabase to access the table
+    cur.execute(
+        f"""
+        GRANT ALL ON TABLE _{schema}.{table_name} TO anon, authenticated, service_role;
+        GRANT USAGE, SELECT ON SEQUENCE _{schema}.{table_name}_rowid_seq TO anon, authenticated, service_role;
+        """
+    )
+
+    # Notify PostgREST to reload schema cache
+    cur.execute("NOTIFY pgrst, 'reload schema'")
+
 
 def pg_insert_metadata(cur, schema, table_name, main_table, description, origin):
     """
     Insert a record into _realtime.metadata_tables for tracking.
+
+    NOTE: Migrated to use Supabase client instead of psycopg2.
+    The 'cur' parameter is kept for backward compatibility but is no longer used.
+
     ---
     tags:
       - database
@@ -91,7 +116,12 @@ def pg_insert_metadata(cur, schema, table_name, main_table, description, origin)
         in: code
         type: psycopg2.extensions.cursor
         required: true
-        description: PostgreSQL cursor object.
+        description: PostgreSQL cursor object (deprecated, kept for compatibility).
+      - name: schema
+        in: code
+        type: string
+        required: true
+        description: Schema name (e.g., 'realtime').
       - name: table_name
         in: code
         type: string
@@ -113,15 +143,24 @@ def pg_insert_metadata(cur, schema, table_name, main_table, description, origin)
         required: false
         description: Source or origin of the file.
     """
-    schema = pg_sanitize_column(schema)
-    cur.execute(
-        f"""
-        INSERT INTO _{schema}.metadata_tables (table_name, main_table, \
-          description, origin)
-        VALUES (%s, %s, %s, %s);
-    """,
-        (table_name, main_table, description, origin),
+    from config import supabase_extension
+
+    schema = pg_sanitize_column(schema).strip('"')  # Remove quotes added by sanitize
+
+    response = (
+        supabase_extension.client
+        .schema(f"_{schema}")
+        .table("metadata_tables")
+        .insert({
+            "table_name": table_name,
+            "main_table": main_table,
+            "description": description,
+            "origin": origin
+        })
+        .execute()
     )
+
+    return response.data[0] if response.data else None
 
 
 def pg_insert_data_rows(
@@ -129,6 +168,11 @@ def pg_insert_data_rows(
 ):
     """
     Insert chunked rows into the corresponding PostgreSQL data table.
+
+    NOTE: Continues to use psycopg2 for dynamic table inserts due to PostgREST
+    schema cache limitations. The Supabase REST API can't immediately see
+    dynamically created tables.
+
     ---
     tags:
       - database
@@ -139,6 +183,11 @@ def pg_insert_data_rows(
         type: psycopg2.extensions.cursor
         required: true
         description: PostgreSQL cursor object.
+      - name: schema
+        in: code
+        type: string
+        required: true
+        description: Schema name (e.g., 'realtime').
       - name: table_name
         in: code
         type: string
