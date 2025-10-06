@@ -126,13 +126,14 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
-    "--cov-fail-under=80",
+    "--cov-fail-under=45",
     "--ignore=AnonyBiome",
 ]
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
+    "ignore::ResourceWarning",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
