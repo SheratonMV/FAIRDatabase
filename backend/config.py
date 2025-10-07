@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Any, TypeVar
 
 from dotenv import load_dotenv
 
@@ -14,6 +15,9 @@ from flask_limiter.util import get_remote_address
 from psycopg2 import OperationalError
 from psycopg2.pool import ThreadedConnectionPool
 from supabase import Client, ClientOptions, create_client
+
+# Type variable for generic RPC return types
+T = TypeVar('T')
 
 
 class Config:
@@ -174,7 +178,7 @@ class Supabase:
             current_app.logger.error(f"Error getting user: {e}")
             return None
 
-    def safe_rpc_call(self, function_name: str, params: dict | None = None):
+    def safe_rpc_call(self, function_name: str, params: dict | None = None) -> list[Any] | bool | Any:
         """
         Execute Supabase RPC with consistent error handling.
 
@@ -183,6 +187,11 @@ class Supabase:
         direct client.rpc() calls for consistency.
 
         See DATABASE.md "Query Execution Convention" for more details.
+
+        For better type safety, use type hints at the call site:
+            data: list[TableNameResult] = supabase_extension.safe_rpc_call('get_all_tables')
+
+        See src/types.py for available TypedDict definitions.
         ---
         tags:
           - supabase_rpc
@@ -196,13 +205,14 @@ class Supabase:
             required: false
             description: Dictionary of parameters to pass to the RPC function.
         returns:
-          type: object
-          description: response.data if successful
+          type: list | bool | any
+          description: response.data if successful (typically list, but may be bool for functions like table_exists)
         raises:
           GenericExceptionHandler: with appropriate status code and error message
 
         Example:
-            data = supabase_extension.safe_rpc_call('get_all_tables', {'schema_name': '_realtime'})
+            data: list[TableNameResult] = supabase_extension.safe_rpc_call('get_all_tables')
+            exists: bool = supabase_extension.safe_rpc_call('table_exists', {'p_table_name': 'my_table'})
         """
         from src.exceptions import GenericExceptionHandler
 

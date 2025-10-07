@@ -22,6 +22,7 @@ from flask import (
 from config import supabase_extension
 from src.auth.decorators import login_required
 from src.exceptions import GenericExceptionHandler
+from src.types import ColumnInfoResult, TableDataResult, TableNameResult
 
 from .helpers import (
     file_chunk_columns,
@@ -160,7 +161,7 @@ def display():
     if request.method == "GET" and search_term:
         search_column, _, _ = search_term
 
-        data = supabase_extension.safe_rpc_call(
+        data: list[TableNameResult] = supabase_extension.safe_rpc_call(
             "search_tables_by_column", {"search_column": search_column}
         )
         matching_tables = [(row["table_name"],) for row in data]
@@ -169,12 +170,12 @@ def display():
         total_rows = total_columns = 0
 
         for (table,) in matching_tables:
-            columns_data = supabase_extension.safe_rpc_call(
+            columns_data: list[ColumnInfoResult] = supabase_extension.safe_rpc_call(
                 "get_table_columns", {"p_table_name": table}
             )
             columns = [row["column_name"] for row in columns_data]
 
-            table_data = supabase_extension.safe_rpc_call(
+            table_data: list[TableDataResult] = supabase_extension.safe_rpc_call(
                 "select_from_table", {"p_table_name": table, "p_limit": 1000000}
             )
 
@@ -256,7 +257,7 @@ def search():
     current_path = request.path
 
     if request.method == "GET":
-        data = supabase_extension.safe_rpc_call("get_all_tables")
+        data: list[TableNameResult] = supabase_extension.safe_rpc_call("get_all_tables")
         table_names = [row["table_name"] for row in data]
 
         return render_template(
@@ -276,12 +277,12 @@ def search():
 
         session["search_term"] = [search_term, seq_a, seq_na]
 
-        search_data = supabase_extension.safe_rpc_call(
+        search_data: list[TableNameResult] = supabase_extension.safe_rpc_call(
             "search_tables_by_column", {"search_column": search_term}
         )
         search_results = [row["table_name"] for row in search_data]
 
-        all_tables_data = supabase_extension.safe_rpc_call("get_all_tables")
+        all_tables_data: list[TableNameResult] = supabase_extension.safe_rpc_call("get_all_tables")
         table_names = [row["table_name"] for row in all_tables_data]
 
         return render_template(
@@ -321,7 +322,7 @@ def update():
         column_name = request.form.get("column_name")
         new_value = request.form.get("new_value")
 
-        data = supabase_extension.safe_rpc_call(
+        data: list[TableNameResult] = supabase_extension.safe_rpc_call(
             "search_tables_by_column", {"search_column": column_name}
         )
         tables = [row["table_name"] for row in data]
@@ -330,7 +331,7 @@ def update():
             raise GenericExceptionHandler("No matching data found", status_code=404)
 
         for table in tables:
-            supabase_extension.safe_rpc_call(
+            success: bool = supabase_extension.safe_rpc_call(
                 "update_table_row",
                 {
                     "p_table_name": table,
@@ -380,7 +381,7 @@ def table_preview():
             status_code=400,
         )
 
-    table_exists = supabase_extension.safe_rpc_call(
+    table_exists: bool = supabase_extension.safe_rpc_call(
         "table_exists", {"p_table_name": table_name}
     )
 
@@ -390,12 +391,12 @@ def table_preview():
             status_code=404,
         )
 
-    columns_data = supabase_extension.safe_rpc_call(
+    columns_data: list[ColumnInfoResult] = supabase_extension.safe_rpc_call(
         "get_table_columns", {"p_table_name": table_name}
     )
     columns = [row["column_name"] for row in columns_data]
 
-    table_data = supabase_extension.safe_rpc_call(
+    table_data: list[TableDataResult] = supabase_extension.safe_rpc_call(
         "select_from_table", {"p_table_name": table_name, "p_limit": 100}
     )
 
