@@ -27,6 +27,7 @@ dependencies = [
     "flask-cors>=5.0.1",
     "flask-limiter>=4.0.0",
     "python-dotenv>=1.1.0",
+    "tenacity>=9.1.2",
 ]
 
 [dependency-groups]

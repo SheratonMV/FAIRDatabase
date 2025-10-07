@@ -16,6 +16,8 @@ from flask_limiter.util import get_remote_address
 from psycopg2 import OperationalError
 from psycopg2.pool import ThreadedConnectionPool
 from supabase import Client, ClientOptions, create_client, acreate_client, AsyncClient
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from httpx import ConnectError, TimeoutException, RequestError
 
 # Type variable for generic RPC return types
 T = TypeVar('T')
@@ -79,6 +81,8 @@ class Config:
     # PostgreSQL Configuration
     # Supports both POSTGRES_URL (for pooled connections) and individual variables
     _postgres_url = os.getenv("POSTGRES_URL")
+    _pooler_mode = None  # Track detected pooler mode
+
     if _postgres_url:
         # Parse connection URL (e.g., postgresql://user:pass@host:port/dbname?pgbouncer=true)
         _parsed = urlparse(_postgres_url)
@@ -87,6 +91,22 @@ class Config:
         POSTGRES_USER = _parsed.username
         POSTGRES_SECRET = _parsed.password
         POSTGRES_DB_NAME = _parsed.path.lstrip("/")
+
+        # Validate pooler mode from connection string
+        if _parsed.port == 6543 or ':6543' in _postgres_url:
+            _pooler_mode = "transaction"
+            print("[WARNING] Transaction mode pooler detected (port 6543)")
+            print("[WARNING] Transaction mode is not recommended for Flask applications")
+            print("[WARNING] Consider using Session mode (port 5432) for better compatibility")
+        elif _parsed.port == 5432 or ':5432' in _postgres_url:
+            if 'pooler.supabase.com' in _postgres_url:
+                _pooler_mode = "session"
+                print("[INFO] Session mode pooler detected (port 5432) - optimal for Flask")
+            else:
+                _pooler_mode = "direct"
+                print("[INFO] Direct connection detected (port 5432)")
+        else:
+            print(f"[WARNING] Unusual port detected: {_parsed.port}")
     else:
         # Fall back to individual environment variables
         POSTGRES_HOST = os.getenv("POSTGRES_HOST")
@@ -94,6 +114,18 @@ class Config:
         POSTGRES_USER = os.getenv("POSTGRES_USER")
         POSTGRES_SECRET = os.getenv("POSTGRES_SECRET")
         POSTGRES_DB_NAME = os.getenv("POSTGRES_DB_NAME")
+
+        # Check port from individual config
+        if POSTGRES_PORT:
+            if POSTGRES_PORT == "6543":
+                _pooler_mode = "transaction"
+                print("[WARNING] Transaction mode pooler detected (port 6543)")
+                print("[WARNING] Not recommended for Flask - use port 5432 for Session mode")
+            elif POSTGRES_PORT == "5432":
+                _pooler_mode = "direct"
+                print("[INFO] Standard PostgreSQL port detected (5432)")
+
+    POOLER_MODE = _pooler_mode
 
 
 class Supabase:
@@ -142,90 +174,99 @@ class Supabase:
         Initialize the SupabaseClient instance.
         """
         self.client_options = client_options
+        self._client = None
+        self._service_role_client = None
         if app is not None:
             self.init_app(app)
 
     def init_app(self, app):
         """
-        Initializes the Flask app with necessary configurations and registers the teardown method.
+        Initializes the Flask app with necessary configurations and creates application-level client singletons.
+
+        This creates clients once during app initialization rather than per-request,
+        improving performance by reusing the same client instances across all requests.
         """
         app.config.setdefault("SUPABASE_URL", Config.SUPABASE_URL)
         app.config.setdefault("SUPABASE_ANON_KEY", Config.SUPABASE_ANON_KEY)
         app.config.setdefault("SUPABASE_SERVICE_ROLE_KEY", Config.SUPABASE_SERVICE_ROLE_KEY)
+
+        # Create application-level client singletons
+        url = app.config["SUPABASE_URL"]
+        anon_key = app.config.get("SUPABASE_ANON_KEY")
+        service_key = app.config.get("SUPABASE_SERVICE_ROLE_KEY")
+
+        if url and anon_key:
+            options = self.client_options
+            if options and not isinstance(options, ClientOptions):
+                options = ClientOptions(**options)
+
+            try:
+                self._client = create_client(url, anon_key, options=options)
+                app.logger.info("Supabase anon client initialized (app-level singleton)")
+            except Exception as e:
+                app.logger.error(f"Failed to initialize Supabase anon client: {e}")
+                raise
+
+        if url and service_key:
+            service_role_options = {
+                "postgrest_client_timeout": 180,
+                "storage_client_timeout": 180,
+                "auto_refresh_token": False,
+                "persist_session": False,
+            }
+            options = ClientOptions(**service_role_options)
+
+            try:
+                self._service_role_client = create_client(url, service_key, options=options)
+                app.logger.info("Supabase service role client initialized (app-level singleton)")
+            except Exception as e:
+                app.logger.error(f"Failed to initialize Supabase service role client: {e}")
+                raise
+
         app.teardown_appcontext(self.teardown)
 
     def teardown(self, exception):
         """
-        Clean up the Supabase clients after each request by popping them from Flask's `g` object.
+        Clean up async clients after each request.
+
+        Note: Sync clients are now app-level singletons and don't need per-request cleanup.
+        Only async clients stored in g need cleanup.
         """
-        g.pop("supabase_client", None)
-        g.pop("supabase_service_role_client", None)
         g.pop("supabase_async_client", None)
         g.pop("supabase_async_service_role_client", None)
 
     @property
     def client(self) -> Client:
         """
-        Lazily initialize the Supabase client with anon key and return it.
+        Return the application-level Supabase client singleton with anon key.
 
         This client uses the anon key and respects Row Level Security (RLS) policies.
         Use this for most operations including auth, RPC calls, and data access.
 
+        The client is created once during app initialization and reused across all requests,
+        providing better performance than per-request client creation.
+
         For admin operations that need to bypass RLS, use service_role_client instead.
         """
-        if "supabase_client" not in g:
-            url = current_app.config["SUPABASE_URL"]
-            key = current_app.config.get("SUPABASE_ANON_KEY")
-
-            if not url or not key:
-                raise RuntimeError("Supabase URL or ANON_KEY not configured properly.")
-
-            options = self.client_options
-            if options and not isinstance(options, ClientOptions):
-                options = ClientOptions(**options)
-
-            try:
-                g.supabase_client = create_client(url, key, options=options)
-            except Exception as e:
-                current_app.logger.error(f"Supabase client init error: {e}")
-                raise
-
-        return g.supabase_client
+        if self._client is None:
+            raise RuntimeError("Supabase client not initialized. Call init_app() first.")
+        return self._client
 
     @property
     def service_role_client(self) -> Client:
         """
-        Lazily initialize the Supabase client with service role key and return it.
+        Return the application-level Supabase client singleton with service role key.
 
         WARNING: This client bypasses Row Level Security (RLS) and has full admin privileges.
         Only use this for specific admin operations that require elevated permissions.
 
+        The client is created once during app initialization and reused across all requests.
+
         For regular operations, use the standard client property instead.
         """
-        if "supabase_service_role_client" not in g:
-            url = current_app.config["SUPABASE_URL"]
-            key = current_app.config.get("SUPABASE_SERVICE_ROLE_KEY")
-
-            if not url or not key:
-                raise RuntimeError("Supabase URL or SERVICE_ROLE_KEY not configured properly.")
-
-            # Service role client should not auto-refresh tokens or persist sessions
-            service_role_options = {
-                "postgrest_client_timeout": 180,
-                "storage_client_timeout": 180,
-                "auto_refresh_token": False,  # No token refresh for service role
-                "persist_session": False,     # No session persistence for service role
-            }
-
-            options = ClientOptions(**service_role_options)
-
-            try:
-                g.supabase_service_role_client = create_client(url, key, options=options)
-            except Exception as e:
-                current_app.logger.error(f"Supabase service role client init error: {e}")
-                raise
-
-        return g.supabase_service_role_client
+        if self._service_role_client is None:
+            raise RuntimeError("Supabase service role client not initialized. Call init_app() first.")
+        return self._service_role_client
 
     @property
     async def async_client(self) -> AsyncClient:
@@ -327,13 +368,24 @@ class Supabase:
             current_app.logger.error(f"Error getting user: {e}")
             return None
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((ConnectError, TimeoutException, RequestError)),
+        reraise=True
+    )
     def safe_rpc_call(self, function_name: str, params: dict | None = None) -> list[Any] | bool | Any:
         """
-        Execute Supabase RPC with consistent error handling.
+        Execute Supabase RPC with consistent error handling and automatic retry for transient failures.
 
         This method automatically handles .execute() chaining and provides
         centralized exception handling for all RPC calls. Prefer this over
         direct client.rpc() calls for consistency.
+
+        Retry Logic:
+        - Retries up to 3 times for transient network failures (connection errors, timeouts, request errors)
+        - Uses exponential backoff (2s, 4s, 8s) between retries
+        - Does NOT retry permanent errors (API errors, HTTP status errors, etc.)
 
         For better type safety, use type hints at the call site:
             data: list[TableNameResult] = supabase_extension.safe_rpc_call('get_all_tables')
@@ -363,7 +415,7 @@ class Supabase:
         """
         from src.exceptions import GenericExceptionHandler
         from postgrest.exceptions import APIError
-        from httpx import ConnectError, TimeoutException, HTTPStatusError, RequestError
+        from httpx import HTTPStatusError
 
         try:
             response = self.client.rpc(function_name, params or {}).execute()
@@ -435,13 +487,24 @@ class Supabase:
                 f"Unexpected error in '{function_name}': {str(e)}", status_code=500
             ) from e
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((ConnectError, TimeoutException, RequestError)),
+        reraise=True
+    )
     async def async_safe_rpc_call(self, function_name: str, params: dict | None = None) -> list[Any] | bool | Any:
         """
-        Execute Supabase RPC asynchronously with consistent error handling.
+        Execute Supabase RPC asynchronously with consistent error handling and automatic retry for transient failures.
 
         This method automatically handles .execute() chaining and provides
         centralized exception handling for all async RPC calls. Use this for
         I/O-bound operations that can benefit from async execution.
+
+        Retry Logic:
+        - Retries up to 3 times for transient network failures (connection errors, timeouts, request errors)
+        - Uses exponential backoff (2s, 4s, 8s) between retries
+        - Does NOT retry permanent errors (API errors, HTTP status errors, etc.)
 
         For better type safety, use type hints at the call site:
             data: list[TableNameResult] = await supabase_extension.async_safe_rpc_call('get_all_tables')
@@ -475,7 +538,7 @@ class Supabase:
         """
         from src.exceptions import GenericExceptionHandler
         from postgrest.exceptions import APIError
-        from httpx import ConnectError, TimeoutException, HTTPStatusError, RequestError
+        from httpx import HTTPStatusError
 
         try:
             client = await self.async_client

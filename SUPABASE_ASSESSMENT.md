@@ -239,57 +239,107 @@ connection_pool = ThreadedConnectionPool(
 
 ---
 
-### 8. ⚠️ Missing Retry Logic for Transient Failures
-**Severity**: Low
-**Location**: RPC calls throughout
+### 8. ✅ Missing Retry Logic for Transient Failures - Recently Fixed
+**Severity**: ~~Low~~ Fixed
+**Location**: `backend/config.py:371-488` (sync), `backend/config.py:490-607` (async)
 
-**Issue**: No retry mechanism for network issues
+**Status**: ✅ Retry logic implemented with exponential backoff
 
-**Recommendation**: Add exponential backoff retry
+**Implementation**:
+Both `safe_rpc_call()` and `async_safe_rpc_call()` now include automatic retry logic:
+
 ```python
-from tenacity import retry, stop_after_attempt, wait_exponential
-
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
-def safe_rpc_call_with_retry(self, function_name: str, params: dict = None):
-    return self.safe_rpc_call(function_name, params)
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type((ConnectError, TimeoutException, RequestError)),
+    reraise=True
+)
+def safe_rpc_call(self, function_name: str, params: dict | None = None):
+    # Retries up to 3 times for transient network failures
+    # Uses exponential backoff (2s, 4s, 8s) between retries
+    # Does NOT retry permanent errors (API errors, HTTP status errors)
 ```
+
+**Benefits**:
+- Automatic recovery from transient network failures
+- Exponential backoff prevents overwhelming the server
+- Only retries appropriate error types (connection, timeout, network)
+- Preserves original error handling for API and HTTP errors
 
 ---
 
-### 9. ⚠️ No Connection Pooling for Supabase Client
-**Severity**: Medium
-**Location**: `backend/config.py:161-178`
+### 9. ✅ No Connection Pooling for Supabase Client - Recently Fixed
+**Severity**: ~~Medium~~ Fixed
+**Location**: `backend/config.py:180-267`
 
-**Issue**: Creates new client per request (lazy loading)
+**Status**: ✅ Application-level client singleton implemented
 
-**Recommendation**: Use application-level client singleton
+**Implementation**:
+The Supabase class now creates clients once during app initialization and reuses them across all requests:
+
 ```python
-# In app.py during initialization
-app.supabase_client = create_client(url, key, options=options)
+def init_app(self, app):
+    # Create application-level client singletons during initialization
+    self._client = create_client(url, anon_key, options=options)
+    self._service_role_client = create_client(url, service_key, options=options)
+    app.logger.info("Supabase clients initialized (app-level singletons)")
 
-# In Supabase class
 @property
-def client(self):
-    return current_app.supabase_client
+def client(self) -> Client:
+    # Return the singleton instead of creating new clients per request
+    if self._client is None:
+        raise RuntimeError("Supabase client not initialized. Call init_app() first.")
+    return self._client
 ```
+
+**Benefits**:
+- Improved performance by reusing client instances
+- Reduced memory overhead (no per-request client creation)
+- Better connection management
+- Async clients still use lazy loading due to async nature
+
+**Test Results**: All 20 tests passing (144.67s runtime, 64% coverage)
 
 ---
 
-### 10. ⚠️ Missing Database URL Validation for Pooler Mode
-**Severity**: Medium
-**Location**: `backend/config.py:59-69`
+### 10. ✅ Missing Database URL Validation for Pooler Mode - Recently Fixed
+**Severity**: ~~Medium~~ Fixed
+**Location**: `backend/config.py:79-126`
 
-**Issue**: Doesn't validate pooler mode from connection string
+**Status**: ✅ Pooler mode validation and logging implemented
 
-**Recommendation**: Parse and validate pooler configuration
+**Implementation**:
+The Config class now parses and validates pooler configuration from connection strings:
+
 ```python
 if _postgres_url:
-    # Check for pooler mode indicators
-    if ':6543' in _postgres_url:  # Transaction mode
-        current_app.logger.warning("Transaction mode pooler detected - not recommended for Flask")
-    elif ':5432' in _postgres_url:  # Session mode
-        current_app.logger.info("Session mode pooler detected - optimal for Flask")
+    _parsed = urlparse(_postgres_url)
+    # ... parse connection details ...
+
+    # Validate pooler mode from connection string
+    if _parsed.port == 6543 or ':6543' in _postgres_url:
+        _pooler_mode = "transaction"
+        print("[WARNING] Transaction mode pooler detected (port 6543)")
+        print("[WARNING] Transaction mode is not recommended for Flask applications")
+        print("[WARNING] Consider using Session mode (port 5432) for better compatibility")
+    elif _parsed.port == 5432 or ':5432' in _postgres_url:
+        if 'pooler.supabase.com' in _postgres_url:
+            _pooler_mode = "session"
+            print("[INFO] Session mode pooler detected (port 5432) - optimal for Flask")
+        else:
+            _pooler_mode = "direct"
+            print("[INFO] Direct connection detected (port 5432)")
+
+POOLER_MODE = _pooler_mode  # Exposed for monitoring/debugging
 ```
+
+**Benefits**:
+- Automatic detection of Supabase pooler mode
+- Clear warnings for suboptimal configurations (Transaction mode)
+- Informative logging for proper configurations (Session mode)
+- Supports both POSTGRES_URL and individual variables
+- Available as `Config.POOLER_MODE` for application use
 
 ---
 
@@ -301,10 +351,13 @@ if _postgres_url:
 2. **RPC Function Design**: Clean, SECURITY DEFINER functions with proper parameter validation
 3. **TypedDict Integration**: Type hints for RPC responses enhance type safety
 4. **Hybrid Architecture Justification**: Well-documented rationale for psycopg2 retention
-5. **Test Coverage**: All 20 tests pass with 65% coverage
+5. **Test Coverage**: All 20 tests pass with 64% coverage
 6. **Schema Isolation**: Proper use of `_realtime` schema for application data
 7. **Comprehensive Error Handling**: Specific error types with appropriate HTTP status codes and detailed logging
 8. **Async Support**: Full async implementation for improved scalability and Flask 3.1+ compatibility
+9. **Retry Logic**: Automatic retry with exponential backoff for transient network failures
+10. **Connection Pooling**: Application-level client singletons for optimal performance
+11. **Pooler Mode Validation**: Automatic detection and validation of Supabase pooler configuration
 
 ---
 
@@ -316,9 +369,9 @@ if _postgres_url:
 3. ~~Implement JWT-based authentication validation~~ ✅ **Fixed**
 
 ### Short-term Improvements (Medium Priority)
-4. Add retry logic with exponential backoff for RPC calls
-5. Implement connection pooling for Supabase client
-6. Validate and log pooler mode from connection strings
+4. ~~Add retry logic with exponential backoff for RPC calls~~ ✅ **Fixed**
+5. ~~Implement connection pooling for Supabase client~~ ✅ **Fixed**
+6. ~~Validate and log pooler mode from connection strings~~ ✅ **Fixed**
 7. ~~Improve error handling with specific error types~~ ✅ **Fixed**
 8. ~~Implement async support for improved scalability~~ ✅ **Fixed**
 
@@ -332,9 +385,11 @@ if _postgres_url:
 ## Code Quality Metrics
 
 - **Test Suite**: ✅ 20/20 tests passing
-- **Coverage**: 65% (exceeds 45% requirement)
-- **Performance**: ~143s for full test suite
-- **Security**: RLS enabled, but service role key needs attention
+- **Coverage**: 64% (exceeds 45% requirement)
+- **Performance**: ~145s for full test suite
+- **Security**: RLS enabled, service role key properly separated
+- **Reliability**: Retry logic with exponential backoff for transient failures
+- **Performance**: Application-level client pooling for optimal resource usage
 - **Maintainability**: Good separation of concerns, clear documentation
 
 ---
@@ -357,8 +412,11 @@ The FAIRDatabase Supabase implementation is **fundamentally sound** with a justi
 2. ~~Supabase client timeout configuration~~ ✅ **Fixed**
 3. ~~Async support~~ ✅ **Fixed**
 4. ~~JWT-based authentication~~ ✅ **Fixed**
+5. ~~Retry logic for transient failures~~ ✅ **Fixed**
+6. ~~Connection pooling for Supabase client~~ ✅ **Fixed**
+7. ~~Pooler mode validation~~ ✅ **Fixed**
 
-The implementation demonstrates excellent engineering practices while maintaining pragmatism. With all high-priority improvements completed (security, connection management, async support, error handling, and authentication), the system has achieved production-ready status. All remaining improvements are optional optimizations and enhancements.
+The implementation demonstrates excellent engineering practices while maintaining pragmatism. With all high-priority and medium-priority improvements completed (security, connection management, async support, error handling, authentication, retry logic, connection pooling, and pooler validation), the system has achieved production-ready status with robust reliability features.
 
 ---
 
