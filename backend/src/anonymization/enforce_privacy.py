@@ -10,10 +10,10 @@ Returns a filtered DataFrame with only groups that meet all privacy criteria.
 import pandas as pd
 
 from src.anonymization.k_anonymity import k_anonymity_for_sensitive_attr
-from src.anonymization.t_closeness import t_closeness_for_sensitive_attr
 from src.anonymization.normalized_entropy import (
     normalized_entropy_for_sensitive_attr,
 )
+from src.anonymization.t_closeness import t_closeness_for_sensitive_attr
 
 
 def enforce_privacy(

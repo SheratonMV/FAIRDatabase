@@ -85,9 +85,7 @@ def add_noise_to_df(df, categorical_columns, numerical_columns, epsilon):
 
     for column in categorical_columns:
         categories = df[column].unique()
-        noisy_df[column] = df[column].apply(
-            lambda x: add_randomized_response(x, categories)
-        )
+        noisy_df[column] = df[column].apply(lambda x: add_randomized_response(x, categories))
 
     return noisy_df
 

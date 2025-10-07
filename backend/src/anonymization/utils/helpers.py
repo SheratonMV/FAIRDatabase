@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+
 def compute_partition_by_ids(dataset: pd.DataFrame, quasi_cols: list) -> list:
     """
     Splits the dataset into equivalence groups based on
@@ -35,12 +36,10 @@ def get_group_key(quasi_cols: list, group_key: tuple) -> str:
       type: string
       description: Human-readable key like "col1: val1, col2: val2".
     """
-    return ", ".join([f"{col}: {val}" for col, val in zip(quasi_cols, group_key)])
+    return ", ".join([f"{col}: {val}" for col, val in zip(quasi_cols, group_key, strict=False)])
 
 
-def get_group_key_from_partition(
-    df: pd.DataFrame, group_indices: list, quasi_cols: list
-) -> str:
+def get_group_key_from_partition(df: pd.DataFrame, group_indices: list, quasi_cols: list) -> str:
     """
     Generate a group key based on the first row in the partition.
     ---
@@ -69,9 +68,7 @@ def get_group_key_from_partition(
     return get_group_key(quasi_cols, values)
 
 
-def compute_categorical_t_closeness(
-    df: pd.DataFrame, quasi_cols: list, sensitive_col: str
-) -> dict:
+def compute_categorical_t_closeness(df: pd.DataFrame, quasi_cols: list, sensitive_col: str) -> dict:
     """
     Compute t-closeness for categorical sensitive attributes.
     ---
@@ -97,9 +94,7 @@ def compute_categorical_t_closeness(
     """
     unique_vals = np.sort(df[sensitive_col].astype(str).unique())
     global_counts = (
-        df[sensitive_col]
-        .value_counts(normalize=True)
-        .reindex(unique_vals, fill_value=0)
+        df[sensitive_col].value_counts(normalize=True).reindex(unique_vals, fill_value=0)
     )
     global_dist = global_counts.values
 
@@ -111,9 +106,7 @@ def compute_categorical_t_closeness(
         if subset.empty:
             continue
         group_counts = (
-            subset[sensitive_col]
-            .value_counts(normalize=True)
-            .reindex(unique_vals, fill_value=0)
+            subset[sensitive_col].value_counts(normalize=True).reindex(unique_vals, fill_value=0)
         )
         group_dist = group_counts.values
         t_score = 0.5 * np.sum(np.abs(group_dist - global_dist))
@@ -124,9 +117,7 @@ def compute_categorical_t_closeness(
     return group_t_scores
 
 
-def compute_numeric_t_closeness(
-    df: pd.DataFrame, quasi_cols: list, sensitive_col: str
-) -> dict:
+def compute_numeric_t_closeness(df: pd.DataFrame, quasi_cols: list, sensitive_col: str) -> dict:
     """
     Compute t-closeness for numeric sensitive attributes.
     ---
@@ -152,9 +143,7 @@ def compute_numeric_t_closeness(
     """
     unique_vals = np.sort(df[sensitive_col].unique())
     global_counts = (
-        df[sensitive_col]
-        .value_counts(normalize=True)
-        .reindex(unique_vals, fill_value=0)
+        df[sensitive_col].value_counts(normalize=True).reindex(unique_vals, fill_value=0)
     )
     global_dist = global_counts.values
 
@@ -166,9 +155,7 @@ def compute_numeric_t_closeness(
         if subset.empty:
             continue
         group_counts = (
-            subset[sensitive_col]
-            .value_counts(normalize=True)
-            .reindex(unique_vals, fill_value=0)
+            subset[sensitive_col].value_counts(normalize=True).reindex(unique_vals, fill_value=0)
         )
         group_dist = group_counts.values
         t_score = 0.5 * np.sum(np.abs(group_dist - global_dist))

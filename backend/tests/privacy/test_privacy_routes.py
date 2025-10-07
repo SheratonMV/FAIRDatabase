@@ -1,11 +1,11 @@
 import os
 import shutil
 import tempfile
+
 import pytest
 
 
 class TestPrivacyRoutes:
-
     @pytest.fixture(autouse=True)
     def setup_method(self, logged_in_user):
         self.client, self.user = logged_in_user
@@ -13,7 +13,7 @@ class TestPrivacyRoutes:
         source_filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "df.csv")
 
         # Create a temporary copy to avoid modifying the original test data
-        self.temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False)
+        self.temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False)
         self.temp_file.close()
         shutil.copy2(source_filepath, self.temp_file.name)
         self.filepath = self.temp_file.name
@@ -40,7 +40,6 @@ class TestPrivacyRoutes:
 
 
 class TestDifferentialPrivacy:
-
     @pytest.fixture(autouse=True)
     def setup_method(self, logged_in_user):
         self.client, self.user = logged_in_user
@@ -48,7 +47,7 @@ class TestDifferentialPrivacy:
         source_filepath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "df.csv")
 
         # Create a temporary copy to avoid modifying the original test data
-        self.temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False)
+        self.temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False)
         self.temp_file.close()
         shutil.copy2(source_filepath, self.temp_file.name)
         self.filepath = self.temp_file.name
@@ -74,20 +73,51 @@ class TestDifferentialPrivacy:
     def test_differential_privacy_post_success(self):
         # All columns excluding quasi_identifiers (age) and sensitive_attributes (readmitted)
         categorical_cols = [
-            "A1Cresult", "acarbose", "acetohexamide", "admission_source_id",
-            "change", "chlorpropamide", "citoglipton", "diabetesMed",
-            "diag_1", "diag_2", "diag_3", "discharge_disposition_id",
-            "examide", "gender", "glimepiride", "glimepiride-pioglitazone",
-            "glipizide", "glipizide-metformin", "glyburide", "glyburide-metformin",
-            "insulin", "max_glu_serum", "metformin", "metformin-pioglitazone",
-            "metformin-rosiglitazone", "miglitol", "nateglinide", "pioglitazone",
-            "race", "repaglinide", "rosiglitazone", "tolazamide",
-            "tolbutamide", "troglitazone"
+            "A1Cresult",
+            "acarbose",
+            "acetohexamide",
+            "admission_source_id",
+            "change",
+            "chlorpropamide",
+            "citoglipton",
+            "diabetesMed",
+            "diag_1",
+            "diag_2",
+            "diag_3",
+            "discharge_disposition_id",
+            "examide",
+            "gender",
+            "glimepiride",
+            "glimepiride-pioglitazone",
+            "glipizide",
+            "glipizide-metformin",
+            "glyburide",
+            "glyburide-metformin",
+            "insulin",
+            "max_glu_serum",
+            "metformin",
+            "metformin-pioglitazone",
+            "metformin-rosiglitazone",
+            "miglitol",
+            "nateglinide",
+            "pioglitazone",
+            "race",
+            "repaglinide",
+            "rosiglitazone",
+            "tolazamide",
+            "tolbutamide",
+            "troglitazone",
         ]
         numerical_cols = [
-            "admission_type_id", "num_lab_procedures", "num_medications",
-            "num_procedures", "number_diagnoses", "number_emergency",
-            "number_inpatient", "number_outpatient", "time_in_hospital"
+            "admission_type_id",
+            "num_lab_procedures",
+            "num_medications",
+            "num_procedures",
+            "number_diagnoses",
+            "number_emergency",
+            "number_inpatient",
+            "number_outpatient",
+            "time_in_hospital",
         ]
         data = {
             "categorical_columns": categorical_cols,

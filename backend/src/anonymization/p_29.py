@@ -1,12 +1,12 @@
 import pandas as pd
 
-from src.anonymization.utils.helpers import compute_normalize_t_values
-from src.anonymization.checks.validators import validate_privacy, PrivEval
+from src.anonymization.checks.validators import PrivEval, validate_privacy
 from src.anonymization.k_anonymity import k_anonymity_for_sensitive_attr
-from src.anonymization.t_closeness import t_closeness_for_sensitive_attr
 from src.anonymization.normalized_entropy import (
     normalized_entropy_for_sensitive_attr,
 )
+from src.anonymization.t_closeness import t_closeness_for_sensitive_attr
+from src.anonymization.utils.helpers import compute_normalize_t_values
 
 
 def P_29_score(

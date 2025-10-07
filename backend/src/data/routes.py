@@ -1,19 +1,20 @@
 """Flask routes managing data generalization workflow and
-   p29 score calculation with user authentication."""
+p29 score calculation with user authentication."""
+
+import asyncio
 
 from flask import (
-    session,
-    request,
-    render_template,
-    redirect,
     Blueprint,
+    redirect,
+    render_template,
+    request,
+    session,
     url_for,
 )
 
 from src.auth.decorators import login_required
-from .form import DataGeneralizationHandler, DataP29ScoreHandler
 
-import asyncio
+from .form import DataGeneralizationHandler, DataP29ScoreHandler
 
 routes = Blueprint("data_generalization_routes", __name__)
 

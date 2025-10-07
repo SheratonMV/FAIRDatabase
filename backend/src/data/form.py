@@ -4,19 +4,20 @@ Handlers for data generalization and P29 score calculation.
 
 import os
 
-from flask import request, session, current_app
+from flask import current_app, request, session
 from werkzeug.utils import secure_filename
 
-from src.exceptions import GenericExceptionHandler
 from src.anonymization.p_29 import P_29_score
+from src.exceptions import GenericExceptionHandler
+from src.form_handler import BaseHandler
+
 from .helpers import (
     allowed_file,
     calculate_missing_percentages,
-    map_values_and_output_percentages,
-    identify_quasi_identifiers_with_distinct_values,
     drop_columns,
+    identify_quasi_identifiers_with_distinct_values,
+    map_values_and_output_percentages,
 )
-from src.form_handler import BaseHandler
 
 
 class DataGeneralizationHandler(BaseHandler):
@@ -35,21 +36,15 @@ class DataGeneralizationHandler(BaseHandler):
             {
                 "uploaded": session.get("uploaded", False),
                 "columns_dropped": session.get("columns_dropped", False),
-                "missing_values_reviewed": session.get(
-                    "missing_values_reviewed", False
-                ),
-                "quasi_identifiers_selected": session.get(
-                    "quasi_identifiers_selected", False
-                ),
+                "missing_values_reviewed": session.get("missing_values_reviewed", False),
+                "quasi_identifiers_selected": session.get("quasi_identifiers_selected", False),
                 "all_steps_completed": session.get("all_steps_completed", False),
                 "column_names": session.get("column_names", []),
                 "columns_to_drop": session.get("columns_to_drop", []),
                 "quasi_identifiers": session.get("quasi_identifiers", []),
                 "quasi_identifier_values": session.get("quasi_identifier_values", {}),
                 "distinct_values": session.get("distinct_values", {}),
-                "current_quasi_identifier": session.get(
-                    "current_quasi_identifier", None
-                ),
+                "current_quasi_identifier": session.get("current_quasi_identifier", None),
                 "mappings": session.get("mappings", {}),
                 "missing_percentages": session.get("missing_percentages", {}),
                 "updated_percentages": session.get("updated_percentages", {}),
@@ -89,8 +84,7 @@ class DataGeneralizationHandler(BaseHandler):
         """
         self._validate_file(file)
         filename = secure_filename(file.filename)
-        self._filepath = os.path.join(
-            current_app.config["UPLOAD_FOLDER"], filename)
+        self._filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
 
         try:
             file.save(self._filepath)
@@ -103,9 +97,7 @@ class DataGeneralizationHandler(BaseHandler):
             }
             self._update_session_and_context(updates)
         except Exception as e:
-            raise GenericExceptionHandler(
-                f"File upload failed: {str(e)}", status_code=400
-            )
+            raise GenericExceptionHandler(f"File upload failed: {str(e)}", status_code=400)
 
     async def handle_columns_drop(self):
         """
@@ -167,8 +159,7 @@ class DataGeneralizationHandler(BaseHandler):
         """
         df = self._load_dataframe()
         quasi_identifiers = request.form.getlist("quasi_identifiers")
-        self._update_session_and_context(
-            {"quasi_identifiers": quasi_identifiers})
+        self._update_session_and_context({"quasi_identifiers": quasi_identifiers})
 
         if not quasi_identifiers:
             updates = {
@@ -209,9 +200,7 @@ class DataGeneralizationHandler(BaseHandler):
         current_qi = session.get("current_quasi_identifier")
 
         if not current_qi:
-            raise GenericExceptionHandler(
-                "No current quasi-identifier set.", status_code=400
-            )
+            raise GenericExceptionHandler("No current quasi-identifier set.", status_code=400)
 
         if current_qi not in mappings:
             mappings[current_qi] = {}
@@ -221,8 +210,7 @@ class DataGeneralizationHandler(BaseHandler):
                 _, val = key.rsplit("_", 1)
                 mappings[current_qi][val] = request.form[key]
 
-        df, updated = map_values_and_output_percentages(
-            df, [current_qi], mappings)
+        df, updated = map_values_and_output_percentages(df, [current_qi], mappings)
         self._save_dataframe(df)
 
         updates = {
@@ -321,9 +309,7 @@ class DataP29ScoreHandler(BaseHandler):
             return
 
         if not quasi_idents or not sens_attr:
-            self._ctx["error"] = (
-                "Please select both quasi-identifiers and sensitive attributes."
-            )
+            self._ctx["error"] = "Please select both quasi-identifiers and sensitive attributes."
             return
 
         res = P_29_score(self.df, quasi_idents, sens_attr)

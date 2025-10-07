@@ -32,9 +32,7 @@ class TestAuthenticationUserExists:
 
 class TestAuthenticationUserNotExists:
     def test_user_not_exist(self, client):
-        response = client.post(
-            "/auth/login", data={"email": TEST_EMAIL, "password": TEST_PASSWORD}
-        )
+        response = client.post("/auth/login", data={"email": TEST_EMAIL, "password": TEST_PASSWORD})
         assert response.status_code == 400
 
     def test_no_password(self, client):

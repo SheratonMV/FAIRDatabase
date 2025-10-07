@@ -7,14 +7,13 @@ a specific privacy model and overall contributes to computing a combined
 privacy assessment using the `validate_privacy` function.
 """
 
-import pandas as pd
-
 from collections import namedtuple
+
+import pandas as pd
 
 PrivEval = namedtuple(
     "PrivEval",
-    ["score", "problematic_info", "reasons", "min_k",
-     "min_l", "max_t", "t_numeric"],
+    ["score", "problematic_info", "reasons", "min_k", "min_l", "max_t", "t_numeric"],
 )
 
 
@@ -64,10 +63,7 @@ def check_l_diversity_violations(l_df: pd.DataFrame) -> tuple:
         for col in l_df.columns[1:]:
             zero_rows = l_df[l_df[col] == 0]
             violations.extend(
-                [
-                    (row, f"normalized entropy l-value is 0 for {col}")
-                    for row in zero_rows.index
-                ]
+                [(row, f"normalized entropy l-value is 0 for {col}") for row in zero_rows.index]
             )
     return has_issue, violations
 
@@ -102,10 +98,7 @@ def check_t_closeness_violations(t_df: pd.DataFrame, threshold: float = 0.5) -> 
         for col in t_numeric.columns:
             high_rows = t_df[t_numeric[col] > threshold]
             violations.extend(
-                [
-                    (row, f"t-value exceeds {threshold} for {col}")
-                    for row in high_rows.index
-                ]
+                [(row, f"t-value exceeds {threshold} for {col}") for row in high_rows.index]
             )
     return has_issue, violations, t_numeric
 

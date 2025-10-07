@@ -1,9 +1,6 @@
 import pandas as pd
 
-from .utils.helpers import (
-    compute_numeric_t_closeness,
-    compute_categorical_t_closeness
-)
+from .utils.helpers import compute_categorical_t_closeness, compute_numeric_t_closeness
 
 
 def t_closeness_for_sensitive_attr(
@@ -23,11 +20,9 @@ def t_closeness_for_sensitive_attr(
 
     for sens_att_value in sens_attr:
         if pd.api.types.is_numeric_dtype(data[sens_att_value]):
-            t_value = compute_numeric_t_closeness(
-                data, quasi_ident, sens_att_value)
+            t_value = compute_numeric_t_closeness(data, quasi_ident, sens_att_value)
         else:
-            t_value = compute_categorical_t_closeness(
-                data, quasi_ident, sens_att_value)
+            t_value = compute_categorical_t_closeness(data, quasi_ident, sens_att_value)
 
         t_overall[sens_att_value] = t_value
 

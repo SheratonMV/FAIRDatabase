@@ -1,12 +1,12 @@
 """Utilities for saving, chunking, and importing CSV data into PostgreSQL."""
 
-from hashlib import sha256
-from werkzeug.utils import secure_filename
-from flask import current_app
-
-import time
-import os
 import csv
+import os
+import time
+from hashlib import sha256
+
+from flask import current_app
+from werkzeug.utils import secure_filename
 
 
 def pg_ensure_schema_and_metadata(cur, schema):
@@ -148,24 +148,23 @@ def pg_insert_metadata(cur, schema, table_name, main_table, description, origin)
     schema = pg_sanitize_column(schema).strip('"')  # Remove quotes added by sanitize
 
     response = (
-        supabase_extension.client
-        .schema(f"_{schema}")
+        supabase_extension.client.schema(f"_{schema}")
         .table("metadata_tables")
-        .insert({
-            "table_name": table_name,
-            "main_table": main_table,
-            "description": description,
-            "origin": origin
-        })
+        .insert(
+            {
+                "table_name": table_name,
+                "main_table": main_table,
+                "description": description,
+                "origin": origin,
+            }
+        )
         .execute()
     )
 
     return response.data[0] if response.data else None
 
 
-def pg_insert_data_rows(
-    cur, schema, table_name, patient_col, rows, columns, chunk_index
-):
+def pg_insert_data_rows(cur, schema, table_name, patient_col, rows, columns, chunk_index):
     """
     Insert chunked rows into the corresponding PostgreSQL data table.
 

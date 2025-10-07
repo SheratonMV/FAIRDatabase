@@ -3,11 +3,13 @@ Handlers for privacy processing and differential privacy noise addition in data 
 """
 
 from flask import request, session
-from src.form_handler import BaseHandler
+
 from src.anonymization.enforce_privacy import enforce_privacy
 from src.anonymization.p_29 import P_29_score
-from .helpers import add_noise_to_df, validate_column_selection
 from src.exceptions import GenericExceptionHandler
+from src.form_handler import BaseHandler
+
+from .helpers import add_noise_to_df, validate_column_selection
 
 
 class PrivacyProcessingHandler(BaseHandler):
@@ -52,9 +54,7 @@ class PrivacyProcessingHandler(BaseHandler):
         """
         try:
             df = self._load_dataframe()
-            quasi_idents, sens_attr, t_thresh, k_thresh, l_thresh = (
-                self._get_privacy_params()
-            )
+            quasi_idents, sens_attr, t_thresh, k_thresh, l_thresh = self._get_privacy_params()
 
             if not quasi_idents or not sens_attr:
                 self._ctx["error"] = (
@@ -69,9 +69,7 @@ class PrivacyProcessingHandler(BaseHandler):
             self._evaluate_and_update_context(df, quasi_idents, sens_attr)
 
         except Exception as e:
-            raise GenericExceptionHandler(
-                f"Failed to handle p_29 score: {str(e)}", status_code=500
-            )
+            raise GenericExceptionHandler(f"Failed to handle p_29 score: {str(e)}", status_code=500)
 
     def _get_privacy_params(self):
         """
@@ -240,9 +238,7 @@ class DifferentialPrivacyHandler(BaseHandler):
 
             categorical, numerical = self._get_selected_columns()
 
-            if not self._validate_column_selection(
-                other_columns, categorical, numerical
-            ):
+            if not self._validate_column_selection(other_columns, categorical, numerical):
                 self._ctx["error"] = (
                     "Please select all columns. You cannot select a column in both lists."
                 )
@@ -255,9 +251,7 @@ class DifferentialPrivacyHandler(BaseHandler):
             self._update_context({"selected_columns": True})
 
         except Exception as e:
-            raise GenericExceptionHandler(
-                f"Noise addition failed: {str(e)}", status_code=500
-            )
+            raise GenericExceptionHandler(f"Noise addition failed: {str(e)}", status_code=500)
 
     def _get_quasi_and_sensitive(self):
         """

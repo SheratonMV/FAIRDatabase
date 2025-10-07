@@ -1,19 +1,18 @@
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Load .env from backend directory (works regardless of CWD)
 backend_dir = Path(__file__).parent
-dotenv_path = backend_dir / '.env'
+dotenv_path = backend_dir / ".env"
 load_dotenv(dotenv_path, override=True)
-
-import psycopg2
-from psycopg2.pool import ThreadedConnectionPool
 
 from flask import current_app, g
 from flask_limiter import Limiter
-from psycopg2 import OperationalError, Error
 from flask_limiter.util import get_remote_address
+from psycopg2 import OperationalError
+from psycopg2.pool import ThreadedConnectionPool
 from supabase import Client, ClientOptions, create_client
 
 
@@ -131,9 +130,7 @@ class Supabase:
         Initializes the Flask app with necessary configurations and registers the teardown method.
         """
         app.config.setdefault("SUPABASE_URL", Config.SUPABASE_URL)
-        app.config.setdefault(
-            "SUPABASE_SERVICE_ROLE_KEY", Config.SUPABASE_SERVICE_ROLE_KEY
-        )
+        app.config.setdefault("SUPABASE_SERVICE_ROLE_KEY", Config.SUPABASE_SERVICE_ROLE_KEY)
         app.teardown_appcontext(self.teardown)
 
     def teardown(self, exception):
@@ -227,7 +224,7 @@ def init_db_pool(minconn=1, maxconn=10):
                 password=config["POSTGRES_SECRET"],
                 database=config["POSTGRES_DB_NAME"],
                 connect_timeout=10,  # 10 second connection timeout
-                options='-c statement_timeout=60000'  # 60 second query timeout
+                options="-c statement_timeout=60000",  # 60 second query timeout
             )
             print(f"[INFO] Connection pool initialized with {minconn}-{maxconn} connections")
         except OperationalError as e:

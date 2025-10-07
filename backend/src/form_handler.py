@@ -5,6 +5,7 @@ and DataFrame persistence.
 
 import pandas as pd
 from flask import session
+
 from src.exceptions import GenericExceptionHandler
 
 
@@ -26,9 +27,7 @@ class BaseHandler:
         Load DataFrame from the uploaded file path stored in session.
         """
         try:
-            self._filepath = self._filepath or self._session.get(
-                "uploaded_filepath", ""
-            )
+            self._filepath = self._filepath or self._session.get("uploaded_filepath", "")
 
             if not self._filepath:
                 raise GenericExceptionHandler(
@@ -63,9 +62,7 @@ class BaseHandler:
         Save DataFrame to the uploaded file path.
         """
         if df is None or not isinstance(df, pd.DataFrame):
-            raise GenericExceptionHandler(
-                "Invalid DataFrame provided.", status_code=400
-            )
+            raise GenericExceptionHandler("Invalid DataFrame provided.", status_code=400)
 
         try:
             if not self._filepath:
@@ -75,9 +72,7 @@ class BaseHandler:
 
             df.to_csv(self._filepath, index=False)
         except Exception as e:
-            raise GenericExceptionHandler(
-                f"Failed to save DataFrame: {str(e)}", status_code=500
-            )
+            raise GenericExceptionHandler(f"Failed to save DataFrame: {str(e)}", status_code=500)
 
     def _update_session(self, updates):
         """
@@ -88,9 +83,7 @@ class BaseHandler:
             if hasattr(self._session, "modified"):
                 self._session.modified = True
         except Exception as e:
-            raise GenericExceptionHandler(
-                f"Failed to update session: {str(e)}", status_code=500
-            )
+            raise GenericExceptionHandler(f"Failed to update session: {str(e)}", status_code=500)
 
     def _update_context(self, updates):
         """

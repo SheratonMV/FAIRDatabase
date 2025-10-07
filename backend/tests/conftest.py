@@ -3,14 +3,15 @@ from pathlib import Path
 
 # Load test environment BEFORE importing app
 from dotenv import load_dotenv
+
 test_dir = Path(__file__).parent
-test_env_path = test_dir / '.env.test'
+test_env_path = test_dir / ".env.test"
 load_dotenv(test_env_path, override=True)  # override=True to replace dev vars
 
 import pytest
+
 from app import create_app, get_db
 from config import supabase_extension
-
 
 TEST_EMAIL = "test_user_1@test.com"
 TEST_PASSWORD = "aBJ3%!fj0_f42h2pvw3"

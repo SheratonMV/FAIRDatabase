@@ -1,16 +1,16 @@
 """Authentication routes for login, logout, and registration."""
 
 from flask import (
-    session,
-    request,
-    render_template,
-    redirect,
-    request,
     Blueprint,
+    redirect,
+    render_template,
+    request,
+    session,
     url_for,
 )
 
 from config import limiter
+
 from .form import LoginHandler, RegisterHandler
 
 routes = Blueprint("auth_routes", __name__)

@@ -1,5 +1,6 @@
 from functools import wraps
-from flask import g, session, redirect, url_for, request, jsonify
+
+from flask import g, redirect, session, url_for
 
 
 def login_required():

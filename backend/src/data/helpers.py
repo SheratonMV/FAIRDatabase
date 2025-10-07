@@ -1,5 +1,5 @@
 """Utility functions for file validation, dataframe preprocessing,
-   and data generalization mappings."""
+and data generalization mappings."""
 
 from config import Config
 
@@ -20,10 +20,7 @@ def allowed_file(filename):
       200:
         description: Returns true if file has allowed extension (.csv).
     """
-    return (
-        "." in filename
-        and filename.rsplit(".", 1)[1].lower() in Config.ALLOWED_EXTENSIONS
-    )
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in Config.ALLOWED_EXTENSIONS
 
 
 def drop_columns(df, columns_to_drop):

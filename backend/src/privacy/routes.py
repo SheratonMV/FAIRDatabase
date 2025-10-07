@@ -3,15 +3,14 @@ Routes for privacy enforcement and differential privacy functionality.
 """
 
 from flask import (
-    request,
+    Blueprint,
     render_template,
     request,
-    Blueprint,
 )
 
 from src.auth.decorators import login_required
-from .form import DifferentialPrivacyHandler, PrivacyProcessingHandler
 
+from .form import DifferentialPrivacyHandler, PrivacyProcessingHandler
 
 routes = Blueprint("privacy_routes", __name__)
 

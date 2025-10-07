@@ -2,16 +2,16 @@
 
 import time
 
-from supabase import AuthApiError, AuthWeakPasswordError, AuthRetryableError
 from flask import (
-    session,
-    request,
-    render_template,
-    redirect,
-    request,
     flash,
+    redirect,
+    render_template,
+    request,
+    session,
     url_for,
 )
+from supabase import AuthApiError, AuthRetryableError, AuthWeakPasswordError
+
 from config import supabase_extension
 
 

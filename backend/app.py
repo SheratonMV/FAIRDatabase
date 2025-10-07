@@ -3,16 +3,16 @@ starts the server."""
 
 import os
 
-from flask import Flask, json, g, url_for, redirect, flash
+from flask import Flask, flash, g, json, redirect, url_for
 from flask_cors import CORS
 
-from config import Config, supabase_extension, limiter, get_db, teardown_db
-from src.exceptions import GenericExceptionHandler
+from config import Config, get_db, limiter, supabase_extension, teardown_db
 from src.auth.routes import routes as auth_routes
 from src.dashboard.routes import routes as dashboard_routes
 from src.data.routes import routes as data_routes
-from src.privacy.routes import routes as privacy_routes
+from src.exceptions import GenericExceptionHandler
 from src.main.routes import routes as main_routes
+from src.privacy.routes import routes as privacy_routes
 
 
 def create_app(db_name=None, env=None):

@@ -1,37 +1,36 @@
 """Flask blueprint routes for dashboard features: upload, search, display,
-   preview, and update of PostgreSQL-stored CSV data."""
-
-from flask import (
-    render_template,
-    session,
-    request,
-    redirect,
-    Blueprint,
-    make_response,
-    url_for,
-    flash,
-    g,
-    current_app,
-    )
-
-from .helpers import (
-    pg_ensure_schema_and_metadata,
-    pg_create_data_table,
-    pg_insert_metadata,
-    pg_insert_data_rows,
-    file_chunk_columns,
-    file_save_and_read,
-)
-
-from config import supabase_extension
-from src.exceptions import GenericExceptionHandler
-from src.auth.decorators import login_required
-from io import BytesIO
-
+preview, and update of PostgreSQL-stored CSV data."""
 
 import os
 import zipfile
+from io import BytesIO
+
 import pandas as pd
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    g,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
+
+from config import supabase_extension
+from src.auth.decorators import login_required
+from src.exceptions import GenericExceptionHandler
+
+from .helpers import (
+    file_chunk_columns,
+    file_save_and_read,
+    pg_create_data_table,
+    pg_ensure_schema_and_metadata,
+    pg_insert_data_rows,
+    pg_insert_metadata,
+)
 
 routes = Blueprint("dashboard_routes", __name__)
 
@@ -105,24 +104,18 @@ def upload():
             with conn.cursor() as cur:
                 pg_ensure_schema_and_metadata(cur, schema)
                 for i, chunk in enumerate(chunks):
-                    table = f"{main_table}_p{i+1}"
-                    pg_create_data_table(
-                        cur, schema, table, chunk, patient_col)
-                    pg_insert_metadata(
-                        cur, schema, table, main_table, description, origin
-                    )
-                    pg_insert_data_rows(cur, schema, table,
-                                        patient_col, rows, chunk, i)
+                    table = f"{main_table}_p{i + 1}"
+                    pg_create_data_table(cur, schema, table, chunk, patient_col)
+                    pg_insert_metadata(cur, schema, table, main_table, description, origin)
+                    pg_insert_data_rows(cur, schema, table, patient_col, rows, chunk, i)
 
                 conn.commit()
 
-            os.remove(os.path.join(
-                current_app.config["UPLOAD_FOLDER"], filename))
+            os.remove(os.path.join(current_app.config["UPLOAD_FOLDER"], filename))
         except Exception as e:
             conn.rollback()
             print(e)
-            raise GenericExceptionHandler(
-                f"Upload failed: {str(e)}", status_code=400)
+            raise GenericExceptionHandler(f"Upload failed: {str(e)}", status_code=400)
 
     return render_template("/dashboard/upload.html", user_email=user_email)
 
@@ -169,14 +162,11 @@ def display():
 
         try:
             response = supabase_extension.client.rpc(
-                'search_tables_by_column',
-                {'search_column': search_column}
+                "search_tables_by_column", {"search_column": search_column}
             ).execute()
-            matching_tables = [(row['table_name'],) for row in response.data]
+            matching_tables = [(row["table_name"],) for row in response.data]
         except Exception as e:
-            raise GenericExceptionHandler(
-                f"Schema query failed: {str(e)}", status_code=500
-            )
+            raise GenericExceptionHandler(f"Schema query failed: {str(e)}", status_code=500)
 
         results = {}
         total_rows = total_columns = 0
@@ -184,20 +174,18 @@ def display():
         for (table,) in matching_tables:
             try:
                 response = supabase_extension.client.rpc(
-                    'get_table_columns',
-                    {'p_table_name': table}
+                    "get_table_columns", {"p_table_name": table}
                 ).execute()
-                columns = [row['column_name'] for row in response.data]
+                columns = [row["column_name"] for row in response.data]
 
                 response = supabase_extension.client.rpc(
-                    'select_from_table',
-                    {'p_table_name': table, 'p_limit': 1000000}
+                    "select_from_table", {"p_table_name": table, "p_limit": 1000000}
                 ).execute()
 
                 # Convert JSONB data to tuples matching column order
                 rows = []
                 for row in response.data:
-                    row_data = row['data']
+                    row_data = row["data"]
                     rows.append(tuple(row_data.get(col) for col in columns))
 
                 if not rows:
@@ -212,13 +200,10 @@ def display():
                 total_columns += len(columns)
 
             except Exception as e:
-                raise GenericExceptionHandler(
-                    f"Schema query failed: {str(e)}", status_code=500
-                )
+                raise GenericExceptionHandler(f"Schema query failed: {str(e)}", status_code=500)
 
         if not results:
-            raise GenericExceptionHandler(
-                "No matching data found", status_code=404)
+            raise GenericExceptionHandler("No matching data found", status_code=404)
 
         memory_file = BytesIO()
         with zipfile.ZipFile(memory_file, "w") as zf:
@@ -278,8 +263,8 @@ def search():
     current_path = request.path
 
     if request.method == "GET":
-        response = supabase_extension.client.rpc('get_all_tables').execute()
-        table_names = [row['table_name'] for row in response.data]
+        response = supabase_extension.client.rpc("get_all_tables").execute()
+        table_names = [row["table_name"] for row in response.data]
 
         return render_template(
             "/dashboard/search.html",
@@ -300,18 +285,15 @@ def search():
 
         try:
             response = supabase_extension.client.rpc(
-                'search_tables_by_column',
-                {'search_column': search_term}
+                "search_tables_by_column", {"search_column": search_term}
             ).execute()
-            search_results = [row['table_name'] for row in response.data]
+            search_results = [row["table_name"] for row in response.data]
 
-            response = supabase_extension.client.rpc('get_all_tables').execute()
-            table_names = [row['table_name'] for row in response.data]
+            response = supabase_extension.client.rpc("get_all_tables").execute()
+            table_names = [row["table_name"] for row in response.data]
 
         except Exception as e:
-            raise GenericExceptionHandler(
-                f"Failed to fetch rows: {str(e)}", status_code=500
-            )
+            raise GenericExceptionHandler(f"Failed to fetch rows: {str(e)}", status_code=500)
 
         return render_template(
             "/dashboard/search.html",
@@ -352,39 +334,31 @@ def update():
 
         try:
             response = supabase_extension.client.rpc(
-                'search_tables_by_column',
-                {'search_column': column_name}
+                "search_tables_by_column", {"search_column": column_name}
             ).execute()
-            tables = [row['table_name'] for row in response.data]
+            tables = [row["table_name"] for row in response.data]
         except Exception as e:
-            raise GenericExceptionHandler(
-                f"Failed to select rows: {str(e)}", status_code=500
-            )
+            raise GenericExceptionHandler(f"Failed to select rows: {str(e)}", status_code=500)
 
         if not tables:
-            raise GenericExceptionHandler(
-                "No matching data found", status_code=404)
+            raise GenericExceptionHandler("No matching data found", status_code=404)
 
         try:
             for table in tables:
                 supabase_extension.client.rpc(
-                    'update_table_row',
+                    "update_table_row",
                     {
-                        'p_table_name': table,
-                        'p_row_id': int(row_id),
-                        'p_updates': {column_name: new_value}
-                    }
+                        "p_table_name": table,
+                        "p_row_id": int(row_id),
+                        "p_updates": {column_name: new_value},
+                    },
                 ).execute()
 
         except Exception as e:
-            raise GenericExceptionHandler(
-                f"Failed to update rows: {str(e)}", status_code=500
-            )
+            raise GenericExceptionHandler(f"Failed to update rows: {str(e)}", status_code=500)
 
     return (
-        render_template(
-            "/dashboard/update.html", user_email=user_email, current_path=request.path
-        ),
+        render_template("/dashboard/update.html", user_email=user_email, current_path=request.path),
         200,
     )
 
@@ -426,8 +400,7 @@ def table_preview():
 
     try:
         response = supabase_extension.client.rpc(
-            'table_exists',
-            {'p_table_name': table_name}
+            "table_exists", {"p_table_name": table_name}
         ).execute()
         table_exists = response.data
 
@@ -445,20 +418,18 @@ def table_preview():
 
     try:
         response = supabase_extension.client.rpc(
-            'get_table_columns',
-            {'p_table_name': table_name}
+            "get_table_columns", {"p_table_name": table_name}
         ).execute()
-        columns = [row['column_name'] for row in response.data]
+        columns = [row["column_name"] for row in response.data]
 
         response = supabase_extension.client.rpc(
-            'select_from_table',
-            {'p_table_name': table_name, 'p_limit': 100}
+            "select_from_table", {"p_table_name": table_name, "p_limit": 100}
         ).execute()
 
         # Convert JSONB data to tuples matching column order
         rows = []
         for row in response.data:
-            row_data = row['data']
+            row_data = row["data"]
             rows.append(tuple(row_data.get(col) for col in columns))
 
     except Exception as e:
@@ -480,9 +451,7 @@ def table_preview():
             "freq": stats.get("freq", 0),
         }
 
-    tables_html = df_preview.to_html(
-        classes="table table-bordered", header="true", index=False
-    )
+    tables_html = df_preview.to_html(classes="table table-bordered", header="true", index=False)
 
     return (
         render_template(

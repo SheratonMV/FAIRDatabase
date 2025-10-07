@@ -1,8 +1,7 @@
 """Main application routes handling user landing and dashboard rendering based
-   on authentication."""
+on authentication."""
 
-
-from flask import Blueprint, session, render_template
+from flask import Blueprint, render_template, session
 
 routes = Blueprint("main_routes", __name__)
 
