@@ -41,6 +41,7 @@ dev = [
     "ipdb>=0.13.13",
     "rich>=13.9.4",
     "httpx>=0.28.1",
+    "pytest-timeout>=2.4.0",
 ]
 
 test = [

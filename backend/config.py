@@ -347,5 +347,14 @@ def close_db_pool():
             connection_pool = None
 
 
-supabase_extension = Supabase()
+# Configure Supabase client with timeouts
+# Using 180s timeout for test suite compatibility
+supabase_client_options = {
+    "postgrest_client_timeout": 180,  # 180 second timeout for PostgREST requests
+    "storage_client_timeout": 180,    # 180 second timeout for Storage requests
+    "auto_refresh_token": True,       # Automatically refresh auth tokens
+    "persist_session": True,          # Persist session across requests
+}
+
+supabase_extension = Supabase(client_options=supabase_client_options)
 limiter = Limiter(get_remote_address, default_limits=["100 per minute", "50 per second"])
