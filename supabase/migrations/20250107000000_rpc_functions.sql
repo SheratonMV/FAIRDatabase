@@ -201,13 +201,34 @@ $$ LANGUAGE plpgsql;
 -- ============================================================================
 
 -- RPC function to create data tables dynamically
--- Note: This function exists for completeness but is NOT used in production
--- The application uses psycopg2 for table creation to avoid PostgREST schema cache issues
+--
+-- ⚠️ IMPORTANT: This function is NOT used in production code
+--
+-- WHY IT EXISTS:
+--   - Provides a complete RPC API for database operations
+--   - Future-proofing if PostgREST schema caching improves
+--   - Maintains consistency with other RPC functions
+--
+-- WHY IT'S NOT USED:
+--   - PostgREST caches database schema for performance
+--   - Dynamically created tables are not immediately visible to the REST API
+--   - Even with NOTIFY pgrst 'reload schema', cache refresh is asynchronous
+--   - This causes 404 errors when trying to insert into newly created tables
+--
+-- WHAT TO USE INSTEAD:
+--   - See: backend/src/dashboard/helpers.py:pg_create_data_table()
+--   - Uses psycopg2 direct SQL for table creation and initial inserts
+--   - Subsequent queries can use Supabase RPC functions (select_from_table, etc.)
+--
+-- WHEN TO USE THIS FUNCTION:
+--   - Only if PostgREST schema caching is disabled or improved in future versions
+--   - Never use this for production table creation with immediate inserts
+--
 CREATE OR REPLACE FUNCTION public.create_data_table(
-  schema_name TEXT,
   p_table_name TEXT,
   p_columns TEXT[],
-  p_patient_col TEXT
+  p_patient_col TEXT,
+  schema_name TEXT DEFAULT '_realtime'
 )
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -215,8 +236,8 @@ DECLARE
   v_sql TEXT;
   v_col TEXT;
 BEGIN
-  -- Validate schema exists
-  IF schema_name NOT IN ('realtime') THEN
+  -- Validate schema exists (standardized to use '_realtime' like other RPC functions)
+  IF schema_name NOT IN ('_realtime') THEN
     RAISE EXCEPTION 'Invalid schema name: %', schema_name;
   END IF;
 
@@ -233,7 +254,7 @@ BEGIN
 
   -- Build CREATE TABLE statement
   v_sql := format(
-    'CREATE TABLE IF NOT EXISTS _%s.%I (
+    'CREATE TABLE IF NOT EXISTS %I.%I (
       rowid SERIAL PRIMARY KEY,
       %I TEXT NOT NULL,
       %s
@@ -247,9 +268,13 @@ BEGIN
   -- Execute the CREATE TABLE
   EXECUTE v_sql;
 
+  -- Create index on patient column for better query performance
+  EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%I_%I ON %I.%I(%I)',
+                 p_table_name, p_patient_col, schema_name, p_table_name, p_patient_col);
+
   -- Grant permissions on the new table
-  EXECUTE format('GRANT ALL ON TABLE _%s.%I TO anon, authenticated, service_role', schema_name, p_table_name);
-  EXECUTE format('GRANT USAGE, SELECT ON SEQUENCE _%s.%I_rowid_seq TO anon, authenticated, service_role', schema_name, p_table_name);
+  EXECUTE format('GRANT ALL ON TABLE %I.%I TO anon, authenticated, service_role', schema_name, p_table_name);
+  EXECUTE format('GRANT USAGE, SELECT ON SEQUENCE %I.%I_rowid_seq TO anon, authenticated, service_role', schema_name, p_table_name);
 
   RETURN TRUE;
 EXCEPTION WHEN OTHERS THEN

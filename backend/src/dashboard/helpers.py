@@ -88,6 +88,14 @@ def pg_create_data_table(cur, schema, table_name, columns, patient_col):
     """
     )
 
+    # Create index on patient_col for better query performance
+    cur.execute(
+        f"""
+        CREATE INDEX IF NOT EXISTS idx_{table_name}_{patient_col}
+        ON _{schema}.{table_name}({patient_col});
+        """
+    )
+
     # Grant permissions for Supabase to access the table
     cur.execute(
         f"""
@@ -104,8 +112,9 @@ def pg_insert_metadata(cur, schema, table_name, main_table, description, origin)
     """
     Insert a record into _realtime.metadata_tables for tracking.
 
-    NOTE: Migrated to use Supabase client instead of psycopg2.
-    The 'cur' parameter is kept for backward compatibility but is no longer used.
+    NOTE: Uses psycopg2 cursor to participate in the same transaction as table
+    creation and data inserts. This ensures atomicity - if data inserts fail,
+    metadata entries are also rolled back.
 
     ---
     tags:
@@ -116,7 +125,7 @@ def pg_insert_metadata(cur, schema, table_name, main_table, description, origin)
         in: code
         type: psycopg2.extensions.cursor
         required: true
-        description: PostgreSQL cursor object (deprecated, kept for compatibility).
+        description: PostgreSQL cursor object for transaction management.
       - name: schema
         in: code
         type: string
@@ -143,27 +152,19 @@ def pg_insert_metadata(cur, schema, table_name, main_table, description, origin)
         required: false
         description: Source or origin of the file.
     """
-    from config import supabase_extension
-
-    schema = pg_sanitize_column(schema).strip('"')  # Remove quotes added by sanitize
-
-    # Note: Use service_role_client for metadata inserts (requires bypassing RLS)
-    # Regular client uses anon key which only has read access to metadata_tables
-    response = (
-        supabase_extension.service_role_client.schema(f"_{schema}")
-        .table("metadata_tables")
-        .insert(
-            {
-                "table_name": table_name,
-                "main_table": main_table,
-                "description": description,
-                "origin": origin,
-            }
-        )
-        .execute()
+    # Use direct SQL to participate in the psycopg2 transaction
+    # This ensures metadata inserts are rolled back if data inserts fail
+    cur.execute(
+        f"""
+        INSERT INTO _{schema}.metadata_tables (table_name, main_table, description, origin)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id;
+        """,
+        (table_name, main_table, description, origin),
     )
 
-    return response.data[0] if response.data else None
+    result = cur.fetchone()
+    return result[0] if result else None
 
 
 def pg_insert_data_rows(cur, schema, table_name, patient_col, rows, columns, chunk_index):

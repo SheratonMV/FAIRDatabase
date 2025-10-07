@@ -69,7 +69,8 @@ REVOKE EXECUTE ON FUNCTION public.update_table_row(TEXT, INT, JSONB, TEXT) FROM 
 REVOKE EXECUTE ON FUNCTION public.insert_metadata(TEXT, TEXT, TEXT, TEXT) FROM anon;
 
 -- Grant to service_role explicitly for backend operations
-GRANT EXECUTE ON FUNCTION public.create_data_table(TEXT, TEXT, TEXT[], TEXT) TO service_role;
+-- Note: Function signature updated to match standardized parameter order (schema_name last with default)
+GRANT EXECUTE ON FUNCTION public.create_data_table(TEXT, TEXT[], TEXT, TEXT) TO service_role;
 
 -- ============================================================================
 -- STEP 5: CREATE HELPER FUNCTION FOR DYNAMIC TABLE RLS
@@ -141,11 +142,12 @@ GRANT EXECUTE ON FUNCTION public.enable_table_rls(TEXT, TEXT) TO service_role;
 -- ============================================================================
 
 -- Update the create_data_table function to automatically enable RLS on new tables
+-- This updates the function created in 20250107000000_rpc_functions.sql to add RLS support
 CREATE OR REPLACE FUNCTION public.create_data_table(
-  schema_name TEXT,
   p_table_name TEXT,
   p_columns TEXT[],
-  p_patient_col TEXT
+  p_patient_col TEXT,
+  schema_name TEXT DEFAULT '_realtime'
 )
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -153,8 +155,8 @@ DECLARE
   v_sql TEXT;
   v_col TEXT;
 BEGIN
-  -- Validate schema exists
-  IF schema_name NOT IN ('realtime') THEN
+  -- Validate schema exists (standardized to use '_realtime' like other RPC functions)
+  IF schema_name NOT IN ('_realtime') THEN
     RAISE EXCEPTION 'Invalid schema name: %', schema_name;
   END IF;
 
@@ -171,7 +173,7 @@ BEGIN
 
   -- Build CREATE TABLE statement
   v_sql := format(
-    'CREATE TABLE IF NOT EXISTS _%s.%I (
+    'CREATE TABLE IF NOT EXISTS %I.%I (
       rowid SERIAL PRIMARY KEY,
       %I TEXT NOT NULL,
       %s
@@ -185,39 +187,46 @@ BEGIN
   -- Execute the CREATE TABLE
   EXECUTE v_sql;
 
+  -- Create index on patient column for better query performance
+  EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%I_%I ON %I.%I(%I)',
+                 p_table_name, p_patient_col, schema_name, p_table_name, p_patient_col);
+
   -- Enable RLS on the new table
-  v_sql := format('ALTER TABLE _%s.%I ENABLE ROW LEVEL SECURITY', schema_name, p_table_name);
+  v_sql := format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY', schema_name, p_table_name);
   EXECUTE v_sql;
 
   -- Create policy: Authenticated users can view all data
   v_sql := format(
-    'CREATE POLICY "authenticated_users_view_data" ON _%s.%I FOR SELECT TO authenticated USING (true)',
+    'CREATE POLICY "authenticated_users_view_data" ON %I.%I FOR SELECT TO authenticated USING (true)',
     schema_name, p_table_name
   );
   EXECUTE v_sql;
 
   -- Create policy: Service role has full access
   v_sql := format(
-    'CREATE POLICY "service_role_full_data_access" ON _%s.%I FOR ALL TO service_role USING (true) WITH CHECK (true)',
+    'CREATE POLICY "service_role_full_data_access" ON %I.%I FOR ALL TO service_role USING (true) WITH CHECK (true)',
     schema_name, p_table_name
   );
   EXECUTE v_sql;
 
   -- Revoke direct access from anon
-  v_sql := format('REVOKE ALL ON TABLE _%s.%I FROM anon', schema_name, p_table_name);
+  v_sql := format('REVOKE ALL ON TABLE %I.%I FROM anon', schema_name, p_table_name);
   EXECUTE v_sql;
 
   -- Revoke write access from authenticated (they can only read)
-  v_sql := format('REVOKE INSERT, UPDATE, DELETE ON TABLE _%s.%I FROM authenticated', schema_name, p_table_name);
+  v_sql := format('REVOKE INSERT, UPDATE, DELETE ON %I.%I FROM authenticated', schema_name, p_table_name);
   EXECUTE v_sql;
 
   -- Grant SELECT to authenticated (enforced by RLS policy)
-  v_sql := format('GRANT SELECT ON TABLE _%s.%I TO authenticated', schema_name, p_table_name);
+  v_sql := format('GRANT SELECT ON TABLE %I.%I TO authenticated', schema_name, p_table_name);
   EXECUTE v_sql;
 
+  -- Grant all permissions to service role
+  EXECUTE format('GRANT ALL ON TABLE %I.%I TO service_role', schema_name, p_table_name);
+
   -- Grant sequence access to service_role only (for insertions)
-  EXECUTE format('REVOKE ALL ON SEQUENCE _%s.%I_rowid_seq FROM anon, authenticated', schema_name, p_table_name);
-  EXECUTE format('GRANT USAGE, SELECT ON SEQUENCE _%s.%I_rowid_seq TO service_role', schema_name, p_table_name);
+  EXECUTE format('REVOKE ALL ON SEQUENCE %I.%I_rowid_seq FROM anon, authenticated', schema_name, p_table_name);
+  EXECUTE format('GRANT USAGE, SELECT ON SEQUENCE %I.%I_rowid_seq TO service_role', schema_name, p_table_name);
 
   RETURN TRUE;
 EXCEPTION WHEN OTHERS THEN
