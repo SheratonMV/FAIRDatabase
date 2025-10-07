@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from typing import Any, TypeVar
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
@@ -73,11 +74,25 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1000 * 10000
     SUPABASE_URL = os.getenv("SUPABASE_URL")
     SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-    POSTGRES_HOST = os.getenv("POSTGRES_HOST")
-    POSTGRES_PORT = os.getenv("POSTGRES_PORT")
-    POSTGRES_USER = os.getenv("POSTGRES_USER")
-    POSTGRES_SECRET = os.getenv("POSTGRES_SECRET")
-    POSTGRES_DB_NAME = os.getenv("POSTGRES_DB_NAME")
+
+    # PostgreSQL Configuration
+    # Supports both POSTGRES_URL (for pooled connections) and individual variables
+    _postgres_url = os.getenv("POSTGRES_URL")
+    if _postgres_url:
+        # Parse connection URL (e.g., postgresql://user:pass@host:port/dbname?pgbouncer=true)
+        _parsed = urlparse(_postgres_url)
+        POSTGRES_HOST = _parsed.hostname
+        POSTGRES_PORT = str(_parsed.port) if _parsed.port else "5432"
+        POSTGRES_USER = _parsed.username
+        POSTGRES_SECRET = _parsed.password
+        POSTGRES_DB_NAME = _parsed.path.lstrip("/")
+    else:
+        # Fall back to individual environment variables
+        POSTGRES_HOST = os.getenv("POSTGRES_HOST")
+        POSTGRES_PORT = os.getenv("POSTGRES_PORT")
+        POSTGRES_USER = os.getenv("POSTGRES_USER")
+        POSTGRES_SECRET = os.getenv("POSTGRES_SECRET")
+        POSTGRES_DB_NAME = os.getenv("POSTGRES_DB_NAME")
 
 
 class Supabase:

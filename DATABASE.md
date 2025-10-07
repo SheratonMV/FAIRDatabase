@@ -15,6 +15,41 @@ FAIRDatabase uses **PostgreSQL via Supabase** with a pragmatic hybrid approach:
   - Studio: `http://127.0.0.1:54323`
   - API: `http://127.0.0.1:54321`
 
+### Connection Configuration
+
+The application supports two ways to configure PostgreSQL connections:
+
+#### Option 1: Individual Variables (Local Development)
+```bash
+POSTGRES_HOST=127.0.0.1
+POSTGRES_PORT=54322
+POSTGRES_USER=postgres
+POSTGRES_SECRET=postgres
+POSTGRES_DB_NAME=postgres
+```
+
+#### Option 2: Connection URL (Production with Supabase Pooler)
+```bash
+# Session Mode (port 5432) - Recommended for Flask/persistent backends
+POSTGRES_URL=postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres
+
+# Transaction Mode (port 6543) - For serverless/edge functions only
+# Note: Does not support prepared statements
+POSTGRES_URL=postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
+```
+
+**Which Mode to Use:**
+- **Session Mode (5432)**: For Flask and persistent backends. Maintains connections across multiple transactions.
+- **Transaction Mode (6543)**: For serverless environments with many transient connections. Each connection is returned to the pool after each transaction.
+
+**Note**: If `POSTGRES_URL` is set, it takes precedence over individual `POSTGRES_*` variables.
+
+**Benefits of Using Supabase Pooler:**
+- Connection pooling via PgBouncer
+- Better scalability for production
+- Reduced connection overhead
+- Built-in IPv4 support
+
 ## Schema Structure
 
 ### Custom Schema: `_realtime`
