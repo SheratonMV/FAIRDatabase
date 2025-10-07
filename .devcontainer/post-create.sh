@@ -43,6 +43,11 @@ echo "📦 Updating npm to latest version..."
 npm install -g npm@latest
 echo "✅ npm updated"
 
+# Install Supabase CLI as dev dependency
+echo "🔧 Installing Supabase CLI..."
+npm install supabase --save-dev
+echo "✅ Supabase CLI installed"
+
 # Initialize Supabase for local development (if not already initialized)
 if [ ! -d "supabase" ]; then
     echo "🔧 Initializing Supabase for local development..."
