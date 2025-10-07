@@ -62,6 +62,56 @@ response = (
 response = supabase_extension.client.rpc('get_all_tables').execute()
 ```
 
+#### Async Support (Flask 3.1+)
+
+Flask 3.1+ supports async route handlers. Use async clients for I/O-bound operations that benefit from concurrency.
+
+**Async Clients**:
+
+```python
+from config import supabase_extension
+
+# Async client with anon key (respects RLS)
+@app.route('/async-data')
+async def async_data():
+    client = await supabase_extension.async_client
+    response = await client.rpc('get_all_tables', {}).execute()
+    return jsonify(response.data)
+
+# Async service role client for admin operations
+@app.route('/admin-async-data')
+async def admin_async_data():
+    client = await supabase_extension.async_service_role_client
+    response = await client.rpc('admin_function', {}).execute()
+    return jsonify(response.data)
+```
+
+**Helper: `async_safe_rpc_call()`**
+
+Prefer this helper for async RPC operations (handles `.execute()` and error logging):
+
+```python
+from config import supabase_extension
+
+@app.route('/async-endpoint')
+async def async_endpoint():
+    # Automatically handles async client creation and error handling
+    data = await supabase_extension.async_safe_rpc_call('function_name', {'param': 'value'})
+    return jsonify(data)
+```
+
+**When to Use Async**:
+- Multiple independent database queries that can run concurrently
+- External API calls combined with database operations
+- Long-running I/O operations
+- High-concurrency scenarios
+
+**Important Notes**:
+- Async routes require Flask 3.1+
+- Cannot mix sync/async in the same route
+- psycopg2 operations remain synchronous
+- Test suite runs with 180s timeout to accommodate async operations
+
 ### psycopg2 (Dynamic Tables Only)
 
 Used exclusively for creating and populating dynamic tables.

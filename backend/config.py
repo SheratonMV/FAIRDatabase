@@ -15,7 +15,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from psycopg2 import OperationalError
 from psycopg2.pool import ThreadedConnectionPool
-from supabase import Client, ClientOptions, create_client
+from supabase import Client, ClientOptions, create_client, acreate_client, AsyncClient
 
 # Type variable for generic RPC return types
 T = TypeVar('T')
@@ -160,6 +160,8 @@ class Supabase:
         """
         g.pop("supabase_client", None)
         g.pop("supabase_service_role_client", None)
+        g.pop("supabase_async_client", None)
+        g.pop("supabase_async_service_role_client", None)
 
     @property
     def client(self) -> Client:
@@ -224,6 +226,96 @@ class Supabase:
                 raise
 
         return g.supabase_service_role_client
+
+    @property
+    async def async_client(self) -> AsyncClient:
+        """
+        Lazily initialize the async Supabase client with anon key and return it.
+
+        This async client uses the anon key and respects Row Level Security (RLS) policies.
+        Use this for async operations including auth, RPC calls, and data access.
+
+        For admin operations that need to bypass RLS, use async_service_role_client instead.
+
+        Example:
+            from flask import Flask
+            from config import supabase_extension
+
+            app = Flask(__name__)
+            supabase_extension.init_app(app)
+
+            @app.route('/async-example')
+            async def async_example():
+                client = await supabase_extension.async_client
+                response = await client.rpc('function_name', {}).execute()
+                return response.data
+        """
+        if "supabase_async_client" not in g:
+            url = current_app.config["SUPABASE_URL"]
+            key = current_app.config.get("SUPABASE_ANON_KEY")
+
+            if not url or not key:
+                raise RuntimeError("Supabase URL or ANON_KEY not configured properly.")
+
+            options = self.client_options
+            if options and not isinstance(options, ClientOptions):
+                options = ClientOptions(**options)
+
+            try:
+                g.supabase_async_client = await acreate_client(url, key, options=options)
+            except Exception as e:
+                current_app.logger.error(f"Supabase async client init error: {e}")
+                raise
+
+        return g.supabase_async_client
+
+    @property
+    async def async_service_role_client(self) -> AsyncClient:
+        """
+        Lazily initialize the async Supabase client with service role key and return it.
+
+        WARNING: This client bypasses Row Level Security (RLS) and has full admin privileges.
+        Only use this for specific admin operations that require elevated permissions.
+
+        For regular operations, use the async_client property instead.
+
+        Example:
+            from flask import Flask
+            from config import supabase_extension
+
+            app = Flask(__name__)
+            supabase_extension.init_app(app)
+
+            @app.route('/admin-async-example')
+            async def admin_async_example():
+                client = await supabase_extension.async_service_role_client
+                response = await client.rpc('admin_function', {}).execute()
+                return response.data
+        """
+        if "supabase_async_service_role_client" not in g:
+            url = current_app.config["SUPABASE_URL"]
+            key = current_app.config.get("SUPABASE_SERVICE_ROLE_KEY")
+
+            if not url or not key:
+                raise RuntimeError("Supabase URL or SERVICE_ROLE_KEY not configured properly.")
+
+            # Service role client should not auto-refresh tokens or persist sessions
+            service_role_options = {
+                "postgrest_client_timeout": 180,
+                "storage_client_timeout": 180,
+                "auto_refresh_token": False,  # No token refresh for service role
+                "persist_session": False,     # No session persistence for service role
+            }
+
+            options = ClientOptions(**service_role_options)
+
+            try:
+                g.supabase_async_service_role_client = await acreate_client(url, key, options=options)
+            except Exception as e:
+                current_app.logger.error(f"Supabase async service role client init error: {e}")
+                raise
+
+        return g.supabase_async_service_role_client
 
     def get_user(self):
         """
@@ -339,6 +431,119 @@ class Supabase:
         except Exception as e:
             # Catch-all for unexpected errors
             current_app.logger.error(f"RPC {function_name} unexpected error: {type(e).__name__}: {e}")
+            raise GenericExceptionHandler(
+                f"Unexpected error in '{function_name}': {str(e)}", status_code=500
+            ) from e
+
+    async def async_safe_rpc_call(self, function_name: str, params: dict | None = None) -> list[Any] | bool | Any:
+        """
+        Execute Supabase RPC asynchronously with consistent error handling.
+
+        This method automatically handles .execute() chaining and provides
+        centralized exception handling for all async RPC calls. Use this for
+        I/O-bound operations that can benefit from async execution.
+
+        For better type safety, use type hints at the call site:
+            data: list[TableNameResult] = await supabase_extension.async_safe_rpc_call('get_all_tables')
+
+        See src/types.py for available TypedDict definitions.
+        ---
+        tags:
+          - supabase_rpc
+          - async
+        parameters:
+          - name: function_name
+            type: string
+            required: true
+            description: Name of the RPC function to call.
+          - name: params
+            type: object
+            required: false
+            description: Dictionary of parameters to pass to the RPC function.
+        returns:
+          type: list | bool | any
+          description: response.data if successful (typically list, but may be bool for functions like table_exists)
+        raises:
+          GenericExceptionHandler: with appropriate status code and error message
+
+        Example:
+            # Flask 3.1+ supports async routes
+            @app.route('/async-data')
+            async def async_data():
+                data: list[TableNameResult] = await supabase_extension.async_safe_rpc_call('get_all_tables')
+                return jsonify(data)
+        """
+        from src.exceptions import GenericExceptionHandler
+        from postgrest.exceptions import APIError
+        from httpx import ConnectError, TimeoutException, HTTPStatusError, RequestError
+
+        try:
+            client = await self.async_client
+            response = await client.rpc(function_name, params or {}).execute()
+            return response.data
+        except APIError as e:
+            # PostgREST API errors with detailed context
+            current_app.logger.error(
+                f"Async RPC {function_name} API error - Code: {e.code}, Message: {e.message}, "
+                f"Hint: {e.hint}, Details: {e.details}"
+            )
+
+            # Handle specific PostgreSQL error codes
+            if e.code == '42883':  # undefined_function
+                raise GenericExceptionHandler(
+                    f"Function '{function_name}' not found in database", status_code=404
+                ) from e
+            elif e.code == 'PGRST204':  # No rows returned
+                return []
+            elif e.code == '42P01':  # undefined_table
+                raise GenericExceptionHandler(
+                    f"Table not found for function '{function_name}'", status_code=404
+                ) from e
+            elif e.code in ('42501', '42502'):  # insufficient_privilege
+                raise GenericExceptionHandler(
+                    f"Permission denied for function '{function_name}'", status_code=403
+                ) from e
+            elif e.code == '23505':  # unique_violation
+                raise GenericExceptionHandler(
+                    f"Duplicate entry: {e.message or 'Record already exists'}", status_code=409
+                ) from e
+            elif e.code == '23503':  # foreign_key_violation
+                raise GenericExceptionHandler(
+                    f"Foreign key constraint violation: {e.message}", status_code=409
+                ) from e
+            else:
+                # Generic database error with preserved context
+                error_msg = f"Database error in '{function_name}': {e.message or str(e)}"
+                if e.hint:
+                    error_msg += f" (Hint: {e.hint})"
+                raise GenericExceptionHandler(error_msg, status_code=500) from e
+        except TimeoutException as e:
+            current_app.logger.error(f"Async RPC {function_name} timeout: {e}")
+            raise GenericExceptionHandler(
+                f"Request timeout for function '{function_name}'. Operation took too long.",
+                status_code=504
+            ) from e
+        except ConnectError as e:
+            current_app.logger.error(f"Async RPC {function_name} connection error: {e}")
+            raise GenericExceptionHandler(
+                f"Cannot connect to database for function '{function_name}'. Service may be unavailable.",
+                status_code=503
+            ) from e
+        except HTTPStatusError as e:
+            current_app.logger.error(f"Async RPC {function_name} HTTP error: {e.response.status_code}")
+            raise GenericExceptionHandler(
+                f"HTTP error {e.response.status_code} for function '{function_name}'",
+                status_code=e.response.status_code
+            ) from e
+        except RequestError as e:
+            current_app.logger.error(f"Async RPC {function_name} request error: {e}")
+            raise GenericExceptionHandler(
+                f"Network error for function '{function_name}': {str(e)}",
+                status_code=503
+            ) from e
+        except Exception as e:
+            # Catch-all for unexpected errors
+            current_app.logger.error(f"Async RPC {function_name} unexpected error: {type(e).__name__}: {e}")
             raise GenericExceptionHandler(
                 f"Unexpected error in '{function_name}': {str(e)}", status_code=500
             ) from e
