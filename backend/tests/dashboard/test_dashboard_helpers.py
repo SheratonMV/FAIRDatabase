@@ -204,7 +204,7 @@ class TestPgCreateDataTable:
                 cur.close()
 
     def test_grants_permissions_to_supabase_roles(self, app):
-        """Table creation → permissions granted to anon, authenticated, service_role"""
+        """Table creation → permissions granted to authenticated and service_role (NOT anon)"""
         with app.app_context():
             conn = get_db()
             cur = conn.cursor()
@@ -217,16 +217,23 @@ class TestPgCreateDataTable:
                 pg_create_data_table(cur, "realtime", "test_table_perms", columns, "patient_id")
                 conn.commit()
 
-                # Verify permissions (check if anon role can access)
+                # Verify anon has NO access (security model: anon must use RPC functions)
                 cur.execute("""
                     SELECT has_table_privilege('anon', '_realtime.test_table_perms', 'SELECT')
                 """)
-                assert cur.fetchone()[0] is True
+                assert cur.fetchone()[0] is False, "anon should NOT have direct table access"
 
+                # Verify authenticated has SELECT access
                 cur.execute("""
                     SELECT has_table_privilege('authenticated', '_realtime.test_table_perms', 'SELECT')
                 """)
-                assert cur.fetchone()[0] is True
+                assert cur.fetchone()[0] is True, "authenticated should have SELECT access"
+
+                # Verify service_role has full access
+                cur.execute("""
+                    SELECT has_table_privilege('service_role', '_realtime.test_table_perms', 'SELECT')
+                """)
+                assert cur.fetchone()[0] is True, "service_role should have full access"
 
             finally:
                 cur.execute("DROP TABLE IF EXISTS _realtime.test_table_perms CASCADE")
