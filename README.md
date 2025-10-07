@@ -32,10 +32,10 @@ Choose your preferred method. Each takes approximately **2-3 minutes** to set up
 | **[3. DevPod](#3-devpod)** | Reproducible dev environments with IDE choice and provider flexibility | DevPod + Docker/Podman¹ |
 | **[4. Dev Container CLI](#4-dev-container-cli)** | Command-line tool to build and manage dev containers | Node.js + Docker/Podman¹ |
 
-¹ **Need a Container Runtime?** Choose one:
-- **Quick Setup:** [Docker Desktop](https://docs.docker.com/get-docker/) (macOS/Windows) or [Rancher Desktop](https://rancherdesktop.io/) (all platforms)
-- **Linux:** [Docker Engine](https://docs.docker.com/engine/install/) (native performance)
-- **Alternative:** [Podman](https://podman.io/) (rootless containers, all platforms)
+¹ **Need a Container Runtime?** Popular options include:
+- **macOS/Windows:** [Docker Desktop](https://docs.docker.com/get-docker/), [Rancher Desktop](https://rancherdesktop.io/), [OrbStack](https://orbstack.dev/), [Colima](https://github.com/abiosoft/colima)
+- **Linux:** [Docker Engine](https://docs.docker.com/engine/install/), [Podman](https://podman.io/)
+- **All Platforms:** [Podman](https://podman.io/), [Finch](https://github.com/runfinch/finch)
 
 ### 1. GitHub Codespaces
 
