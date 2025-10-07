@@ -140,6 +140,38 @@ uv run pytest
 | Supabase Studio | http://localhost:54321 | Database management UI |
 | Inbucket | http://localhost:54324 | Email testing interface |
 
+## Testing
+
+### Application Tests (pytest)
+
+Run Python unit and integration tests:
+
+```bash
+cd backend
+uv run pytest                    # Run all tests
+uv run pytest tests/dashboard/   # Run specific test suite
+uv run pytest -v                 # Verbose output
+```
+
+### Database Tests (pgTAP)
+
+Run database-level tests for schema, RLS policies, and RPC functions:
+
+```bash
+# Run all database tests (58 tests)
+npx supabase test db
+
+# Reset database and run tests
+npx supabase db reset && npx supabase test db
+```
+
+**What's tested:**
+- Schema structure (`_realtime` schema, `metadata_tables` table)
+- Row-level security (RLS) policies and permissions
+- All 11 RPC functions with signature and functionality validation
+
+See [`supabase/CLAUDE.md`](supabase/CLAUDE.md#database-testing-with-pgtap) for detailed test documentation.
+
 ## Troubleshooting
 
 ### Container Issues
