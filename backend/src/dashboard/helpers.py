@@ -96,11 +96,81 @@ def pg_create_data_table(cur, schema, table_name, columns, patient_col):
         """
     )
 
-    # Grant permissions for Supabase to access the table
+    # Enable Row Level Security on the table
     cur.execute(
         f"""
-        GRANT ALL ON TABLE _{schema}.{table_name} TO anon, authenticated, service_role;
-        GRANT USAGE, SELECT ON SEQUENCE _{schema}.{table_name}_rowid_seq TO anon, authenticated, service_role;
+        ALTER TABLE _{schema}.{table_name} ENABLE ROW LEVEL SECURITY;
+        """
+    )
+
+    # Drop existing policies if they exist (for idempotency)
+    cur.execute(
+        f"""
+        DROP POLICY IF EXISTS "authenticated_users_view_data" ON _{schema}.{table_name};
+        """
+    )
+    cur.execute(
+        f"""
+        DROP POLICY IF EXISTS "service_role_full_data_access" ON _{schema}.{table_name};
+        """
+    )
+
+    # Create policy: Authenticated users can view all data
+    cur.execute(
+        f"""
+        CREATE POLICY "authenticated_users_view_data"
+        ON _{schema}.{table_name}
+        FOR SELECT
+        TO authenticated
+        USING (true);
+        """
+    )
+
+    # Create policy: Service role has full access
+    cur.execute(
+        f"""
+        CREATE POLICY "service_role_full_data_access"
+        ON _{schema}.{table_name}
+        FOR ALL
+        TO service_role
+        USING (true)
+        WITH CHECK (true);
+        """
+    )
+
+    # Revoke direct access from anon
+    cur.execute(
+        f"""
+        REVOKE ALL ON TABLE _{schema}.{table_name} FROM anon;
+        """
+    )
+
+    # Revoke write access from authenticated (read-only via RLS)
+    cur.execute(
+        f"""
+        REVOKE INSERT, UPDATE, DELETE ON TABLE _{schema}.{table_name} FROM authenticated;
+        """
+    )
+
+    # Grant SELECT to authenticated (enforced by RLS policy)
+    cur.execute(
+        f"""
+        GRANT SELECT ON TABLE _{schema}.{table_name} TO authenticated;
+        """
+    )
+
+    # Grant all permissions to service role
+    cur.execute(
+        f"""
+        GRANT ALL ON TABLE _{schema}.{table_name} TO service_role;
+        GRANT USAGE, SELECT ON SEQUENCE _{schema}.{table_name}_rowid_seq TO service_role;
+        """
+    )
+
+    # Revoke sequence access from anon and authenticated
+    cur.execute(
+        f"""
+        REVOKE ALL ON SEQUENCE _{schema}.{table_name}_rowid_seq FROM anon, authenticated;
         """
     )
 

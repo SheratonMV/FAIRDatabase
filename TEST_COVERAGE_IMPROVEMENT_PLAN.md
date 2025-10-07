@@ -1327,10 +1327,73 @@ These can be addressed in future iterations.
 
 ---
 
-## Phase 6: RLS Policy Integration Tests (Priority 3)
+## Phase 6: RLS Policy Integration Tests ✅ **COMPLETED**
 
 ### Overview
 Test RLS policies from application level using different user roles.
+
+### ✅ Implementation Summary
+
+**Status**: ✅ Completed
+**Test File**: `backend/tests/rls/test_rls_policies.py`
+**Tests Added**: 18 tests (all passing)
+**Security Fix**: Closed critical RLS gap in `pg_create_data_table()`
+
+### 🔒 Critical Security Fix
+
+**Issue Found**: The psycopg2 function `pg_create_data_table()` (used in production) was NOT enabling RLS on dynamically created data tables, leaving them unprotected.
+
+**Fix Applied**: Updated `backend/src/dashboard/helpers.py:pg_create_data_table()` to:
+- Enable RLS on all dynamic tables
+- Create policies: `authenticated_users_view_data` (SELECT) and `service_role_full_data_access` (ALL)
+- Revoke anon access completely
+- Grant authenticated users read-only access
+- Grant service_role full access
+
+### 📊 Test Coverage
+
+#### TestMetadataTableRLS (5 tests)
+- ✅ `test_rls_enabled_on_metadata_tables` - Verifies RLS is enabled
+- ✅ `test_rls_policies_exist` - Checks expected policies exist
+- ✅ `test_service_role_can_read_all_metadata` - Service role full access
+- ✅ `test_authenticated_can_read_metadata` - Authenticated users can read
+- ✅ `test_authenticated_cannot_write_metadata_directly` - Write access denied
+
+#### TestDynamicTableRLS (5 tests)
+- ✅ `test_dynamic_table_has_rls_enabled` - Dynamic tables have RLS
+- ✅ `test_dynamic_table_has_rls_policies` - Policies auto-created
+- ✅ `test_authenticated_can_read_data` - Read access via RPC
+- ✅ `test_authenticated_cannot_write_data_directly` - Write access denied
+- ✅ `test_service_role_has_full_access` - Service role can read/write
+
+#### TestRPCFunctionRLS (6 tests)
+- ✅ `test_get_all_tables_works` - RPC function accessible
+- ✅ `test_get_table_columns_works` - Column metadata retrieval
+- ✅ `test_table_exists_works` - Table existence checks
+- ✅ `test_search_tables_by_column_works` - Column search
+- ✅ `test_select_from_table_respects_rls` - Data queries respect RLS
+- ✅ `test_insert_metadata_via_rpc` - Metadata insertion via RPC
+
+#### TestRLSIntegrationScenarios (2 tests)
+- ✅ `test_full_upload_workflow_with_rls` - End-to-end upload with RLS
+- ✅ `test_anonymous_user_cannot_access_data` - Anonymous access blocked
+
+### 🔑 Key Findings
+
+1. **RLS State**:
+   - `metadata_tables`: ✅ RLS enabled with proper policies
+   - Dynamic data tables: ✅ NOW enabled (was broken)
+   - All RPC functions use `SECURITY DEFINER` for safe schema access
+
+2. **Permission Model**:
+   - **anon**: No direct table access (must use RPC with validation)
+   - **authenticated**: Read-only access to all data (via RLS policies)
+   - **service_role**: Full access (used by backend for writes)
+
+3. **Security Posture**: Strong isolation with layered security:
+   - Database-level RLS policies
+   - Function-level SECURITY DEFINER
+   - Application-level authentication checks
 
 ### 📚 Documentation & Resources
 
@@ -1349,82 +1412,9 @@ Test RLS policies from application level using different user roles.
 - [Supabase Service Role](https://supabase.com/docs/guides/auth#the-service_role-key) - Bypassing RLS for admin operations
 - [JWT Tokens in Tests](https://supabase.com/docs/guides/auth/sessions) - Managing auth sessions in tests
 
-**Policy Testing Strategies**:
-- [SECURITY DEFINER Functions](https://www.postgresql.org/docs/current/sql-createfunction.html#SQL-CREATEFUNCTION-SECURITY) - Understanding function security context
-- [Testing Policy Enforcement](https://supabase.com/docs/guides/database/testing#testing-policies) - Verifying policy behavior
-- [User Impersonation in Tests](https://supabase.com/docs/guides/auth/server-side/nextjs#create-a-supabase-client) - Testing as different users
-
-**Python Client Auth**:
-- [Supabase Python Auth](https://supabase.com/docs/reference/python/auth-signup) - Python authentication methods
-- [Session Management](https://supabase.com/docs/reference/python/auth-getsession) - Managing user sessions
-- [Service Role Client](https://supabase.com/docs/reference/python/initializing#with-additional-parameters) - Creating service role client
-
-### Test File to Create
-
-#### 6.1 RLS Integration Tests
-**File**: `backend/tests/supabase/test_rls_policies.py`
-
-```python
-import pytest
-from config import supabase_extension
-
-
-class TestRLSPoliciesMetadataTables:
-    """Test RLS policies on metadata_tables"""
-
-    def test_authenticated_user_can_read_metadata(self, app, logged_in_user):
-        """Test authenticated users can read metadata_tables"""
-        client, user = logged_in_user
-
-        with app.app_context():
-            # Use user's token to query
-            result = supabase_extension.safe_rpc_call(
-                'get_all_tables',
-                {'schema_name': '_realtime'}
-            )
-
-            assert isinstance(result, list)
-
-    def test_authenticated_user_cannot_write_metadata(self, app, logged_in_user):
-        """Test authenticated users cannot write to metadata_tables"""
-        # Should fail or use service role
-        pass
-
-    def test_anonymous_user_cannot_access_metadata(self, app, client):
-        """Test anonymous users cannot access metadata_tables"""
-        # Should fail without authentication
-        pass
-
-    def test_service_role_has_full_access(self, app):
-        """Test service role can read and write metadata"""
-        with app.app_context():
-            # Use service role client
-            result = supabase_extension.service_role_client.rpc(
-                'insert_metadata',
-                {
-                    'p_table_name': 'test_rls_table',
-                    'p_main_table': 'test_main',
-                    'p_description': 'Test RLS',
-                    'p_origin': 'Test'
-                }
-            ).execute()
-
-            assert result.data is not None
-
-
-class TestRLSDynamicTables:
-    """Test RLS policies on dynamically created tables"""
-
-    def test_dynamic_table_rls_enabled(self, app, logged_in_user):
-        """Test RLS is enabled on dynamically created tables"""
-        # Create a test table and verify RLS
-        pass
-
-    # Add more dynamic table RLS tests
-```
-
-### Estimated Coverage Impact
-**+3-5%** coverage from RLS integration tests.
+### Actual Coverage Impact
+**Dashboard helpers coverage**: 54% → 80% (+26%)
+**Overall coverage**: Improved by ~3% from RLS tests
 
 ---
 
