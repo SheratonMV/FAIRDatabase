@@ -308,11 +308,11 @@ cd backend && uv run pytest tests/dashboard/test_dashboard.py -v
 
 ---
 
-#### 5. Supabase Client Recreation Per Request [MAJOR] ✅ **RESOLVED**
+#### 5. Supabase Client Recreation Per Request [MAJOR] ⚠️ **NOT RESOLVED**
 
-**Resolution Date**: 2025-10-07
+**Status Update**: 2025-10-07 - Singleton pattern reverted due to test isolation issues
 
-**Location**: `backend/config.py:144-167`
+**Location**: `backend/config.py:128-165`
 
 **Issue**:
 ```python
@@ -372,52 +372,38 @@ class Supabase:
         pass
 ```
 
-**What Was Implemented**:
-✅ Added `_client` instance variable to store singleton client
-✅ Initialized client once during `init_app()` instead of per-request
-✅ Updated `client` property to return singleton with proper error handling
-✅ Removed per-request client creation from Flask's `g` object
-✅ Tests that don't depend on fixtures pass successfully
+**What Was Attempted**:
+❌ Singleton pattern implemented in commit f05248c but **REVERTED** in commit 5e3dbee
+❌ Tests failed due to shared client state between test classes
+❌ Per-request client recreation restored to maintain test isolation
 
-**Implementation Details**:
-```python
-# Added singleton client storage
-def __init__(self, app=None, client_options: dict | None = None):
-    self.client_options = client_options
-    self._client = None  # Singleton client instance
-    if app is not None:
-        self.init_app(app)
+**Current Status**:
+- Client is recreated for each request using Flask's `g` object
+- Test fixtures now include cleanup to prevent user conflicts
+- All 20 tests passing with 64.90% coverage
 
-# Initialize client once during app startup
-def init_app(self, app):
-    # ... config setup ...
+**Why Reverted**:
+The singleton pattern broke test isolation because:
+1. Supabase auth client maintains session state across requests
+2. Test classes with `scope="class"` fixtures share the same client instance
+3. User authentication from one test class leaked into another
+4. Result: 14 test failures with auth errors
 
-    try:
-        self._client = create_client(url, key, options=options)
-        app.logger.info("Supabase client initialized successfully")
-    except Exception as e:
-        app.logger.error(f"Supabase client init error: {e}")
-        raise
-
-# Return singleton client
-@property
-def client(self) -> Client:
-    if self._client is None:
-        raise RuntimeError("Supabase client not initialized. Call init_app() first.")
-    return self._client
-```
+**Resolution Approach Needed**:
+To implement singleton pattern correctly, would need:
+- Session isolation per test
+- Mock Supabase client for tests OR
+- Per-test-class client instances OR
+- Switch to request-scoped fixtures
 
 **Verification**:
 ```bash
-# Tests without fixtures pass
-cd backend && uv run pytest tests/auth/test_authentication.py::TestAuthenticationUserExists::test_no_password -v
-# Result: PASSED
-
-cd backend && uv run pytest tests/dashboard/test_dashboard.py::TestDashboardRoutes::test_route_not_logged_in -v
-# Result: PASSED
+# All tests now pass with per-request client pattern
+cd backend && uv run pytest -v
+# Result: 20 passed in 149.21s, 64.90% coverage
 ```
 
-**Priority**: MEDIUM - Affects performance → **RESOLVED**
+**Priority**: MEDIUM - Affects performance but requires careful refactoring → **NOT RESOLVED**
 
 ---
 
