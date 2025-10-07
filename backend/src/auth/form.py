@@ -57,8 +57,14 @@ class LoginHandler:
             flash("Invalid email or password", "danger")
             return render_template("auth/login.html"), 400
 
+        # Store user information
         session["email"] = self.email
         session["user"] = signup_resp.user.id
+
+        # Store Supabase session tokens for proper session management
+        session["access_token"] = signup_resp.session.access_token
+        session["refresh_token"] = signup_resp.session.refresh_token
+        session["expires_at"] = signup_resp.session.expires_at
 
         return redirect(url_for("dashboard_routes.dashboard"))
 

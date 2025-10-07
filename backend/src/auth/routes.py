@@ -68,7 +68,16 @@ def logout():
       302:
         description: Redirect to the home page after successful logout.
     """
+    # Clear user authentication data
     session.pop("user", None)
+    session.pop("email", None)
+
+    # Clear Supabase session tokens
+    session.pop("access_token", None)
+    session.pop("refresh_token", None)
+    session.pop("expires_at", None)
+
+    # Clear workflow-related session data
     session.pop("uploaded_filepath", None)
     uploaded = False
     columns_dropped = False
