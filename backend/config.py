@@ -201,8 +201,6 @@ class Supabase:
         centralized exception handling for all RPC calls. Prefer this over
         direct client.rpc() calls for consistency.
 
-        See DATABASE.md "Query Execution Convention" for more details.
-
         For better type safety, use type hints at the call site:
             data: list[TableNameResult] = supabase_extension.safe_rpc_call('get_all_tables')
 

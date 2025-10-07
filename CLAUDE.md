@@ -84,7 +84,7 @@ Remember: The best code is code that doesn't exist. The second best is simple co
 ## 🔧 Technology Stack
 
 - **Backend**: Python/Flask (may migrate to FastAPI)
-- **Database**: Supabase (PostgreSQL) - See [DATABASE.md](./DATABASE.md) for architecture details
+- **Database**: Supabase (PostgreSQL) - See database details below
 - **Frontend**: HTML templates with static assets
 - **Testing**: pytest
 - **Package Management**: uv with pyproject.toml
@@ -97,6 +97,55 @@ Remember: The best code is code that doesn't exist. The second best is simple co
 - Never use `pip`, `pip install`, or `python -m pip`
 
 **Note**: Existing code may not follow these standards. Prioritize principles over existing patterns.
+
+## 🗄️ Database Architecture
+
+### Overview
+
+FAIRDatabase uses **PostgreSQL via Supabase** with a pragmatic hybrid approach:
+- **Supabase** for migrations, RPC functions, and static table operations
+- **psycopg2** for dynamic table creation (due to PostgREST schema cache limitations)
+
+### Connection Configuration
+
+**Local Development:**
+```bash
+POSTGRES_HOST=127.0.0.1
+POSTGRES_PORT=54322
+POSTGRES_USER=postgres
+POSTGRES_SECRET=postgres
+POSTGRES_DB_NAME=postgres
+```
+
+**Production (Supabase Pooler):**
+```bash
+# Session Mode (port 5432) - For Flask/persistent backends
+POSTGRES_URL=postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres
+
+# Transaction Mode (port 6543) - For serverless only
+POSTGRES_URL=postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
+```
+
+If `POSTGRES_URL` is set, it takes precedence over individual variables.
+
+### Schema Structure
+
+All application data lives in the `_realtime` schema (not `public`):
+- `_realtime.metadata_tables` - Tracks uploaded CSV files
+- `_realtime.<dataset>_p1`, `_realtime.<dataset>_p2`, etc. - Dynamic data tables (chunked by 1200 columns)
+
+### Hybrid Architecture
+
+**Why both Supabase and psycopg2?**
+
+PostgREST (Supabase's REST layer) caches database schema for performance. Dynamically created tables aren't immediately visible to the API. Solution: use psycopg2 for the create+insert workflow, then Supabase RPC for all subsequent queries.
+
+**What uses what:**
+- **Supabase migrations**: Schema setup (`supabase/migrations/`)
+- **Supabase RPC**: Metadata queries (11 operations in `routes.py`)
+- **psycopg2**: Dynamic table creation and initial inserts (`helpers.py`)
+
+See `backend/CLAUDE.md` for Python usage patterns and `supabase/CLAUDE.md` for migration details.
 
 ## 📝 Git Workflow
 
@@ -129,10 +178,9 @@ FAIRDatabase/
 │   ├── templates/    # Jinja2 templates
 │   └── public/       # Logo images
 ├── static/            # Static assets (CSS, JS)
-├── supabase/          # Database config & migrations
+├── supabase/          # Database config & migrations + CLAUDE.md
 ├── .devcontainer/     # Dev container + CLAUDE.md
 ├── CLAUDE.md          # This file - project guide
-├── DATABASE.md        # Database architecture & reference
 └── README.md          # Project overview
 ```
 
