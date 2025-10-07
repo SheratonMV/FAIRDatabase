@@ -1,5 +1,7 @@
--- Enable Row Level Security (RLS) for FAIRDatabase
--- This migration addresses security issue #2 from SUPABASE_ASSESSMENT.md
+-- ============================================================================
+-- FAIRDatabase Row Level Security (RLS) Policies
+-- ============================================================================
+-- This migration implements comprehensive security policies
 --
 -- Security Model:
 -- 1. metadata_tables: Authenticated users can read, service role can write
@@ -8,7 +10,6 @@
 --
 -- References:
 -- - https://supabase.com/docs/guides/auth/row-level-security
--- - SUPABASE_ASSESSMENT.md Issue #2
 
 -- ============================================================================
 -- STEP 1: ENABLE RLS ON METADATA TABLES
@@ -225,15 +226,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================================
--- STEP 7: ADD PERFORMANCE INDEXES FOR RLS
--- ============================================================================
-
--- No additional indexes needed for current RLS policies since they use USING (true)
--- If future policies filter by user ID, add indexes like:
--- CREATE INDEX IF NOT EXISTS idx_metadata_user_id ON _realtime.metadata_tables(user_id);
-
--- ============================================================================
--- COMMENTS AND DOCUMENTATION
+-- DOCUMENTATION
 -- ============================================================================
 
 COMMENT ON POLICY "authenticated_users_view_metadata" ON _realtime.metadata_tables IS

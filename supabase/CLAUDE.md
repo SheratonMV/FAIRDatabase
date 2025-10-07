@@ -35,17 +35,13 @@ npx supabase migration new migration_name
 
 ### Existing Migrations
 
-1. `20250106000000_create_realtime_schema.sql` - Creates `_realtime` schema
-2. `20250106000001_create_metadata_tables.sql` - Creates `metadata_tables` table
-3. `20250106000002_create_data_table_template.sql` - Documents data table schema
-4. `20250106000003_grant_realtime_permissions.sql` - Grants permissions to Supabase roles
-5. `20250106000004_create_dynamic_table_rpc.sql` - Creates `create_data_table()` RPC (not used)
-6. `20250107000000_create_rpc_functions.sql` - Creates all RPC functions
-7. `20251007072239_enable_rls_policies.sql` - Enables row-level security
+1. `20250106000000_initial_schema.sql` - Creates `_realtime` schema, `metadata_tables` table, and base permissions
+2. `20250107000000_rpc_functions.sql` - Creates all RPC functions (11 total)
+3. `20251007000000_enable_rls.sql` - Enables row-level security and updates `create_data_table()` RPC
 
 ## RPC Functions
 
-All functions defined in `migrations/20250107000000_create_rpc_functions.sql`.
+All functions defined in `migrations/20250107000000_rpc_functions.sql`.
 
 ### Metadata Operations
 
