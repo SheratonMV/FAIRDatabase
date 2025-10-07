@@ -179,6 +179,13 @@ def registered_user(app, client):
       400:
         description: Registration failed (e.g., duplicate email).
     """
+    # Clean up any existing test user first
+    with app.app_context():
+        user_list = supabase_extension.client.auth.admin.list_users()
+        existing_user = next((u for u in user_list if u.email == TEST_EMAIL), None)
+        if existing_user:
+            supabase_extension.client.auth.admin.delete_user(existing_user.id)
+
     response = client.post(
         "/auth/register",
         data={"email": TEST_EMAIL, "password": TEST_PASSWORD},
@@ -227,6 +234,13 @@ def logged_in_user(app, client):
       401:
         description: Login failed due to invalid credentials.
     """
+    # Clean up any existing test user first
+    with app.app_context():
+        user_list = supabase_extension.client.auth.admin.list_users()
+        existing_user = next((u for u in user_list if u.email == TEST_EMAIL), None)
+        if existing_user:
+            supabase_extension.client.auth.admin.delete_user(existing_user.id)
+
     client.post(
         "/auth/register",
         data={"email": TEST_EMAIL, "password": TEST_PASSWORD},
