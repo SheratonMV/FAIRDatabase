@@ -16,9 +16,9 @@ class BaseHandler:
         """
         Initialize BaseHandler with session data.
         """
-        self._session = session
+        # Don't store session reference - access it directly when needed
         self._ctx = {
-            "user_email": self._session.get("email"),
+            "user_email": session.get("email"),
         }
         self._filepath = None
 
@@ -27,7 +27,7 @@ class BaseHandler:
         Load DataFrame from the uploaded file path stored in session.
         """
         try:
-            self._filepath = self._filepath or self._session.get("uploaded_filepath", "")
+            self._filepath = self._filepath or session.get("uploaded_filepath", "")
 
             if not self._filepath:
                 raise GenericExceptionHandler(
@@ -64,13 +64,16 @@ class BaseHandler:
         if df is None or not isinstance(df, pd.DataFrame):
             raise GenericExceptionHandler("Invalid DataFrame provided.", status_code=400)
 
-        try:
-            if not self._filepath:
-                raise GenericExceptionHandler(
-                    "No file path set for saving DataFrame.", status_code=400
-                )
+        if not self._filepath:
+            raise GenericExceptionHandler(
+                "No file path set for saving DataFrame.", status_code=400
+            )
 
+        try:
             df.to_csv(self._filepath, index=False)
+        except GenericExceptionHandler:
+            # Re-raise our own exceptions without wrapping
+            raise
         except Exception as e:
             raise GenericExceptionHandler(f"Failed to save DataFrame: {str(e)}", status_code=500)
 
@@ -79,9 +82,8 @@ class BaseHandler:
         Update session with provided key-value pairs.
         """
         try:
-            self._session.update(updates)
-            if hasattr(self._session, "modified"):
-                self._session.modified = True
+            session.update(updates)
+            session.modified = True
         except Exception as e:
             raise GenericExceptionHandler(f"Failed to update session: {str(e)}", status_code=500)
 

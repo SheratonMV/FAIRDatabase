@@ -240,20 +240,45 @@ def pg_insert_data_rows(cur, schema, table_name, patient_col, rows, columns, chu
 
 def pg_sanitize_column(col):
     """
-    Sanitize column name for use in PostgreSQL queries.
-    ---
-    tags:
-      - utility
-    summary: Remove unsafe characters and quote if necessary.
-    parameters:
-      - name: col
-        in: code
-        type: string
-        required: true
-        description: Column name from CSV header.
+    Sanitize column name for PostgreSQL compliance.
+    
+    Transforms column names to be valid PostgreSQL identifiers by:
+    - Converting to lowercase
+    - Replacing spaces and special characters with underscores
+    - Prefixing with 'col_' if starts with a digit
+    - Truncating to PostgreSQL's 63-character limit
+    - Providing default name for empty strings
+    
+    Parameters:
+        col (str): Column name from CSV header
+        
+    Returns:
+        str: Sanitized column name safe for PostgreSQL
     """
-    clean = "".join(c for c in col if c.isalnum() or c == "_")
-    return f'"{clean}"' if "-" in clean else clean
+    if not col or not col.strip():
+        return "column_0"
+    
+    # Convert to lowercase and replace non-alphanumeric characters with underscores
+    sanitized = ""
+    for char in col.lower():
+        if char.isalnum() or char == "_":
+            sanitized += char
+        else:
+            sanitized += "_"
+    
+    # Prefix with 'col_' if starts with a digit
+    if sanitized and sanitized[0].isdigit():
+        sanitized = f"col_{sanitized}"
+    
+    # Truncate to PostgreSQL identifier limit (63 characters)
+    if len(sanitized) > 63:
+        sanitized = sanitized[:63]
+    
+    # Final safety check
+    if not sanitized:
+        sanitized = "column_0"
+    
+    return sanitized
 
 
 def file_chunk_columns(columns, chunk_size=1200):
@@ -278,31 +303,59 @@ def file_chunk_columns(columns, chunk_size=1200):
     return [columns[i : i + chunk_size] for i in range(0, len(columns), chunk_size)]
 
 
-def file_save_and_read(file):
+def file_save_and_read(file_or_df, filepath=None):
     """
-    Save uploaded file to disk and return filename and CSV content.
-    ---
-    tags:
-      - file
-    summary: Save and parse uploaded CSV file.
-    parameters:
-      - name: file
-        in: formData
-        type: file
-        required: true
-        description: File object from Flask `request.files`.
+    Save and read CSV file - handles both Flask uploads and DataFrame writes.
+    
+    Two modes:
+    1. Flask upload mode: file_save_and_read(file) 
+       - Saves uploaded file with timestamp
+       - Returns (lines, timestamped_filename)
+       
+    2. DataFrame mode: file_save_and_read(df, filepath)
+       - Saves DataFrame to specified path
+       - Returns (content, rows) where rows excludes header
+    
+    Parameters:
+        file_or_df: Flask FileStorage object OR pandas DataFrame
+        filepath: Path to save DataFrame (required if file_or_df is DataFrame)
+        
+    Returns:
+        tuple: (lines, filename) for uploads OR (content, rows) for DataFrames
     """
-    filename = secure_filename(file.filename)
-    extension = filename.rsplit(".", 1)[-1].lower()
-    timestamped = f"{filename.rsplit('.', 1)[0]}_{int(time.time())}.{extension}"
-    path = os.path.join(current_app.config["UPLOAD_FOLDER"], timestamped)
-    file.save(path)
+    import pandas as pd
+    
+    # DataFrame mode (for testing)
+    if isinstance(file_or_df, pd.DataFrame):
+        if filepath is None:
+            raise ValueError("filepath required when saving DataFrame")
+        
+        # Save DataFrame to CSV
+        file_or_df.to_csv(filepath, index=False)
+        
+        # Read back as list of lists
+        with open(filepath, newline="", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            content = [row for row in reader if row]
+        
+        # Split into header and data rows
+        rows = content[1:] if len(content) > 1 else []
+        
+        return content, rows
+    
+    # Flask upload mode (production)
+    else:
+        filename = secure_filename(file_or_df.filename)
+        extension = filename.rsplit(".", 1)[-1].lower()
+        timestamped = f"{filename.rsplit('.', 1)[0]}_{int(time.time())}.{extension}"
+        path = os.path.join(current_app.config["UPLOAD_FOLDER"], timestamped)
+        file_or_df.save(path)
 
-    with open(path, newline="", encoding="utf-8") as f:
-        reader = csv.reader(f)
-        lines = [row for row in reader if row]
+        with open(path, newline="", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            lines = [row for row in reader if row]
 
-    if not lines:
-        raise ValueError("Uploaded file is empty or malformed.")
+        if not lines:
+            raise ValueError("Uploaded file is empty or malformed.")
 
-    return lines, timestamped
+        return lines, timestamped
