@@ -35,9 +35,10 @@ npx supabase migration new migration_name
 
 ### Existing Migrations
 
-1. `20250106000000_initial_schema.sql` - Creates `_realtime` schema, `metadata_tables` table, and base permissions
-2. `20250107000000_rpc_functions.sql` - Creates all RPC functions (11 total)
-3. `20251007000000_enable_rls.sql` - Enables row-level security and updates `create_data_table()` RPC
+1. `20250105000000_enable_pgtap.sql` - Enables pgTAP extension for database testing
+2. `20250106000000_initial_schema.sql` - Creates `_realtime` schema, `metadata_tables` table, and base permissions
+3. `20250107000000_rpc_functions.sql` - Creates all RPC functions (11 total)
+4. `20251007000000_enable_rls.sql` - Enables row-level security and updates `create_data_table()` RPC
 
 ## RPC Functions
 
@@ -98,6 +99,57 @@ print(result.data)
 cd backend
 uv run pytest tests/dashboard/ -v
 ```
+
+## Database Testing with pgTAP
+
+FAIRDatabase uses [pgTAP](https://pgtap.org/) for database-level testing. Tests are located in `supabase/tests/`.
+
+### Running pgTAP Tests
+
+```bash
+# Run all database tests
+npx supabase test db
+
+# Reset database and run tests
+npx supabase db reset && npx supabase test db
+```
+
+### Test Files
+
+1. **`01_schema_structure.sql`** - Schema, table, and index tests
+   - Verifies `_realtime` schema exists
+   - Tests `metadata_tables` structure and columns
+   - Checks primary keys and indexes
+   - Validates RLS is enabled
+
+2. **`02_rls_policies.sql`** - Row Level Security policy tests
+   - Verifies RLS policies exist and are correctly configured
+   - Tests permissions for `anon`, `authenticated`, and `service_role`
+   - Validates policy commands (SELECT, ALL, etc.)
+
+3. **`03_rpc_functions.sql`** - RPC function tests
+   - Tests all 11 RPC functions exist with correct signatures
+   - Validates function return types
+   - Checks permissions for different roles
+   - Tests basic functionality with sample data
+
+**Test Coverage**: 58 tests across 3 files
+
+### Writing New pgTAP Tests
+
+```sql
+BEGIN;
+SELECT plan(5);  -- Number of tests
+
+-- Your tests here
+SELECT has_table('_realtime', 'new_table', 'new_table should exist');
+-- ...
+
+SELECT * FROM finish();
+ROLLBACK;
+```
+
+See [pgTAP documentation](https://pgtap.org/documentation.html) for available test functions.
 
 ## Production Deployment
 
