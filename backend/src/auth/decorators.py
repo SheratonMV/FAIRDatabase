@@ -6,17 +6,52 @@ from flask import g, redirect, session, url_for
 
 def login_required():
     """
-    Protects a route by checking for a logged-in user.
-    If `api=True`, returns a JSON 401 error instead of redirect.
+    Protects a route by validating the user's JWT token with Supabase.
+    Automatically refreshes expired tokens using the refresh token.
+    Redirects to login page if validation fails.
     """
 
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            if not session.get("user"):
+            access_token = session.get("access_token")
+            refresh_token = session.get("refresh_token")
+
+            # No tokens in session, redirect to login
+            if not access_token:
+                session.clear()
                 return redirect(url_for("main_routes.index"))
-            g.user = session["user"]
-            return f(*args, **kwargs)
+
+            from config import supabase_extension
+
+            try:
+                # Validate JWT token with Supabase
+                user_response = supabase_extension.client.auth.get_user(jwt=access_token)
+                g.user = user_response.user.id
+                return f(*args, **kwargs)
+            except Exception:
+                # Token validation failed, try to refresh
+                if refresh_token:
+                    try:
+                        refresh_resp = supabase_extension.client.auth.refresh_session(refresh_token)
+
+                        # Update session with new tokens
+                        session["access_token"] = refresh_resp.session.access_token
+                        session["refresh_token"] = refresh_resp.session.refresh_token
+                        session["expires_at"] = refresh_resp.session.expires_at
+                        session["user"] = refresh_resp.user.id
+
+                        # Set user for this request
+                        g.user = refresh_resp.user.id
+                        return f(*args, **kwargs)
+                    except Exception:
+                        # Refresh failed, clear session and redirect
+                        session.clear()
+                        return redirect(url_for("main_routes.index"))
+                else:
+                    # No refresh token, clear session and redirect
+                    session.clear()
+                    return redirect(url_for("main_routes.index"))
 
         return decorated_function
 
