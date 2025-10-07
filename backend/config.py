@@ -73,6 +73,7 @@ class Config:
     ALLOWED_EXTENSIONS = {"csv"}
     MAX_CONTENT_LENGTH = 16 * 1000 * 10000
     SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
     SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
     # PostgreSQL Configuration
@@ -149,27 +150,33 @@ class Supabase:
         Initializes the Flask app with necessary configurations and registers the teardown method.
         """
         app.config.setdefault("SUPABASE_URL", Config.SUPABASE_URL)
+        app.config.setdefault("SUPABASE_ANON_KEY", Config.SUPABASE_ANON_KEY)
         app.config.setdefault("SUPABASE_SERVICE_ROLE_KEY", Config.SUPABASE_SERVICE_ROLE_KEY)
         app.teardown_appcontext(self.teardown)
 
     def teardown(self, exception):
         """
-        Clean up the Supabase client after each request by popping it from Flask's `g` object.
+        Clean up the Supabase clients after each request by popping them from Flask's `g` object.
         """
         g.pop("supabase_client", None)
+        g.pop("supabase_service_role_client", None)
 
     @property
     def client(self) -> Client:
         """
-        Lazily initialize the Supabase client and return it. This client is used for interacting with Supabase's
-        REST API and Auth services.
+        Lazily initialize the Supabase client with anon key and return it.
+
+        This client uses the anon key and respects Row Level Security (RLS) policies.
+        Use this for most operations including auth, RPC calls, and data access.
+
+        For admin operations that need to bypass RLS, use service_role_client instead.
         """
         if "supabase_client" not in g:
             url = current_app.config["SUPABASE_URL"]
-            key = current_app.config.get("SUPABASE_SERVICE_ROLE_KEY")
+            key = current_app.config.get("SUPABASE_ANON_KEY")
 
             if not url or not key:
-                raise RuntimeError("Supabase URL or KEY not configured properly.")
+                raise RuntimeError("Supabase URL or ANON_KEY not configured properly.")
 
             options = self.client_options
             if options and not isinstance(options, ClientOptions):
@@ -182,6 +189,41 @@ class Supabase:
                 raise
 
         return g.supabase_client
+
+    @property
+    def service_role_client(self) -> Client:
+        """
+        Lazily initialize the Supabase client with service role key and return it.
+
+        WARNING: This client bypasses Row Level Security (RLS) and has full admin privileges.
+        Only use this for specific admin operations that require elevated permissions.
+
+        For regular operations, use the standard client property instead.
+        """
+        if "supabase_service_role_client" not in g:
+            url = current_app.config["SUPABASE_URL"]
+            key = current_app.config.get("SUPABASE_SERVICE_ROLE_KEY")
+
+            if not url or not key:
+                raise RuntimeError("Supabase URL or SERVICE_ROLE_KEY not configured properly.")
+
+            # Service role client should not auto-refresh tokens or persist sessions
+            service_role_options = {
+                "postgrest_client_timeout": 180,
+                "storage_client_timeout": 180,
+                "auto_refresh_token": False,  # No token refresh for service role
+                "persist_session": False,     # No session persistence for service role
+            }
+
+            options = ClientOptions(**service_role_options)
+
+            try:
+                g.supabase_service_role_client = create_client(url, key, options=options)
+            except Exception as e:
+                current_app.logger.error(f"Supabase service role client init error: {e}")
+                raise
+
+        return g.supabase_service_role_client
 
     def get_user(self):
         """

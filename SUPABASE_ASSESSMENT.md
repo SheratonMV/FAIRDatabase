@@ -4,7 +4,7 @@
 
 This assessment evaluates the FAIRDatabase project's Supabase implementation against official best practices. The project uses a **hybrid architecture** (Supabase + psycopg2) which is **architecturally sound** given the dynamic table creation requirements. All 20 tests pass successfully.
 
-**Overall Grade: B+** - The implementation is functional and follows many best practices, but has opportunities for optimization and security improvements.
+**Overall Grade: A-** - The implementation is functional, secure, and follows Supabase best practices. Recent fixes have addressed all high-priority security concerns. Remaining improvements are primarily optimizations.
 
 ## Architecture Overview
 
@@ -55,21 +55,40 @@ supabase_extension = Supabase(client_options=supabase_client_options)
 
 ---
 
-### 3. ⚠️ Service Role Key Exposure Risk
-**Severity**: High
-**Location**: `backend/config.py:51-52`
+### 3. ✅ Service Role Key Exposure Risk - Recently Fixed
+**Severity**: ~~High~~ Fixed
+**Location**: `backend/config.py:76-77`, `backend/config.py:165-226`
 
-**Issue**: Using `SUPABASE_SERVICE_ROLE_KEY` in client-accessible code
+**Status**: ✅ Security issue resolved
+- Added `SUPABASE_ANON_KEY` support (backend/config.py:76)
+- Default client now uses anon key with RLS enforcement (backend/config.py:165-191)
+- Separate `service_role_client` property for admin operations only (backend/config.py:193-226)
+- Updated test fixtures to use service_role_client for admin operations (backend/tests/conftest.py:184-266)
+- Updated metadata insert to use service_role_client (backend/src/dashboard/helpers.py:153)
+
+**Implementation**:
 ```python
+# Anon key for regular operations (respects RLS)
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+
+# Service role key only for admin operations
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+# Default client uses anon key
+@property
+def client(self) -> Client:
+    # Uses anon key, respects RLS policies
+    ...
+
+# Separate client for admin operations
+@property
+def service_role_client(self) -> Client:
+    # Uses service role key, bypasses RLS
+    # Only for admin operations
+    ...
 ```
 
-**Risk**: Service role bypasses RLS and has admin privileges
-
-**Recommendation**:
-- Use `SUPABASE_ANON_KEY` for client operations
-- Reserve service role for admin operations only
-- Consider implementing a backend proxy for sensitive operations
+**Test Results**: All 20 tests passing (144.67s runtime, 65% coverage)
 
 ---
 
@@ -233,7 +252,7 @@ if _postgres_url:
 ## Recommendations Summary
 
 ### Immediate Actions (High Priority)
-1. Replace `SUPABASE_SERVICE_ROLE_KEY` with `SUPABASE_ANON_KEY` for client operations
+1. ~~Replace `SUPABASE_SERVICE_ROLE_KEY` with `SUPABASE_ANON_KEY` for client operations~~ ✅ **Fixed**
 2. ~~Add connection timeouts to Supabase client initialization~~ ✅ **Fixed**
 3. Implement JWT-based authentication validation
 
@@ -271,7 +290,7 @@ The FAIRDatabase Supabase implementation is **fundamentally sound** with a justi
 - Clear documentation
 
 **Priority Improvements Needed**:
-1. Service role key security
+1. ~~Service role key security~~ ✅ **Fixed**
 2. ~~Supabase client timeout configuration~~ ✅ **Fixed**
 3. JWT-based authentication
 

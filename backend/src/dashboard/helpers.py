@@ -147,9 +147,10 @@ def pg_insert_metadata(cur, schema, table_name, main_table, description, origin)
 
     schema = pg_sanitize_column(schema).strip('"')  # Remove quotes added by sanitize
 
-    # Note: Always use .execute() for table operations
+    # Note: Use service_role_client for metadata inserts (requires bypassing RLS)
+    # Regular client uses anon key which only has read access to metadata_tables
     response = (
-        supabase_extension.client.schema(f"_{schema}")
+        supabase_extension.service_role_client.schema(f"_{schema}")
         .table("metadata_tables")
         .insert(
             {

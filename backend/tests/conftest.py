@@ -181,10 +181,10 @@ def registered_user(app, client):
     """
     # Clean up any existing test user first
     with app.app_context():
-        user_list = supabase_extension.client.auth.admin.list_users()
+        user_list = supabase_extension.service_role_client.auth.admin.list_users()
         existing_user = next((u for u in user_list if u.email == TEST_EMAIL), None)
         if existing_user:
-            supabase_extension.client.auth.admin.delete_user(existing_user.id)
+            supabase_extension.service_role_client.auth.admin.delete_user(existing_user.id)
 
     response = client.post(
         "/auth/register",
@@ -193,14 +193,14 @@ def registered_user(app, client):
     )
 
     with app.app_context():
-        user_list = supabase_extension.client.auth.admin.list_users()
+        user_list = supabase_extension.service_role_client.auth.admin.list_users()
         user = next((u for u in user_list if u.email == TEST_EMAIL), None)
         if user is None:
             pytest.fail("Test user was not created in Supabase")
 
         yield response, user
 
-        supabase_extension.client.auth.admin.delete_user(user.id)
+        supabase_extension.service_role_client.auth.admin.delete_user(user.id)
 
 
 @pytest.fixture(scope="class")
@@ -236,10 +236,10 @@ def logged_in_user(app, client):
     """
     # Clean up any existing test user first
     with app.app_context():
-        user_list = supabase_extension.client.auth.admin.list_users()
+        user_list = supabase_extension.service_role_client.auth.admin.list_users()
         existing_user = next((u for u in user_list if u.email == TEST_EMAIL), None)
         if existing_user:
-            supabase_extension.client.auth.admin.delete_user(existing_user.id)
+            supabase_extension.service_role_client.auth.admin.delete_user(existing_user.id)
 
     client.post(
         "/auth/register",
@@ -256,14 +256,14 @@ def logged_in_user(app, client):
     assert response.status_code == 200
 
     with app.app_context():
-        users = supabase_extension.client.auth.admin.list_users()
+        users = supabase_extension.service_role_client.auth.admin.list_users()
         user = next((u for u in users if u.email == TEST_EMAIL), None)
         if not user:
             pytest.fail("Logged-in user not found in Supabase.")
 
         yield client, user
 
-        supabase_extension.client.auth.admin.delete_user(user.id)
+        supabase_extension.service_role_client.auth.admin.delete_user(user.id)
 
 
 @pytest.fixture
