@@ -270,14 +270,77 @@ class Supabase:
             exists: bool = supabase_extension.safe_rpc_call('table_exists', {'p_table_name': 'my_table'})
         """
         from src.exceptions import GenericExceptionHandler
+        from postgrest.exceptions import APIError
+        from httpx import ConnectError, TimeoutException, HTTPStatusError, RequestError
 
         try:
             response = self.client.rpc(function_name, params or {}).execute()
             return response.data
-        except Exception as e:
-            current_app.logger.error(f"RPC {function_name} failed: {e}")
+        except APIError as e:
+            # PostgREST API errors with detailed context
+            current_app.logger.error(
+                f"RPC {function_name} API error - Code: {e.code}, Message: {e.message}, "
+                f"Hint: {e.hint}, Details: {e.details}"
+            )
+
+            # Handle specific PostgreSQL error codes
+            if e.code == '42883':  # undefined_function
+                raise GenericExceptionHandler(
+                    f"Function '{function_name}' not found in database", status_code=404
+                ) from e
+            elif e.code == 'PGRST204':  # No rows returned
+                return []
+            elif e.code == '42P01':  # undefined_table
+                raise GenericExceptionHandler(
+                    f"Table not found for function '{function_name}'", status_code=404
+                ) from e
+            elif e.code in ('42501', '42502'):  # insufficient_privilege
+                raise GenericExceptionHandler(
+                    f"Permission denied for function '{function_name}'", status_code=403
+                ) from e
+            elif e.code == '23505':  # unique_violation
+                raise GenericExceptionHandler(
+                    f"Duplicate entry: {e.message or 'Record already exists'}", status_code=409
+                ) from e
+            elif e.code == '23503':  # foreign_key_violation
+                raise GenericExceptionHandler(
+                    f"Foreign key constraint violation: {e.message}", status_code=409
+                ) from e
+            else:
+                # Generic database error with preserved context
+                error_msg = f"Database error in '{function_name}': {e.message or str(e)}"
+                if e.hint:
+                    error_msg += f" (Hint: {e.hint})"
+                raise GenericExceptionHandler(error_msg, status_code=500) from e
+        except TimeoutException as e:
+            current_app.logger.error(f"RPC {function_name} timeout: {e}")
             raise GenericExceptionHandler(
-                f"Database operation failed: {str(e)}", status_code=500
+                f"Request timeout for function '{function_name}'. Operation took too long.",
+                status_code=504
+            ) from e
+        except ConnectError as e:
+            current_app.logger.error(f"RPC {function_name} connection error: {e}")
+            raise GenericExceptionHandler(
+                f"Cannot connect to database for function '{function_name}'. Service may be unavailable.",
+                status_code=503
+            ) from e
+        except HTTPStatusError as e:
+            current_app.logger.error(f"RPC {function_name} HTTP error: {e.response.status_code}")
+            raise GenericExceptionHandler(
+                f"HTTP error {e.response.status_code} for function '{function_name}'",
+                status_code=e.response.status_code
+            ) from e
+        except RequestError as e:
+            current_app.logger.error(f"RPC {function_name} request error: {e}")
+            raise GenericExceptionHandler(
+                f"Network error for function '{function_name}': {str(e)}",
+                status_code=503
+            ) from e
+        except Exception as e:
+            # Catch-all for unexpected errors
+            current_app.logger.error(f"RPC {function_name} unexpected error: {type(e).__name__}: {e}")
+            raise GenericExceptionHandler(
+                f"Unexpected error in '{function_name}': {str(e)}", status_code=500
             ) from e
 
 
