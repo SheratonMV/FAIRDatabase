@@ -128,6 +128,73 @@ response = (
 )
 ```
 
+### Query Execution Convention
+
+**IMPORTANT**: Always call `.execute()` explicitly on Supabase queries for clarity and consistency.
+
+#### When `.execute()` is Required
+
+```python
+# ✅ RPC calls - ALWAYS use .execute()
+response = supabase_extension.client.rpc('function_name', params).execute()
+
+# ✅ Table queries - ALWAYS use .execute()
+response = (
+    supabase_extension.client
+    .schema('_realtime')
+    .table('metadata_tables')
+    .select('*')
+    .execute()
+)
+
+# ✅ Insert/Update/Delete - ALWAYS use .execute()
+response = (
+    supabase_extension.client
+    .table('my_table')
+    .insert({'key': 'value'})
+    .execute()
+)
+```
+
+#### When `.execute()` is NOT Required
+
+```python
+# ✅ Auth operations return results directly
+user = supabase_extension.client.auth.sign_in_with_password(email, password)
+session = supabase_extension.client.auth.refresh_session(token)
+users = supabase_extension.client.auth.admin.list_users()
+```
+
+#### Recommended Helper: `safe_rpc_call()`
+
+For RPC operations, use the `safe_rpc_call()` helper which provides consistent error handling:
+
+```python
+from config import supabase_extension
+
+# Replaces: supabase_extension.client.rpc('function', params).execute()
+data = supabase_extension.safe_rpc_call('function_name', {'param': 'value'})
+
+# Automatically handles:
+# - .execute() chaining
+# - Exception catching and logging
+# - Consistent error responses
+```
+
+**Chaining Format**: Use parentheses for multi-line queries to improve readability:
+
+```python
+# Good - clear chaining
+response = (
+    supabase_extension.client
+    .rpc('get_all_tables')
+    .execute()
+)
+
+# Also acceptable - single line for simple queries
+response = supabase_extension.client.rpc('get_all_tables').execute()
+```
+
 ### psycopg2 (Dynamic Tables Only)
 
 ```python

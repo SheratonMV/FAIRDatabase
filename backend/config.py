@@ -177,6 +177,12 @@ class Supabase:
     def safe_rpc_call(self, function_name: str, params: dict | None = None):
         """
         Execute Supabase RPC with consistent error handling.
+
+        This method automatically handles .execute() chaining and provides
+        centralized exception handling for all RPC calls. Prefer this over
+        direct client.rpc() calls for consistency.
+
+        See DATABASE.md "Query Execution Convention" for more details.
         ---
         tags:
           - supabase_rpc
@@ -194,6 +200,9 @@ class Supabase:
           description: response.data if successful
         raises:
           GenericExceptionHandler: with appropriate status code and error message
+
+        Example:
+            data = supabase_extension.safe_rpc_call('get_all_tables', {'schema_name': '_realtime'})
         """
         from src.exceptions import GenericExceptionHandler
 
