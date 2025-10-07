@@ -122,47 +122,44 @@ class Supabase:
         Initialize the SupabaseClient instance.
         """
         self.client_options = client_options
+        self._client = None  # Singleton client instance
         if app is not None:
             self.init_app(app)
 
     def init_app(self, app):
         """
-        Initializes the Flask app with necessary configurations and registers the teardown method.
+        Initializes the Flask app with necessary configurations and creates a singleton Supabase client.
         """
         app.config.setdefault("SUPABASE_URL", Config.SUPABASE_URL)
         app.config.setdefault("SUPABASE_SERVICE_ROLE_KEY", Config.SUPABASE_SERVICE_ROLE_KEY)
-        app.teardown_appcontext(self.teardown)
 
-    def teardown(self, exception):
-        """
-        Clean up the Supabase client after each request by popping it from Flask's `g` object.
-        """
-        g.pop("supabase_client", None)
+        # Initialize client once during app startup
+        url = app.config["SUPABASE_URL"]
+        key = app.config.get("SUPABASE_SERVICE_ROLE_KEY")
+
+        if not url or not key:
+            raise RuntimeError("Supabase URL or KEY not configured properly.")
+
+        options = self.client_options
+        if options and not isinstance(options, ClientOptions):
+            options = ClientOptions(**options)
+
+        try:
+            self._client = create_client(url, key, options=options)
+            app.logger.info("Supabase client initialized successfully")
+        except Exception as e:
+            app.logger.error(f"Supabase client init error: {e}")
+            raise
 
     @property
     def client(self) -> Client:
         """
-        Lazily initialize the Supabase client and return it. This client is used for interacting with Supabase's
+        Return the singleton Supabase client. This client is used for interacting with Supabase's
         REST API and Auth services.
         """
-        if "supabase_client" not in g:
-            url = current_app.config["SUPABASE_URL"]
-            key = current_app.config.get("SUPABASE_SERVICE_ROLE_KEY")
-
-            if not url or not key:
-                raise RuntimeError("Supabase URL or KEY not configured properly.")
-
-            options = self.client_options
-            if options and not isinstance(options, ClientOptions):
-                options = ClientOptions(**options)
-
-            try:
-                g.supabase_client = create_client(url, key, options=options)
-            except Exception as e:
-                current_app.logger.error(f"Supabase client init error: {e}")
-                raise
-
-        return g.supabase_client
+        if self._client is None:
+            raise RuntimeError("Supabase client not initialized. Call init_app() first.")
+        return self._client
 
     def get_user(self):
         """
