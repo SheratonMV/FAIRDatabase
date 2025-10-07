@@ -174,6 +174,38 @@ class Supabase:
             current_app.logger.error(f"Error getting user: {e}")
             return None
 
+    def safe_rpc_call(self, function_name: str, params: dict | None = None):
+        """
+        Execute Supabase RPC with consistent error handling.
+        ---
+        tags:
+          - supabase_rpc
+        parameters:
+          - name: function_name
+            type: string
+            required: true
+            description: Name of the RPC function to call.
+          - name: params
+            type: object
+            required: false
+            description: Dictionary of parameters to pass to the RPC function.
+        returns:
+          type: object
+          description: response.data if successful
+        raises:
+          GenericExceptionHandler: with appropriate status code and error message
+        """
+        from src.exceptions import GenericExceptionHandler
+
+        try:
+            response = self.client.rpc(function_name, params or {}).execute()
+            return response.data
+        except Exception as e:
+            current_app.logger.error(f"RPC {function_name} failed: {e}")
+            raise GenericExceptionHandler(
+                f"Database operation failed: {str(e)}", status_code=500
+            ) from e
+
 
 # Global connection pool
 connection_pool = None

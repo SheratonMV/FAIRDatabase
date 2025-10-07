@@ -160,47 +160,40 @@ def display():
     if request.method == "GET" and search_term:
         search_column, _, _ = search_term
 
-        try:
-            response = supabase_extension.client.rpc(
-                "search_tables_by_column", {"search_column": search_column}
-            ).execute()
-            matching_tables = [(row["table_name"],) for row in response.data]
-        except Exception as e:
-            raise GenericExceptionHandler(f"Schema query failed: {str(e)}", status_code=500)
+        data = supabase_extension.safe_rpc_call(
+            "search_tables_by_column", {"search_column": search_column}
+        )
+        matching_tables = [(row["table_name"],) for row in data]
 
         results = {}
         total_rows = total_columns = 0
 
         for (table,) in matching_tables:
-            try:
-                response = supabase_extension.client.rpc(
-                    "get_table_columns", {"p_table_name": table}
-                ).execute()
-                columns = [row["column_name"] for row in response.data]
+            columns_data = supabase_extension.safe_rpc_call(
+                "get_table_columns", {"p_table_name": table}
+            )
+            columns = [row["column_name"] for row in columns_data]
 
-                response = supabase_extension.client.rpc(
-                    "select_from_table", {"p_table_name": table, "p_limit": 1000000}
-                ).execute()
+            table_data = supabase_extension.safe_rpc_call(
+                "select_from_table", {"p_table_name": table, "p_limit": 1000000}
+            )
 
-                # Convert JSONB data to tuples matching column order
-                rows = []
-                for row in response.data:
-                    row_data = row["data"]
-                    rows.append(tuple(row_data.get(col) for col in columns))
+            # Convert JSONB data to tuples matching column order
+            rows = []
+            for row in table_data:
+                row_data = row["data"]
+                rows.append(tuple(row_data.get(col) for col in columns))
 
-                if not rows:
-                    continue
+            if not rows:
+                continue
 
-                df = pd.DataFrame(rows, columns=columns)
-                if not df.empty:
-                    df.drop(df.columns[0], axis=1, inplace=True)
+            df = pd.DataFrame(rows, columns=columns)
+            if not df.empty:
+                df.drop(df.columns[0], axis=1, inplace=True)
 
-                results[table] = df
-                total_rows += len(rows)
-                total_columns += len(columns)
-
-            except Exception as e:
-                raise GenericExceptionHandler(f"Schema query failed: {str(e)}", status_code=500)
+            results[table] = df
+            total_rows += len(rows)
+            total_columns += len(columns)
 
         if not results:
             raise GenericExceptionHandler("No matching data found", status_code=404)
@@ -263,8 +256,8 @@ def search():
     current_path = request.path
 
     if request.method == "GET":
-        response = supabase_extension.client.rpc("get_all_tables").execute()
-        table_names = [row["table_name"] for row in response.data]
+        data = supabase_extension.safe_rpc_call("get_all_tables")
+        table_names = [row["table_name"] for row in data]
 
         return render_template(
             "/dashboard/search.html",
@@ -283,17 +276,13 @@ def search():
 
         session["search_term"] = [search_term, seq_a, seq_na]
 
-        try:
-            response = supabase_extension.client.rpc(
-                "search_tables_by_column", {"search_column": search_term}
-            ).execute()
-            search_results = [row["table_name"] for row in response.data]
+        search_data = supabase_extension.safe_rpc_call(
+            "search_tables_by_column", {"search_column": search_term}
+        )
+        search_results = [row["table_name"] for row in search_data]
 
-            response = supabase_extension.client.rpc("get_all_tables").execute()
-            table_names = [row["table_name"] for row in response.data]
-
-        except Exception as e:
-            raise GenericExceptionHandler(f"Failed to fetch rows: {str(e)}", status_code=500)
+        all_tables_data = supabase_extension.safe_rpc_call("get_all_tables")
+        table_names = [row["table_name"] for row in all_tables_data]
 
         return render_template(
             "/dashboard/search.html",
@@ -332,30 +321,23 @@ def update():
         column_name = request.form.get("column_name")
         new_value = request.form.get("new_value")
 
-        try:
-            response = supabase_extension.client.rpc(
-                "search_tables_by_column", {"search_column": column_name}
-            ).execute()
-            tables = [row["table_name"] for row in response.data]
-        except Exception as e:
-            raise GenericExceptionHandler(f"Failed to select rows: {str(e)}", status_code=500)
+        data = supabase_extension.safe_rpc_call(
+            "search_tables_by_column", {"search_column": column_name}
+        )
+        tables = [row["table_name"] for row in data]
 
         if not tables:
             raise GenericExceptionHandler("No matching data found", status_code=404)
 
-        try:
-            for table in tables:
-                supabase_extension.client.rpc(
-                    "update_table_row",
-                    {
-                        "p_table_name": table,
-                        "p_row_id": int(row_id),
-                        "p_updates": {column_name: new_value},
-                    },
-                ).execute()
-
-        except Exception as e:
-            raise GenericExceptionHandler(f"Failed to update rows: {str(e)}", status_code=500)
+        for table in tables:
+            supabase_extension.safe_rpc_call(
+                "update_table_row",
+                {
+                    "p_table_name": table,
+                    "p_row_id": int(row_id),
+                    "p_updates": {column_name: new_value},
+                },
+            )
 
     return (
         render_template("/dashboard/update.html", user_email=user_email, current_path=request.path),
@@ -398,17 +380,9 @@ def table_preview():
             status_code=400,
         )
 
-    try:
-        response = supabase_extension.client.rpc(
-            "table_exists", {"p_table_name": table_name}
-        ).execute()
-        table_exists = response.data
-
-    except Exception as e:
-        raise GenericExceptionHandler(
-            message=f"Error fetching table information: {str(e)}",
-            status_code=500,
-        )
+    table_exists = supabase_extension.safe_rpc_call(
+        "table_exists", {"p_table_name": table_name}
+    )
 
     if not table_exists:
         raise GenericExceptionHandler(
@@ -416,27 +390,20 @@ def table_preview():
             status_code=404,
         )
 
-    try:
-        response = supabase_extension.client.rpc(
-            "get_table_columns", {"p_table_name": table_name}
-        ).execute()
-        columns = [row["column_name"] for row in response.data]
+    columns_data = supabase_extension.safe_rpc_call(
+        "get_table_columns", {"p_table_name": table_name}
+    )
+    columns = [row["column_name"] for row in columns_data]
 
-        response = supabase_extension.client.rpc(
-            "select_from_table", {"p_table_name": table_name, "p_limit": 100}
-        ).execute()
+    table_data = supabase_extension.safe_rpc_call(
+        "select_from_table", {"p_table_name": table_name, "p_limit": 100}
+    )
 
-        # Convert JSONB data to tuples matching column order
-        rows = []
-        for row in response.data:
-            row_data = row["data"]
-            rows.append(tuple(row_data.get(col) for col in columns))
-
-    except Exception as e:
-        raise GenericExceptionHandler(
-            message=f"Error selecting data: {str(e)}",
-            status_code=500,
-        )
+    # Convert JSONB data to tuples matching column order
+    rows = []
+    for row in table_data:
+        row_data = row["data"]
+        rows.append(tuple(row_data.get(col) for col in columns))
 
     df = pd.DataFrame(rows, columns=columns)
     df_preview = df.iloc[:15, :8]
