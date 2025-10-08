@@ -10,6 +10,7 @@ Tests cover:
 """
 
 from hashlib import sha256
+from uuid import UUID
 
 import pandas as pd
 
@@ -22,6 +23,10 @@ from src.dashboard.helpers import (
     pg_insert_metadata,
     pg_sanitize_column,
 )
+
+# Test user ID for user-level data isolation tests
+# Convert to string for psycopg2 compatibility
+TEST_USER_ID = str(UUID("00000000-0000-0000-0000-000000000001"))
 
 
 class TestPgSanitizeColumn:
@@ -291,9 +296,9 @@ class TestPgCreateDataTable:
                     WHERE table_schema = '_realtime'
                     AND table_name = 'test_table_wide'
                 """)
-                # Should have 100 + rowid + patient_id = 102 columns
+                # Should have 100 + rowid + patient_id + user_id = 103 columns
                 column_count = cur.fetchone()[0]
-                assert column_count == 102
+                assert column_count == 103
 
             finally:
                 cur.execute("DROP TABLE IF EXISTS _realtime.test_table_wide CASCADE")
@@ -321,7 +326,7 @@ class TestPgInsertDataRows:
                 # Insert data
                 rows = [["P123", "45", "M"]]
                 pg_insert_data_rows(
-                    cur, "realtime", "test_insert_single", "patient_id", rows, columns, 0
+                    cur, "realtime", "test_insert_single", "patient_id", rows, columns, 0, TEST_USER_ID
                 )
                 conn.commit()
 
@@ -359,7 +364,7 @@ class TestPgInsertDataRows:
                     ["P3", "300"],
                 ]
                 pg_insert_data_rows(
-                    cur, "realtime", "test_insert_multi", "patient_id", rows, columns, 0
+                    cur, "realtime", "test_insert_multi", "patient_id", rows, columns, 0, TEST_USER_ID
                 )
                 conn.commit()
 
@@ -390,7 +395,7 @@ class TestPgInsertDataRows:
                     ["P2", "200"],
                 ]
                 pg_insert_data_rows(
-                    cur, "realtime", "test_hash_unique", "patient_id", rows, columns, 0
+                    cur, "realtime", "test_hash_unique", "patient_id", rows, columns, 0, TEST_USER_ID
                 )
                 conn.commit()
 
@@ -425,7 +430,7 @@ class TestPgInsertDataRows:
                     ["P3", "value3"],  # Valid
                 ]
                 pg_insert_data_rows(
-                    cur, "realtime", "test_skip_malformed", "patient_id", rows, columns, 0
+                    cur, "realtime", "test_skip_malformed", "patient_id", rows, columns, 0, TEST_USER_ID
                 )
                 conn.commit()
 
@@ -454,7 +459,7 @@ class TestPgInsertDataRows:
 
                 # Data row with patient ID + 5 column values
                 rows = [["P1", "v0", "v1", "v2", "v3", "v4"]]
-                pg_insert_data_rows(cur, "realtime", "test_chunk_0", "patient_id", rows, columns, 0)
+                pg_insert_data_rows(cur, "realtime", "test_chunk_0", "patient_id", rows, columns, 0, TEST_USER_ID)
                 conn.commit()
 
                 # Verify insertion
@@ -481,7 +486,7 @@ class TestPgInsertDataRows:
 
                 # Empty rows
                 pg_insert_data_rows(
-                    cur, "realtime", "test_empty_rows", "patient_id", [], columns, 0
+                    cur, "realtime", "test_empty_rows", "patient_id", [], columns, 0, TEST_USER_ID
                 )
                 conn.commit()
 
@@ -605,7 +610,7 @@ class TestPgInsertMetadata:
                 # Insert metadata
                 table_name = "test_meta_table"
                 pg_insert_metadata(
-                    cur, "realtime", table_name, table_name, "Test description", "Test origin"
+                    cur, "realtime", table_name, table_name, "Test description", "Test origin", TEST_USER_ID
                 )
                 conn.commit()
 

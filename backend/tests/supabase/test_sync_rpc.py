@@ -15,7 +15,7 @@ class TestSyncRPCCall:
         """Test successful RPC call returns data"""
         with app.app_context():
             result = supabase_extension.safe_rpc_call(
-                "get_all_tables", {"schema_name": "_realtime"}
+                "get_all_tables", {"p_schema_name": "_realtime"}
             )
 
             assert isinstance(result, list)
@@ -26,7 +26,7 @@ class TestSyncRPCCall:
         """Test table_exists RPC returns True for existing table"""
         with app.app_context():
             result = supabase_extension.safe_rpc_call(
-                "table_exists", {"p_table_name": "metadata_tables", "schema_name": "_realtime"}
+                "table_exists", {"p_table_name": "metadata_tables", "p_schema_name": "_realtime"}
             )
 
             assert result is True
@@ -35,7 +35,7 @@ class TestSyncRPCCall:
         """Test table_exists RPC returns False for non-existent table"""
         with app.app_context():
             result = supabase_extension.safe_rpc_call(
-                "table_exists", {"p_table_name": "nonexistent_table", "schema_name": "_realtime"}
+                "table_exists", {"p_table_name": "nonexistent_table", "p_schema_name": "_realtime"}
             )
 
             assert result is False
@@ -44,7 +44,7 @@ class TestSyncRPCCall:
         """Test get_table_columns RPC returns correct structure"""
         with app.app_context():
             result = supabase_extension.safe_rpc_call(
-                "get_table_columns", {"p_table_name": "metadata_tables", "schema_name": "_realtime"}
+                "get_table_columns", {"p_table_name": "metadata_tables", "p_schema_name": "_realtime"}
             )
 
             assert isinstance(result, list)
@@ -59,7 +59,7 @@ class TestSyncRPCCall:
         with app.app_context():
             result = supabase_extension.safe_rpc_call(
                 "search_tables_by_column",
-                {"search_column": "table_name", "schema_name": "_realtime"},
+                {"p_column_name": "table_name", "p_schema_name": "_realtime"},
             )
 
             assert isinstance(result, list)

@@ -46,6 +46,73 @@ def pytest_configure():
     pytest.TEST_FAULTY_REPEAT = TEST_FAULTY_REPEAT
 
 
+@pytest.fixture(scope="session", autouse=True)
+def test_user_for_data_isolation():
+    """
+    Create a test user in auth.users table for data isolation tests.
+    
+    This fixture creates a user with a specific UUID that tests can reference.
+    The user is created once per test session and cleaned up afterward.
+    """
+    import psycopg2
+    import os
+    from uuid import UUID
+    
+    test_user_id = str(UUID("00000000-0000-0000-0000-000000000001"))
+    test_email = "test_isolation_user@test.com"
+    
+    # Create the test user by inserting directly into auth.users
+    # Note: This uses raw SQL because Supabase admin API doesn't allow custom UUIDs
+    conn = psycopg2.connect(
+        host=os.getenv("POSTGRES_HOST", "127.0.0.1"),
+        port=int(os.getenv("POSTGRES_PORT", 54322)),
+        user=os.getenv("POSTGRES_USER", "postgres"),
+        password=os.getenv("POSTGRES_SECRET", "postgres"),
+        dbname=os.getenv("POSTGRES_DB_NAME", "postgres")
+    )
+    
+    try:
+        with conn.cursor() as cur:
+            # Check if user already exists
+            cur.execute("SELECT id FROM auth.users WHERE id = %s", (test_user_id,))
+            if cur.fetchone() is None:
+                # Insert test user with specific UUID
+                # Using raw_user_meta_data instead of instance_id (deprecated)
+                cur.execute("""
+                    INSERT INTO auth.users (
+                        id, 
+                        email, 
+                        encrypted_password,
+                        email_confirmed_at,
+                        raw_user_meta_data,
+                        created_at,
+                        updated_at,
+                        aud,
+                        role
+                    ) VALUES (
+                        %s,
+                        %s,
+                        crypt('test_password_123', gen_salt('bf')),
+                        NOW(),
+                        '{"test": true}'::jsonb,
+                        NOW(),
+                        NOW(),
+                        'authenticated',
+                        'authenticated'
+                    )
+                """, (test_user_id, test_email))
+                conn.commit()
+        
+        yield test_user_id
+        
+    finally:
+        # Clean up: delete test user
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM auth.users WHERE id = %s", (test_user_id,))
+            conn.commit()
+        conn.close()
+
+
 @pytest.fixture(scope="module")
 def app():
     """

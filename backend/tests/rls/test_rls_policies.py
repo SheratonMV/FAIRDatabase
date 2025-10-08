@@ -79,7 +79,8 @@ class TestMetadataTableRLS:
                 policies = cur.fetchall()
 
                 policy_names = [p[0] for p in policies]
-                assert "authenticated_users_view_metadata" in policy_names
+                # Updated policy names from user-level data isolation implementation
+                assert "users_view_own_metadata" in policy_names
                 assert "service_role_full_metadata_access" in policy_names
 
     def test_service_role_can_read_all_metadata(self, app):
@@ -233,7 +234,8 @@ class TestDynamicTableRLS:
                 """)
                 policies = [row[0] for row in cur.fetchall()]
 
-                assert "authenticated_users_view_data" in policies
+                # Updated policy names from user-level data isolation implementation
+                assert "users_view_own_data" in policies
                 assert "service_role_full_data_access" in policies
 
     def test_authenticated_can_read_data(self, app, sample_data_table, logged_in_user):
@@ -241,7 +243,7 @@ class TestDynamicTableRLS:
         with app.app_context():
             result = supabase_extension.safe_rpc_call(
                 "select_from_table",
-                {"p_table_name": sample_data_table, "p_limit": 100, "schema_name": "_realtime"},
+                {"p_table_name": sample_data_table, "p_row_limit": 100, "p_schema_name": "_realtime"},
             )
 
             # Should succeed
@@ -267,8 +269,10 @@ class TestDynamicTableRLS:
                 or "violates" in str(exc_info.value).lower()
             )
 
-    def test_service_role_has_full_access(self, app, sample_data_table):
+    def test_service_role_has_full_access(self, app, sample_data_table, logged_in_user):
         """Service role has full read/write access to data tables"""
+        test_client, user = logged_in_user
+        
         with app.app_context():
             # Service role can read
             read_result = (
@@ -279,11 +283,16 @@ class TestDynamicTableRLS:
             )
             assert read_result is not None
 
-            # Service role can insert
+            # Service role can insert (must include user_id since tables have NOT NULL constraint)
             insert_result = (
                 supabase_extension.service_role_client.schema("_realtime")
                 .table(sample_data_table)
-                .insert({"patient_id": "P999", "age": "99", "diagnosis": "Test"})
+                .insert({
+                    "user_id": str(user.id),
+                    "patient_id": "P999",
+                    "age": "99",
+                    "diagnosis": "Test"
+                })
                 .execute()
             )
             assert insert_result is not None
@@ -370,7 +379,7 @@ class TestRPCFunctionRLS:
         """Test get_all_tables RPC function"""
         with app.app_context():
             result = supabase_extension.safe_rpc_call(
-                "get_all_tables", {"schema_name": "_realtime"}
+                "get_all_tables", {"p_schema_name": "_realtime"}
             )
             assert result is not None
             assert isinstance(result, list)
@@ -380,7 +389,7 @@ class TestRPCFunctionRLS:
         with app.app_context():
             table_name = test_user_with_data["table_name"]
             result = supabase_extension.safe_rpc_call(
-                "get_table_columns", {"p_table_name": table_name, "schema_name": "_realtime"}
+                "get_table_columns", {"p_table_name": table_name, "p_schema_name": "_realtime"}
             )
             assert result is not None
             assert len(result) > 0
@@ -393,14 +402,14 @@ class TestRPCFunctionRLS:
         with app.app_context():
             table_name = test_user_with_data["table_name"]
             result = supabase_extension.safe_rpc_call(
-                "table_exists", {"p_table_name": table_name, "schema_name": "_realtime"}
+                "table_exists", {"p_table_name": table_name, "p_schema_name": "_realtime"}
             )
             assert result is True
 
             # Test non-existent table
             result = supabase_extension.safe_rpc_call(
                 "table_exists",
-                {"p_table_name": "nonexistent_table_xyz", "schema_name": "_realtime"},
+                {"p_table_name": "nonexistent_table_xyz", "p_schema_name": "_realtime"},
             )
             assert result is False
 
@@ -409,7 +418,7 @@ class TestRPCFunctionRLS:
         with app.app_context():
             result = supabase_extension.safe_rpc_call(
                 "search_tables_by_column",
-                {"search_column": "patient_id", "schema_name": "_realtime"},
+                {"p_column_name": "patient_id", "p_schema_name": "_realtime"},
             )
             assert result is not None
             assert isinstance(result, list)
@@ -422,16 +431,25 @@ class TestRPCFunctionRLS:
             # Service role can access
             result = supabase_extension.service_role_client.rpc(
                 "select_from_table",
-                {"p_table_name": table_name, "p_limit": 10, "schema_name": "_realtime"},
+                {"p_table_name": table_name, "p_row_limit": 10, "p_schema_name": "_realtime"},
             ).execute()
             assert result.data is not None
             assert len(result.data) > 0
 
-    def test_insert_metadata_via_rpc(self, app):
-        """Test insert_metadata RPC function"""
+    def test_insert_metadata_via_rpc(self, app, test_user_with_data):
+        """Test insert_metadata RPC function requires authentication"""
         with app.app_context():
-            # Only service role should be able to insert metadata
-            result = supabase_extension.service_role_client.rpc(
+            user_data = test_user_with_data
+            user = user_data["user"]
+            
+            # Create authenticated Supabase client
+            auth_response = supabase_extension.client.auth.sign_in_with_password({
+                "email": "rpc_test_user@test.com",
+                "password": "TestPassword123!"
+            })
+            
+            # Use authenticated client to call insert_metadata
+            result = supabase_extension.client.rpc(
                 "insert_metadata",
                 {
                     "p_table_name": "test_meta_insert",
@@ -452,6 +470,9 @@ class TestRPCFunctionRLS:
                 .eq("id", result.data)
                 .execute()
             )
+            
+            # Sign out
+            supabase_extension.client.auth.sign_out()
 
 
 class TestRLSIntegrationScenarios:
@@ -507,7 +528,7 @@ class TestRLSIntegrationScenarios:
         with app.app_context():
             data = supabase_extension.safe_rpc_call(
                 "select_from_table",
-                {"p_table_name": actual_table_name, "p_limit": 100, "schema_name": "_realtime"},
+                {"p_table_name": actual_table_name, "p_row_limit": 100, "p_schema_name": "_realtime"},
             )
             assert len(data) == 2
 

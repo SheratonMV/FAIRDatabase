@@ -124,7 +124,7 @@ class TestMetadataCaching:
             # Call with custom schema
             result = get_cached_tables(schema_name="public")
             assert result == mock_data
-            mock_rpc.assert_called_once_with("get_all_tables", {"schema_name": "public"})
+            mock_rpc.assert_called_once_with("get_all_tables", {"p_schema_name": "public"})
 
     def test_cached_tables_different_schemas_separate_cache(self):
         """Test that different schemas maintain separate cache entries."""
@@ -134,7 +134,7 @@ class TestMetadataCaching:
         public_data = [{"table_name": "public_table"}]
 
         def mock_rpc_call(func_name, params):
-            if params.get("schema_name") == "public":
+            if params.get("p_schema_name") == "public":
                 return public_data
             return realtime_data
 
