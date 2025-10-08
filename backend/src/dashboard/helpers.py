@@ -2,10 +2,9 @@
 
 import csv
 import os
-import time
+import tempfile
 from hashlib import sha256
 
-from flask import current_app
 from werkzeug.utils import secure_filename
 
 
@@ -316,30 +315,30 @@ def pg_insert_data_rows(cur, schema, table_name, patient_col, rows, columns, chu
             INSERT INTO _{schema}.{table_name} ({patient_col}, {col_names})
             VALUES %s
             """,
-            batch_data
+            batch_data,
         )
 
 
 def pg_sanitize_column(col):
     """
     Sanitize column name for PostgreSQL compliance.
-    
+
     Transforms column names to be valid PostgreSQL identifiers by:
     - Converting to lowercase
     - Replacing spaces and special characters with underscores
     - Prefixing with 'col_' if starts with a digit
     - Truncating to PostgreSQL's 63-character limit
     - Providing default name for empty strings
-    
+
     Parameters:
         col (str): Column name from CSV header
-        
+
     Returns:
         str: Sanitized column name safe for PostgreSQL
     """
     if not col or not col.strip():
         return "column_0"
-    
+
     # Convert to lowercase and replace non-alphanumeric characters with underscores
     sanitized = ""
     for char in col.lower():
@@ -347,19 +346,19 @@ def pg_sanitize_column(col):
             sanitized += char
         else:
             sanitized += "_"
-    
+
     # Prefix with 'col_' if starts with a digit
     if sanitized and sanitized[0].isdigit():
         sanitized = f"col_{sanitized}"
-    
+
     # Truncate to PostgreSQL identifier limit (63 characters)
     if len(sanitized) > 63:
         sanitized = sanitized[:63]
-    
+
     # Final safety check
     if not sanitized:
         sanitized = "column_0"
-    
+
     return sanitized
 
 
@@ -388,56 +387,75 @@ def file_chunk_columns(columns, chunk_size=1200):
 def file_save_and_read(file_or_df, filepath=None):
     """
     Save and read CSV file - handles both Flask uploads and DataFrame writes.
-    
+
     Two modes:
-    1. Flask upload mode: file_save_and_read(file) 
-       - Saves uploaded file with timestamp
-       - Returns (lines, timestamped_filename)
-       
+    1. Flask upload mode: file_save_and_read(file)
+       - Saves uploaded file to temp location using tempfile module
+       - Returns (lines, temp_filepath)
+       - Caller must cleanup with os.remove(temp_filepath)
+
     2. DataFrame mode: file_save_and_read(df, filepath)
        - Saves DataFrame to specified path
        - Returns (content, rows) where rows excludes header
-    
+
     Parameters:
         file_or_df: Flask FileStorage object OR pandas DataFrame
         filepath: Path to save DataFrame (required if file_or_df is DataFrame)
-        
+
     Returns:
-        tuple: (lines, filename) for uploads OR (content, rows) for DataFrames
+        tuple: (lines, temp_filepath) for uploads OR (content, rows) for DataFrames
     """
     import pandas as pd
-    
+
     # DataFrame mode (for testing)
     if isinstance(file_or_df, pd.DataFrame):
         if filepath is None:
             raise ValueError("filepath required when saving DataFrame")
-        
+
         # Save DataFrame to CSV
         file_or_df.to_csv(filepath, index=False)
-        
+
         # Read back as list of lists
         with open(filepath, newline="", encoding="utf-8") as f:
             reader = csv.reader(f)
             content = [row for row in reader if row]
-        
+
         # Split into header and data rows
         rows = content[1:] if len(content) > 1 else []
-        
+
         return content, rows
-    
-    # Flask upload mode (production)
+
+    # Flask upload mode (production) - using tempfile for automatic cleanup
     else:
+        # Get file extension
         filename = secure_filename(file_or_df.filename)
-        extension = filename.rsplit(".", 1)[-1].lower()
-        timestamped = f"{filename.rsplit('.', 1)[0]}_{int(time.time())}.{extension}"
-        path = os.path.join(current_app.config["UPLOAD_FOLDER"], timestamped)
-        file_or_df.save(path)
+        extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else "csv"
 
-        with open(path, newline="", encoding="utf-8") as f:
-            reader = csv.reader(f)
-            lines = [row for row in reader if row]
+        # Create temporary file (delete=False to allow caller to manage cleanup)
+        # ruff: noqa: SIM115 - We intentionally don't use a context manager because we need the file to persist
+        tmp = tempfile.NamedTemporaryFile(mode="w+b", suffix=f".{extension}", delete=False)
 
-        if not lines:
-            raise ValueError("Uploaded file is empty or malformed.")
+        try:
+            # Save uploaded file to temp location
+            file_or_df.save(tmp.name)
+            tmp.close()
 
-        return lines, timestamped
+            # Read and parse CSV
+            with open(tmp.name, newline="", encoding="utf-8") as f:
+                reader = csv.reader(f)
+                lines = [row for row in reader if row]
+
+            if not lines:
+                # Cleanup temp file before raising error
+                os.remove(tmp.name)
+                raise ValueError("Uploaded file is empty or malformed.")
+
+            # Return lines and temp filepath (caller must cleanup)
+            return lines, tmp.name
+
+        except Exception:
+            # Cleanup temp file on error
+            tmp.close()
+            if os.path.exists(tmp.name):
+                os.remove(tmp.name)
+            raise

@@ -10,9 +10,6 @@ Note: These tests use existing protected routes since Flask
 doesn't allow adding routes after the app has handled requests.
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
-
 
 class TestLoginRequired:
     """Test login_required decorator security and token validation"""
@@ -156,6 +153,7 @@ class TestDecoratorIntegration:
 
         # Cleanup
         from config import supabase_extension
+
         with app.app_context():
             users = supabase_extension.service_role_client.auth.admin.list_users()
             user = next((u for u in users if u.email == "workflow@test.com"), None)

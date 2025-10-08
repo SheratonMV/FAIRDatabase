@@ -33,9 +33,6 @@ def create_app(db_name=None, env=None):
     # Validate required configuration
     validate_config()
 
-    # Ensure upload folder exists
-    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
-
     app.register_blueprint(main_routes, url_prefix="/")
     app.register_blueprint(auth_routes, url_prefix="/auth")
     app.register_blueprint(dashboard_routes, url_prefix="/dashboard")

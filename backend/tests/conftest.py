@@ -57,15 +57,12 @@ def app():
     allowing tests to access the app and DB.
 
     """
-    path = os.path.join(os.path.dirname(__file__), "uploads")
-
     # Use environment variables from .env.test, override only what's needed for testing
     app = create_app(db_name=os.getenv("POSTGRES_DB_NAME"), env="testing")
     app.config.update(
         {
             "TESTING": True,
             "SERVER_NAME": "localhost",
-            "UPLOAD_FOLDER": path,
         }
     )
 

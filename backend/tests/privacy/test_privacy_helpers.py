@@ -9,13 +9,13 @@ Tests cover:
 - Column validation
 """
 
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 from src.privacy.helpers import (
-    add_randomized_response,
     add_laplace_noise,
     add_noise_to_df,
+    add_randomized_response,
     validate_column_selection,
 )
 
@@ -26,8 +26,8 @@ class TestRandomizedResponse:
     def test_returns_original_value_with_probability_one(self):
         """p=1.0 → always returns original value"""
         np.random.seed(42)
-        categories = ['A', 'B', 'C']
-        original = 'A'
+        categories = ["A", "B", "C"]
+        original = "A"
 
         # With p=1.0, should always return original
         results = [add_randomized_response(original, categories, p=1.0) for _ in range(100)]
@@ -37,8 +37,8 @@ class TestRandomizedResponse:
     def test_returns_random_value_with_probability_zero(self):
         """p=0.0 → never returns original value (for categories > 1)"""
         np.random.seed(42)
-        categories = ['A', 'B', 'C']
-        original = 'A'
+        categories = ["A", "B", "C"]
+        original = "A"
 
         # With p=0.0, should never return original (assuming random selection)
         results = [add_randomized_response(original, categories, p=0.0) for _ in range(100)]
@@ -50,8 +50,8 @@ class TestRandomizedResponse:
     def test_respects_probability_parameter(self):
         """p=0.5 → approximately 50% original, 50% random"""
         np.random.seed(42)
-        categories = ['A', 'B', 'C', 'D']
-        original = 'A'
+        categories = ["A", "B", "C", "D"]
+        original = "A"
 
         results = [add_randomized_response(original, categories, p=0.5) for _ in range(1000)]
 
@@ -65,8 +65,8 @@ class TestRandomizedResponse:
     def test_returns_value_from_valid_categories(self):
         """All returned values → from category list"""
         np.random.seed(42)
-        categories = ['cat1', 'cat2', 'cat3']
-        original = 'cat1'
+        categories = ["cat1", "cat2", "cat3"]
+        original = "cat1"
 
         results = [add_randomized_response(original, categories, p=0.7) for _ in range(100)]
 
@@ -76,13 +76,13 @@ class TestRandomizedResponse:
     def test_handles_single_category(self):
         """Single category → always returns that category"""
         np.random.seed(42)
-        categories = ['only_one']
-        original = 'only_one'
+        categories = ["only_one"]
+        original = "only_one"
 
         results = [add_randomized_response(original, categories, p=0.5) for _ in range(100)]
 
         # Can only return the single category
-        assert all(r == 'only_one' for r in results)
+        assert all(r == "only_one" for r in results)
 
     def test_handles_different_data_types(self):
         """Numeric categories → works correctly"""
@@ -180,85 +180,89 @@ class TestAddNoiseToDf:
     def test_adds_noise_to_numeric_columns(self):
         """Numeric columns → noise added"""
         np.random.seed(42)
-        df = pd.DataFrame({
-            'value1': [10, 20, 30, 40, 50],
-            'category': ['A', 'B', 'A', 'B', 'A'],
-            'value2': [100, 200, 300, 400, 500]
-        })
+        df = pd.DataFrame(
+            {
+                "value1": [10, 20, 30, 40, 50],
+                "category": ["A", "B", "A", "B", "A"],
+                "value2": [100, 200, 300, 400, 500],
+            }
+        )
 
-        noisy_df = add_noise_to_df(df, categorical_columns=[], numerical_columns=['value1'], epsilon=1.0)
+        noisy_df = add_noise_to_df(
+            df, categorical_columns=[], numerical_columns=["value1"], epsilon=1.0
+        )
 
         # Original DataFrame should be unchanged
-        assert df['value1'].tolist() == [10, 20, 30, 40, 50]
+        assert df["value1"].tolist() == [10, 20, 30, 40, 50]
 
         # Noisy DataFrame should have different values
-        assert noisy_df['value1'].tolist() != df['value1'].tolist()
+        assert noisy_df["value1"].tolist() != df["value1"].tolist()
 
         # Non-selected columns should be unchanged
-        assert noisy_df['value2'].tolist() == df['value2'].tolist()
-        assert noisy_df['category'].tolist() == df['category'].tolist()
+        assert noisy_df["value2"].tolist() == df["value2"].tolist()
+        assert noisy_df["category"].tolist() == df["category"].tolist()
 
     def test_adds_noise_to_multiple_numeric_columns(self):
         """Multiple numeric columns selected → all get noise"""
         np.random.seed(42)
-        df = pd.DataFrame({
-            'col1': [1, 2, 3, 4, 5],
-            'col2': [10, 20, 30, 40, 50],
-            'col3': [100, 200, 300, 400, 500]
-        })
+        df = pd.DataFrame(
+            {
+                "col1": [1, 2, 3, 4, 5],
+                "col2": [10, 20, 30, 40, 50],
+                "col3": [100, 200, 300, 400, 500],
+            }
+        )
 
-        noisy_df = add_noise_to_df(df, categorical_columns=[], numerical_columns=['col1', 'col2'], epsilon=1.0)
+        noisy_df = add_noise_to_df(
+            df, categorical_columns=[], numerical_columns=["col1", "col2"], epsilon=1.0
+        )
 
         # Selected columns should have noise
-        assert noisy_df['col1'].tolist() != df['col1'].tolist()
-        assert noisy_df['col2'].tolist() != df['col2'].tolist()
+        assert noisy_df["col1"].tolist() != df["col1"].tolist()
+        assert noisy_df["col2"].tolist() != df["col2"].tolist()
 
         # Unselected column should be unchanged
-        assert noisy_df['col3'].tolist() == df['col3'].tolist()
+        assert noisy_df["col3"].tolist() == df["col3"].tolist()
 
     def test_adds_randomized_response_to_categorical_columns(self):
         """Categorical columns → randomized response applied"""
         np.random.seed(42)
-        df = pd.DataFrame({
-            'category': ['A', 'B', 'C'] * 10,
-            'value': [1, 2, 3] * 10
-        })
+        df = pd.DataFrame({"category": ["A", "B", "C"] * 10, "value": [1, 2, 3] * 10})
 
-        noisy_df = add_noise_to_df(df, categorical_columns=['category'], numerical_columns=[], epsilon=1.0)
+        noisy_df = add_noise_to_df(
+            df, categorical_columns=["category"], numerical_columns=[], epsilon=1.0
+        )
 
         # Categorical column may have different values
         # But all values should still be from the original categories
-        assert set(noisy_df['category'].unique()).issubset({'A', 'B', 'C'})
+        assert set(noisy_df["category"].unique()).issubset({"A", "B", "C"})
 
         # Numeric column should be unchanged
-        assert noisy_df['value'].tolist() == df['value'].tolist()
+        assert noisy_df["value"].tolist() == df["value"].tolist()
 
     def test_adds_noise_to_both_categorical_and_numerical(self):
         """Mixed columns → both types get appropriate noise"""
         np.random.seed(42)
-        df = pd.DataFrame({
-            'age': [25, 30, 35, 40, 45],
-            'gender': ['M', 'F', 'M', 'F', 'M']
-        })
+        df = pd.DataFrame({"age": [25, 30, 35, 40, 45], "gender": ["M", "F", "M", "F", "M"]})
 
-        noisy_df = add_noise_to_df(df, categorical_columns=['gender'], numerical_columns=['age'], epsilon=1.0)
+        noisy_df = add_noise_to_df(
+            df, categorical_columns=["gender"], numerical_columns=["age"], epsilon=1.0
+        )
 
         # Age should have Laplace noise
-        assert noisy_df['age'].tolist() != df['age'].tolist()
+        assert noisy_df["age"].tolist() != df["age"].tolist()
 
         # Gender should have randomized response (all values still valid)
-        assert set(noisy_df['gender'].unique()).issubset({'M', 'F'})
+        assert set(noisy_df["gender"].unique()).issubset({"M", "F"})
 
     def test_preserves_dataframe_structure(self):
         """After adding noise → same shape and columns"""
         np.random.seed(42)
-        df = pd.DataFrame({
-            'a': [1, 2, 3],
-            'b': [4, 5, 6],
-            'c': ['X', 'Y', 'Z']
-        })
+        df = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6], "c": ["X", "Y", "Z"]})
 
-        noisy_df = add_noise_to_df(df, categorical_columns=['c'], numerical_columns=['a'], epsilon=1.0)
+        noisy_df = add_noise_to_df(
+            df, categorical_columns=["c"], numerical_columns=["a"], epsilon=1.0
+        )
 
         assert noisy_df.shape == df.shape
         assert list(noisy_df.columns) == list(df.columns)
@@ -270,9 +274,9 @@ class TestValidateColumnSelection:
 
     def test_validates_all_columns_covered_with_no_overlap(self):
         """All columns covered, no overlap → returns True"""
-        all_columns = ['age', 'gender', 'income']
-        categorical = ['gender']
-        numerical = ['age', 'income']
+        all_columns = ["age", "gender", "income"]
+        categorical = ["gender"]
+        numerical = ["age", "income"]
 
         result = validate_column_selection(all_columns, categorical, numerical)
 
@@ -280,9 +284,9 @@ class TestValidateColumnSelection:
 
     def test_rejects_missing_columns(self):
         """Not all columns covered → returns False"""
-        all_columns = ['age', 'gender', 'income']
-        categorical = ['gender']
-        numerical = ['age']  # 'income' is missing
+        all_columns = ["age", "gender", "income"]
+        categorical = ["gender"]
+        numerical = ["age"]  # 'income' is missing
 
         result = validate_column_selection(all_columns, categorical, numerical)
 
@@ -290,9 +294,9 @@ class TestValidateColumnSelection:
 
     def test_rejects_overlapping_columns(self):
         """Column in both categorical and numerical → returns False"""
-        all_columns = ['age', 'gender']
-        categorical = ['gender', 'age']  # age in both
-        numerical = ['age']
+        all_columns = ["age", "gender"]
+        categorical = ["gender", "age"]  # age in both
+        numerical = ["age"]
 
         result = validate_column_selection(all_columns, categorical, numerical)
 
@@ -300,9 +304,9 @@ class TestValidateColumnSelection:
 
     def test_rejects_extra_columns(self):
         """Selected columns not in all_columns → returns False"""
-        all_columns = ['age', 'gender']
-        categorical = ['gender', 'extra_col']
-        numerical = ['age']
+        all_columns = ["age", "gender"]
+        categorical = ["gender", "extra_col"]
+        numerical = ["age"]
 
         result = validate_column_selection(all_columns, categorical, numerical)
 
@@ -320,8 +324,8 @@ class TestValidateColumnSelection:
 
     def test_all_categorical(self):
         """All columns categorical, no numerical → valid"""
-        all_columns = ['gender', 'category', 'status']
-        categorical = ['gender', 'category', 'status']
+        all_columns = ["gender", "category", "status"]
+        categorical = ["gender", "category", "status"]
         numerical = []
 
         result = validate_column_selection(all_columns, categorical, numerical)
@@ -330,9 +334,9 @@ class TestValidateColumnSelection:
 
     def test_all_numerical(self):
         """All columns numerical, no categorical → valid"""
-        all_columns = ['age', 'income', 'height']
+        all_columns = ["age", "income", "height"]
         categorical = []
-        numerical = ['age', 'income', 'height']
+        numerical = ["age", "income", "height"]
 
         result = validate_column_selection(all_columns, categorical, numerical)
 
@@ -347,63 +351,55 @@ class TestPrivacyHelpersIntegration:
         np.random.seed(42)
 
         # Create sensitive dataset
-        df = pd.DataFrame({
-            'patient_id': ['P1', 'P2', 'P3', 'P4', 'P5'],
-            'age': [25, 30, 35, 40, 45],
-            'income': [50000, 60000, 70000, 80000, 90000],
-            'diagnosis': ['A', 'B', 'A', 'C', 'B']
-        })
+        df = pd.DataFrame(
+            {
+                "patient_id": ["P1", "P2", "P3", "P4", "P5"],
+                "age": [25, 30, 35, 40, 45],
+                "income": [50000, 60000, 70000, 80000, 90000],
+                "diagnosis": ["A", "B", "A", "C", "B"],
+            }
+        )
 
         # Step 1: Validate columns for noise addition
-        all_columns = ['age', 'income', 'diagnosis']
+        all_columns = ["age", "income", "diagnosis"]
         is_valid = validate_column_selection(
-            all_columns,
-            categorical_cols=['diagnosis'],
-            numerical_cols=['age', 'income']
+            all_columns, categorical_cols=["diagnosis"], numerical_cols=["age", "income"]
         )
         assert is_valid is True
 
         # Step 2: Add noise to both categorical and numerical columns
         noisy_df = add_noise_to_df(
-            df,
-            categorical_columns=['diagnosis'],
-            numerical_columns=['age', 'income'],
-            epsilon=1.0
+            df, categorical_columns=["diagnosis"], numerical_columns=["age", "income"], epsilon=1.0
         )
 
         # Verify noise was added to numerical columns
-        assert noisy_df['age'].tolist() != df['age'].tolist()
-        assert noisy_df['income'].tolist() != df['income'].tolist()
+        assert noisy_df["age"].tolist() != df["age"].tolist()
+        assert noisy_df["income"].tolist() != df["income"].tolist()
 
         # Verify randomized response applied to diagnosis (values still valid)
-        assert set(noisy_df['diagnosis'].unique()).issubset({'A', 'B', 'C'})
+        assert set(noisy_df["diagnosis"].unique()).issubset({"A", "B", "C"})
 
         # Verify structure preserved
         assert noisy_df.shape == df.shape
         assert list(noisy_df.columns) == list(df.columns)
 
         # Verify patient IDs unchanged (not selected for noise)
-        assert noisy_df['patient_id'].tolist() == df['patient_id'].tolist()
+        assert noisy_df["patient_id"].tolist() == df["patient_id"].tolist()
 
     def test_privacy_preserves_statistical_properties(self):
         """Noisy data → maintains approximate statistics"""
         np.random.seed(42)
 
         # Large dataset for statistical stability
-        df = pd.DataFrame({
-            'value': [50] * 1000
-        })
+        df = pd.DataFrame({"value": [50] * 1000})
 
         # Add noise
         noisy_df = add_noise_to_df(
-            df,
-            categorical_columns=[],
-            numerical_columns=['value'],
-            epsilon=1.0
+            df, categorical_columns=[], numerical_columns=["value"], epsilon=1.0
         )
 
         # Mean should be close to original (within a reasonable range)
-        original_mean = df['value'].mean()
-        noisy_mean = noisy_df['value'].mean()
+        original_mean = df["value"].mean()
+        noisy_mean = noisy_df["value"].mean()
 
         assert abs(noisy_mean - original_mean) < 5

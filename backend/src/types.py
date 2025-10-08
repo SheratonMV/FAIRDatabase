@@ -14,6 +14,7 @@ class TableNameResult(TypedDict):
     - get_all_tables()
     - search_tables_by_column()
     """
+
     table_name: str
 
 
@@ -22,6 +23,7 @@ class ColumnInfoResult(TypedDict):
 
     Returns column metadata including name, data type, and nullability.
     """
+
     column_name: str
     data_type: str
     is_nullable: str
@@ -33,4 +35,5 @@ class TableDataResult(TypedDict):
     Returns JSONB data where each row is represented as a JSON object.
     The actual structure depends on the queried table's schema.
     """
+
     data: dict[str, str | int | float | bool | None]

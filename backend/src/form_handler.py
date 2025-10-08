@@ -65,9 +65,7 @@ class BaseHandler:
             raise GenericExceptionHandler("Invalid DataFrame provided.", status_code=400)
 
         if not self._filepath:
-            raise GenericExceptionHandler(
-                "No file path set for saving DataFrame.", status_code=400
-            )
+            raise GenericExceptionHandler("No file path set for saving DataFrame.", status_code=400)
 
         try:
             df.to_csv(self._filepath, index=False)

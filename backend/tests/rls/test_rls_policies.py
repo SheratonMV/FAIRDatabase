@@ -5,11 +5,12 @@ Tests Row Level Security policies from application level using different user ro
 Covers metadata tables, dynamic data tables, and RPC functions.
 """
 
-import pytest
-import os
 import time
 from io import BytesIO
-from config import supabase_extension, get_db
+
+import pytest
+
+from config import get_db, supabase_extension
 
 
 class TestMetadataTableRLS:
@@ -28,23 +29,24 @@ class TestMetadataTableRLS:
                     service_client.auth.admin.delete_user(user.id)
 
             # Create user 1
-            user1_response = service_client.auth.admin.create_user({
-                "email": "rls_test_user1@test.com",
-                "password": "TestPassword123!",
-                "email_confirm": True
-            })
+            user1_response = service_client.auth.admin.create_user(
+                {
+                    "email": "rls_test_user1@test.com",
+                    "password": "TestPassword123!",
+                    "email_confirm": True,
+                }
+            )
 
             # Create user 2
-            user2_response = service_client.auth.admin.create_user({
-                "email": "rls_test_user2@test.com",
-                "password": "TestPassword123!",
-                "email_confirm": True
-            })
+            user2_response = service_client.auth.admin.create_user(
+                {
+                    "email": "rls_test_user2@test.com",
+                    "password": "TestPassword123!",
+                    "email_confirm": True,
+                }
+            )
 
-            yield {
-                "user1": user1_response.user,
-                "user2": user2_response.user
-            }
+            yield {"user1": user1_response.user, "user2": user2_response.user}
 
             # Cleanup
             service_client.auth.admin.delete_user(user1_response.user.id)
@@ -84,10 +86,9 @@ class TestMetadataTableRLS:
         """Service role should see all metadata entries"""
         with app.app_context():
             result = (
-                supabase_extension.service_role_client
-                .schema('_realtime')
-                .table('metadata_tables')
-                .select('*')
+                supabase_extension.service_role_client.schema("_realtime")
+                .table("metadata_tables")
+                .select("*")
                 .execute()
             )
             # Should not raise error, service role has full access
@@ -97,19 +98,17 @@ class TestMetadataTableRLS:
         """Authenticated users can read metadata"""
         with app.app_context():
             # Sign in as user1
-            session = supabase_extension.client.auth.sign_in_with_password({
-                "email": "rls_test_user1@test.com",
-                "password": "TestPassword123!"
-            })
+            session = supabase_extension.client.auth.sign_in_with_password(
+                {"email": "rls_test_user1@test.com", "password": "TestPassword123!"}
+            )
 
             assert session.user is not None
 
             # Try to read metadata
             result = (
-                supabase_extension.client
-                .schema('_realtime')
-                .table('metadata_tables')
-                .select('*')
+                supabase_extension.client.schema("_realtime")
+                .table("metadata_tables")
+                .select("*")
                 .execute()
             )
 
@@ -123,27 +122,30 @@ class TestMetadataTableRLS:
         """Authenticated users cannot INSERT/UPDATE/DELETE metadata directly"""
         with app.app_context():
             # Sign in as user1
-            session = supabase_extension.client.auth.sign_in_with_password({
-                "email": "rls_test_user1@test.com",
-                "password": "TestPassword123!"
-            })
+            session = supabase_extension.client.auth.sign_in_with_password(
+                {"email": "rls_test_user1@test.com", "password": "TestPassword123!"}
+            )
 
             # Try to insert metadata directly (should fail)
             with pytest.raises(Exception) as exc_info:
                 (
-                    supabase_extension.client
-                    .schema('_realtime')
-                    .table('metadata_tables')
-                    .insert({
-                        "table_name": "malicious_table",
-                        "main_table": "malicious",
-                        "description": "Attempt to bypass security"
-                    })
+                    supabase_extension.client.schema("_realtime")
+                    .table("metadata_tables")
+                    .insert(
+                        {
+                            "table_name": "malicious_table",
+                            "main_table": "malicious",
+                            "description": "Attempt to bypass security",
+                        }
+                    )
                     .execute()
                 )
 
             # Should raise permission error
-            assert "permission denied" in str(exc_info.value).lower() or "new row violates" in str(exc_info.value).lower()
+            assert (
+                "permission denied" in str(exc_info.value).lower()
+                or "new row violates" in str(exc_info.value).lower()
+            )
 
             # Cleanup session
             supabase_extension.client.auth.sign_out()
@@ -163,13 +165,9 @@ class TestDynamicTableRLS:
 
         response = test_client.post(
             "/dashboard/upload",
-            data={
-                "file": csv_file,
-                "description": "Test table for RLS",
-                "origin": "Test"
-            },
+            data={"file": csv_file, "description": "Test table for RLS", "origin": "Test"},
             content_type="multipart/form-data",
-            follow_redirects=True
+            follow_redirects=True,
         )
 
         # Give database time to process
@@ -204,7 +202,9 @@ class TestDynamicTableRLS:
                 for table in tables:
                     cur.execute(f"DROP TABLE IF EXISTS _realtime.{table} CASCADE;")
 
-                cur.execute("DELETE FROM _realtime.metadata_tables WHERE main_table LIKE 'test_rls_data%';")
+                cur.execute(
+                    "DELETE FROM _realtime.metadata_tables WHERE main_table LIKE 'test_rls_data%';"
+                )
             conn.commit()
 
     def test_dynamic_table_has_rls_enabled(self, app, sample_data_table):
@@ -239,11 +239,10 @@ class TestDynamicTableRLS:
     def test_authenticated_can_read_data(self, app, sample_data_table, logged_in_user):
         """Authenticated users can read data from tables"""
         with app.app_context():
-            result = supabase_extension.safe_rpc_call('select_from_table', {
-                'p_table_name': sample_data_table,
-                'p_limit': 100,
-                'schema_name': '_realtime'
-            })
+            result = supabase_extension.safe_rpc_call(
+                "select_from_table",
+                {"p_table_name": sample_data_table, "p_limit": 100, "schema_name": "_realtime"},
+            )
 
             # Should succeed
             assert result is not None
@@ -256,33 +255,33 @@ class TestDynamicTableRLS:
             # Note: In production, this would be the user's client with their session
             with pytest.raises(Exception) as exc_info:
                 (
-                    supabase_extension.client
-                    .schema('_realtime')
+                    supabase_extension.client.schema("_realtime")
                     .table(sample_data_table)
                     .insert({"patient_id": "MALICIOUS", "age": "99", "diagnosis": "Hack"})
                     .execute()
                 )
 
             # Should fail due to lack of INSERT permission
-            assert "permission denied" in str(exc_info.value).lower() or "violates" in str(exc_info.value).lower()
+            assert (
+                "permission denied" in str(exc_info.value).lower()
+                or "violates" in str(exc_info.value).lower()
+            )
 
     def test_service_role_has_full_access(self, app, sample_data_table):
         """Service role has full read/write access to data tables"""
         with app.app_context():
             # Service role can read
             read_result = (
-                supabase_extension.service_role_client
-                .schema('_realtime')
+                supabase_extension.service_role_client.schema("_realtime")
                 .table(sample_data_table)
-                .select('*')
+                .select("*")
                 .execute()
             )
             assert read_result is not None
 
             # Service role can insert
             insert_result = (
-                supabase_extension.service_role_client
-                .schema('_realtime')
+                supabase_extension.service_role_client.schema("_realtime")
                 .table(sample_data_table)
                 .insert({"patient_id": "P999", "age": "99", "diagnosis": "Test"})
                 .execute()
@@ -291,11 +290,10 @@ class TestDynamicTableRLS:
 
             # Cleanup the test insert
             (
-                supabase_extension.service_role_client
-                .schema('_realtime')
+                supabase_extension.service_role_client.schema("_realtime")
                 .table(sample_data_table)
                 .delete()
-                .eq('patient_id', 'P999')
+                .eq("patient_id", "P999")
                 .execute()
             )
 
@@ -316,17 +314,19 @@ class TestRPCFunctionRLS:
                 service_client.auth.admin.delete_user(existing.id)
 
             # Create user
-            user_response = service_client.auth.admin.create_user({
-                "email": "rpc_test_user@test.com",
-                "password": "TestPassword123!",
-                "email_confirm": True
-            })
+            user_response = service_client.auth.admin.create_user(
+                {
+                    "email": "rpc_test_user@test.com",
+                    "password": "TestPassword123!",
+                    "email_confirm": True,
+                }
+            )
 
             # Log in user
             client.post(
                 "/auth/login",
                 data={"email": "rpc_test_user@test.com", "password": "TestPassword123!"},
-                follow_redirects=True
+                follow_redirects=True,
             )
 
             # Upload sample data
@@ -335,13 +335,9 @@ class TestRPCFunctionRLS:
 
             client.post(
                 "/dashboard/upload",
-                data={
-                    "file": csv_file,
-                    "description": "RPC test data",
-                    "origin": "Test"
-                },
+                data={"file": csv_file, "description": "RPC test data", "origin": "Test"},
                 content_type="multipart/form-data",
-                follow_redirects=True
+                follow_redirects=True,
             )
 
             time.sleep(1)
@@ -357,26 +353,25 @@ class TestRPCFunctionRLS:
                 result = cur.fetchone()
                 table_name = result[0] if result else "rpc_test_data_p1"
 
-            yield {
-                "user": user_response.user,
-                "table_name": table_name
-            }
+            yield {"user": user_response.user, "table_name": table_name}
 
             # Cleanup
             client.get("/auth/logout")
             conn = get_db()
             with conn.cursor() as cur:
                 cur.execute("DROP TABLE IF EXISTS _realtime.rpc_test_data_p1 CASCADE;")
-                cur.execute("DELETE FROM _realtime.metadata_tables WHERE main_table = 'rpc_test_data';")
+                cur.execute(
+                    "DELETE FROM _realtime.metadata_tables WHERE main_table = 'rpc_test_data';"
+                )
             conn.commit()
             service_client.auth.admin.delete_user(user_response.user.id)
 
     def test_get_all_tables_works(self, app):
         """Test get_all_tables RPC function"""
         with app.app_context():
-            result = supabase_extension.safe_rpc_call('get_all_tables', {
-                'schema_name': '_realtime'
-            })
+            result = supabase_extension.safe_rpc_call(
+                "get_all_tables", {"schema_name": "_realtime"}
+            )
             assert result is not None
             assert isinstance(result, list)
 
@@ -384,40 +379,38 @@ class TestRPCFunctionRLS:
         """Test get_table_columns RPC function"""
         with app.app_context():
             table_name = test_user_with_data["table_name"]
-            result = supabase_extension.safe_rpc_call('get_table_columns', {
-                'p_table_name': table_name,
-                'schema_name': '_realtime'
-            })
+            result = supabase_extension.safe_rpc_call(
+                "get_table_columns", {"p_table_name": table_name, "schema_name": "_realtime"}
+            )
             assert result is not None
             assert len(result) > 0
             # Should include patient_id, temperature, heart_rate columns
-            column_names = [col['column_name'] for col in result]
-            assert 'patient_id' in column_names
+            column_names = [col["column_name"] for col in result]
+            assert "patient_id" in column_names
 
     def test_table_exists_works(self, app, test_user_with_data):
         """Test table_exists RPC function"""
         with app.app_context():
             table_name = test_user_with_data["table_name"]
-            result = supabase_extension.safe_rpc_call('table_exists', {
-                'p_table_name': table_name,
-                'schema_name': '_realtime'
-            })
+            result = supabase_extension.safe_rpc_call(
+                "table_exists", {"p_table_name": table_name, "schema_name": "_realtime"}
+            )
             assert result is True
 
             # Test non-existent table
-            result = supabase_extension.safe_rpc_call('table_exists', {
-                'p_table_name': 'nonexistent_table_xyz',
-                'schema_name': '_realtime'
-            })
+            result = supabase_extension.safe_rpc_call(
+                "table_exists",
+                {"p_table_name": "nonexistent_table_xyz", "schema_name": "_realtime"},
+            )
             assert result is False
 
     def test_search_tables_by_column_works(self, app, test_user_with_data):
         """Test search_tables_by_column RPC function"""
         with app.app_context():
-            result = supabase_extension.safe_rpc_call('search_tables_by_column', {
-                'search_column': 'patient_id',
-                'schema_name': '_realtime'
-            })
+            result = supabase_extension.safe_rpc_call(
+                "search_tables_by_column",
+                {"search_column": "patient_id", "schema_name": "_realtime"},
+            )
             assert result is not None
             assert isinstance(result, list)
 
@@ -427,15 +420,10 @@ class TestRPCFunctionRLS:
             table_name = test_user_with_data["table_name"]
 
             # Service role can access
-            result = (
-                supabase_extension.service_role_client
-                .rpc('select_from_table', {
-                    'p_table_name': table_name,
-                    'p_limit': 10,
-                    'schema_name': '_realtime'
-                })
-                .execute()
-            )
+            result = supabase_extension.service_role_client.rpc(
+                "select_from_table",
+                {"p_table_name": table_name, "p_limit": 10, "schema_name": "_realtime"},
+            ).execute()
             assert result.data is not None
             assert len(result.data) > 0
 
@@ -443,27 +431,25 @@ class TestRPCFunctionRLS:
         """Test insert_metadata RPC function"""
         with app.app_context():
             # Only service role should be able to insert metadata
-            result = (
-                supabase_extension.service_role_client
-                .rpc('insert_metadata', {
-                    'p_table_name': 'test_meta_insert',
-                    'p_main_table': 'test_meta_main',
-                    'p_description': 'Test metadata insertion',
-                    'p_origin': 'RPC Test'
-                })
-                .execute()
-            )
+            result = supabase_extension.service_role_client.rpc(
+                "insert_metadata",
+                {
+                    "p_table_name": "test_meta_insert",
+                    "p_main_table": "test_meta_main",
+                    "p_description": "Test metadata insertion",
+                    "p_origin": "RPC Test",
+                },
+            ).execute()
 
             assert result.data is not None
             assert isinstance(result.data, int)  # Returns inserted ID
 
             # Cleanup
             (
-                supabase_extension.service_role_client
-                .schema('_realtime')
-                .table('metadata_tables')
+                supabase_extension.service_role_client.schema("_realtime")
+                .table("metadata_tables")
                 .delete()
-                .eq('id', result.data)
+                .eq("id", result.data)
                 .execute()
             )
 
@@ -481,13 +467,9 @@ class TestRLSIntegrationScenarios:
 
         response = test_client.post(
             "/dashboard/upload",
-            data={
-                "file": csv_file,
-                "description": "Integration test",
-                "origin": "Test"
-            },
+            data={"file": csv_file, "description": "Integration test", "origin": "Test"},
             content_type="multipart/form-data",
-            follow_redirects=True
+            follow_redirects=True,
         )
 
         assert response.status_code == 200
@@ -496,18 +478,17 @@ class TestRLSIntegrationScenarios:
         # 2. Verify metadata was created
         with app.app_context():
             metadata = (
-                supabase_extension.service_role_client
-                .schema('_realtime')
-                .table('metadata_tables')
-                .select('*')
-                .like('main_table', 'integration_test%')
+                supabase_extension.service_role_client.schema("_realtime")
+                .table("metadata_tables")
+                .select("*")
+                .like("main_table", "integration_test%")
                 .execute()
             )
             assert len(metadata.data) > 0
 
             # Get actual table name
-            actual_table_name = metadata.data[0]['table_name']
-            actual_main_table = metadata.data[0]['main_table']
+            actual_table_name = metadata.data[0]["table_name"]
+            actual_main_table = metadata.data[0]["main_table"]
 
         # 3. Verify data table exists with RLS
         with app.app_context():
@@ -524,11 +505,10 @@ class TestRLSIntegrationScenarios:
 
         # 4. Verify data can be queried via RPC
         with app.app_context():
-            data = supabase_extension.safe_rpc_call('select_from_table', {
-                'p_table_name': actual_table_name,
-                'p_limit': 100,
-                'schema_name': '_realtime'
-            })
+            data = supabase_extension.safe_rpc_call(
+                "select_from_table",
+                {"p_table_name": actual_table_name, "p_limit": 100, "schema_name": "_realtime"},
+            )
             assert len(data) == 2
 
         # Cleanup
@@ -536,7 +516,9 @@ class TestRLSIntegrationScenarios:
             conn = get_db()
             with conn.cursor() as cur:
                 cur.execute(f"DROP TABLE IF EXISTS _realtime.{actual_table_name} CASCADE;")
-                cur.execute(f"DELETE FROM _realtime.metadata_tables WHERE main_table LIKE 'integration_test%';")
+                cur.execute(
+                    "DELETE FROM _realtime.metadata_tables WHERE main_table LIKE 'integration_test%';"
+                )
             conn.commit()
 
     def test_anonymous_user_cannot_access_data(self, app):

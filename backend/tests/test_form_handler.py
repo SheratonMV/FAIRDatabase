@@ -8,11 +8,11 @@ Tests cover:
 - Error handling for invalid/missing data
 """
 
-import pytest
 import pandas as pd
-import io
-from src.form_handler import BaseHandler
+import pytest
+
 from src.exceptions import GenericExceptionHandler
+from src.form_handler import BaseHandler
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def test_csv_content():
 P1,25,M,100
 P2,30,F,200
 P3,35,M,300"""
-    return csv_data.encode('utf-8')
+    return csv_data.encode("utf-8")
 
 
 @pytest.fixture
@@ -72,6 +72,7 @@ class TestBaseHandlerLoadDataframe:
 
             with app.app_context():
                 from flask import session
+
                 # Clear any uploaded_filepath from session
                 session.pop("uploaded_filepath", None)
 
@@ -222,6 +223,7 @@ class TestBaseHandlerSessionManagement:
 
             with app.app_context():
                 from flask import session
+
                 handler = BaseHandler()
                 handler._update_session({"test_key": "test_value", "another_key": 123})
 
@@ -251,6 +253,7 @@ class TestBaseHandlerSessionManagement:
 
             with app.app_context():
                 from flask import session
+
                 handler = BaseHandler()
                 handler._update_session_and_context({"shared_key": "shared_value"})
 

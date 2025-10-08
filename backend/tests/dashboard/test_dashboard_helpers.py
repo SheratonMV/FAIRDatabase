@@ -9,19 +9,20 @@ Tests cover:
 - File operations
 """
 
-import pytest
-import pandas as pd
 from hashlib import sha256
+
+import pandas as pd
+
+from app import get_db
 from src.dashboard.helpers import (
-    pg_create_data_table,
-    pg_insert_data_rows,
-    pg_sanitize_column,
     file_chunk_columns,
     file_save_and_read,
+    pg_create_data_table,
     pg_ensure_schema_and_metadata,
+    pg_insert_data_rows,
     pg_insert_metadata,
+    pg_sanitize_column,
 )
-from app import get_db
 
 
 class TestPgSanitizeColumn:
@@ -320,7 +321,9 @@ class TestPgInsertDataRows:
 
                 # Insert data
                 rows = [["P123", "45", "M"]]
-                pg_insert_data_rows(cur, "realtime", "test_insert_single", "patient_id", rows, columns, 0)
+                pg_insert_data_rows(
+                    cur, "realtime", "test_insert_single", "patient_id", rows, columns, 0
+                )
                 conn.commit()
 
                 # Verify insertion
@@ -328,7 +331,7 @@ class TestPgInsertDataRows:
                 assert cur.fetchone()[0] == 1
 
                 # Verify patient ID is hashed
-                expected_hash = sha256("P123".encode()).hexdigest()
+                expected_hash = sha256(b"P123").hexdigest()
                 cur.execute("SELECT patient_id FROM _realtime.test_insert_single")
                 assert cur.fetchone()[0] == expected_hash
 
@@ -356,7 +359,9 @@ class TestPgInsertDataRows:
                     ["P2", "200"],
                     ["P3", "300"],
                 ]
-                pg_insert_data_rows(cur, "realtime", "test_insert_multi", "patient_id", rows, columns, 0)
+                pg_insert_data_rows(
+                    cur, "realtime", "test_insert_multi", "patient_id", rows, columns, 0
+                )
                 conn.commit()
 
                 # Verify all inserted
@@ -385,7 +390,9 @@ class TestPgInsertDataRows:
                     ["P1", "100"],
                     ["P2", "200"],
                 ]
-                pg_insert_data_rows(cur, "realtime", "test_hash_unique", "patient_id", rows, columns, 0)
+                pg_insert_data_rows(
+                    cur, "realtime", "test_hash_unique", "patient_id", rows, columns, 0
+                )
                 conn.commit()
 
                 # Verify different hashes
@@ -415,10 +422,12 @@ class TestPgInsertDataRows:
                 # Mix of valid and invalid rows
                 rows = [
                     ["P1", "value1"],  # Valid
-                    ["P2"],            # Invalid - too few columns
+                    ["P2"],  # Invalid - too few columns
                     ["P3", "value3"],  # Valid
                 ]
-                pg_insert_data_rows(cur, "realtime", "test_skip_malformed", "patient_id", rows, columns, 0)
+                pg_insert_data_rows(
+                    cur, "realtime", "test_skip_malformed", "patient_id", rows, columns, 0
+                )
                 conn.commit()
 
                 # Only valid rows should be inserted
@@ -472,7 +481,9 @@ class TestPgInsertDataRows:
                 conn.commit()
 
                 # Empty rows
-                pg_insert_data_rows(cur, "realtime", "test_empty_rows", "patient_id", [], columns, 0)
+                pg_insert_data_rows(
+                    cur, "realtime", "test_empty_rows", "patient_id", [], columns, 0
+                )
                 conn.commit()
 
                 # Verify no rows inserted
@@ -493,11 +504,9 @@ class TestFileSaveAndRead:
         file_path = tmp_path / "test_data.csv"
 
         # Create test data
-        df = pd.DataFrame({
-            'patient_id': ['P1', 'P2', 'P3'],
-            'age': [25, 30, 35],
-            'value': ['A', 'B', 'C']
-        })
+        df = pd.DataFrame(
+            {"patient_id": ["P1", "P2", "P3"], "age": [25, 30, 35], "value": ["A", "B", "C"]}
+        )
 
         # Save file
         content, rows = file_save_and_read(df, str(file_path))
@@ -507,13 +516,13 @@ class TestFileSaveAndRead:
 
         # Verify returned rows match DataFrame
         assert len(rows) == 3
-        assert rows[0] == ['P1', '25', 'A']
-        assert rows[1] == ['P2', '30', 'B']
-        assert rows[2] == ['P3', '35', 'C']
+        assert rows[0] == ["P1", "25", "A"]
+        assert rows[1] == ["P2", "30", "B"]
+        assert rows[2] == ["P3", "35", "C"]
 
         # Verify returned content (list of lists)
         assert len(content) == 4  # Header + 3 rows
-        assert content[0] == ['patient_id', 'age', 'value']
+        assert content[0] == ["patient_id", "age", "value"]
 
     def test_handles_empty_dataframe(self, tmp_path):
         """Empty DataFrame → empty file created"""
@@ -599,16 +608,18 @@ class TestPgInsertMetadata:
                 # Insert metadata
                 table_name = "test_meta_table"
                 pg_insert_metadata(
-                    cur, "realtime", table_name, table_name,
-                    "Test description", "Test origin"
+                    cur, "realtime", table_name, table_name, "Test description", "Test origin"
                 )
                 conn.commit()
 
                 # Verify insertion
-                cur.execute("""
+                cur.execute(
+                    """
                     SELECT COUNT(*) FROM _realtime.metadata_tables
                     WHERE table_name = %s
-                """, [table_name])
+                """,
+                    [table_name],
+                )
                 assert cur.fetchone()[0] >= 1
 
             finally:

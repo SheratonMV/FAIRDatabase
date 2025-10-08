@@ -2,9 +2,11 @@
 Handlers for data generalization and P29 score calculation.
 """
 
+import contextlib
 import os
+import tempfile
 
-from flask import current_app, request, session
+from flask import request, session
 from werkzeug.utils import secure_filename
 
 from src.anonymization.p_29 import P_29_score
@@ -84,11 +86,23 @@ class DataGeneralizationHandler(BaseHandler):
         """
         self._validate_file(file)
         filename = secure_filename(file.filename)
-        self._filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
+        extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else "csv"
+
+        # Create temporary file (delete=False to allow persistence across requests)
+        # ruff: noqa: SIM115 - We intentionally don't use a context manager because the file must persist
+        tmp = tempfile.NamedTemporaryFile(mode="w+b", suffix=f".{extension}", delete=False)
 
         try:
-            file.save(self._filepath)
+            # Save uploaded file to temp location
+            file.save(tmp.name)
+            tmp.close()
+
+            # Set filepath for BaseHandler methods
+            self._filepath = tmp.name
+
+            # Load and validate DataFrame
             df = self._load_dataframe()
+
             updates = {
                 "uploaded": True,
                 "column_names": df.columns.tolist(),
@@ -96,8 +110,14 @@ class DataGeneralizationHandler(BaseHandler):
                 "message": "File imported successfully.",
             }
             self._update_session_and_context(updates)
+
         except Exception as e:
-            raise GenericExceptionHandler(f"File upload failed: {str(e)}", status_code=400)
+            # Clean up temp file on error
+            tmp.close()
+            if os.path.exists(tmp.name):
+                with contextlib.suppress(Exception):
+                    os.remove(tmp.name)
+            raise GenericExceptionHandler(f"File upload failed: {str(e)}", status_code=400) from e
 
     async def handle_columns_drop(self):
         """

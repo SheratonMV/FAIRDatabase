@@ -1,6 +1,7 @@
 """Flask blueprint routes for dashboard features: upload, search, display,
 preview, and update of PostgreSQL-stored CSV data."""
 
+import contextlib
 import os
 import zipfile
 from io import BytesIO
@@ -97,14 +98,19 @@ def upload():
             flash("No file selected. Please upload a valid CSV file.", "danger")
             return redirect(url_for("dashboard_routes.upload"))
 
+        temp_filepath = None
         try:
             description = request.form.get("description", "")
             origin = request.form.get("origin", "")
-            lines, filename = file_save_and_read(file)
+
+            # Use tempfile for automatic cleanup
+            lines, temp_filepath = file_save_and_read(file)
             header, rows = lines[0], lines[1:]
             patient_col, columns = header[0], header[1:]
             chunks = file_chunk_columns(columns, 1200)
-            main_table = filename.rsplit(".", 1)[0]
+
+            # Extract main table name from original filename
+            main_table = file.filename.rsplit(".", 1)[0]
             schema = "realtime"
 
             with conn.cursor() as cur:
@@ -120,10 +126,22 @@ def upload():
             # Invalidate metadata cache since new tables were created
             invalidate_metadata_cache()
 
-            os.remove(os.path.join(current_app.config["UPLOAD_FOLDER"], filename))
+            # Clean up temp file
+            if temp_filepath and os.path.exists(temp_filepath):
+                os.remove(temp_filepath)
+
+            flash(f"Successfully uploaded {file.filename}", "success")
+            return redirect(url_for("dashboard_routes.datasets"))
+
         except Exception as e:
             conn.rollback()
-            print(e)
+            current_app.logger.error(f"Upload failed: {e}")
+
+            # Clean up temp file on error
+            if temp_filepath and os.path.exists(temp_filepath):
+                with contextlib.suppress(Exception):
+                    os.remove(temp_filepath)
+
             raise GenericExceptionHandler(f"Upload failed: {str(e)}", status_code=400) from e
 
     return render_template("/dashboard/upload.html", user_email=user_email)

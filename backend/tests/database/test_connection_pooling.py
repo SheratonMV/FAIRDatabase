@@ -1,8 +1,8 @@
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from psycopg2 import OperationalError
 
-from config import init_db_pool, get_db, close_db_pool, connection_pool, teardown_db
+from config import close_db_pool, get_db, init_db_pool, teardown_db
 
 
 class TestConnectionPooling:
@@ -36,8 +36,8 @@ class TestConnectionPooling:
             close_db_pool()
 
             # Mock ThreadedConnectionPool to raise OperationalError
-            with patch('config.ThreadedConnectionPool') as mock_pool:
-                mock_pool.side_effect = OperationalError('Connection failed')
+            with patch("config.ThreadedConnectionPool") as mock_pool:
+                mock_pool.side_effect = OperationalError("Connection failed")
 
                 pool = init_db_pool()
 
@@ -52,7 +52,7 @@ class TestConnectionPooling:
             conn = get_db()
 
             assert conn is not None
-            assert hasattr(conn, 'cursor')
+            assert hasattr(conn, "cursor")
 
     def test_get_db_reuses_connection_in_context(self, app):
         """Test get_db reuses connection within same request context"""
@@ -74,8 +74,8 @@ class TestConnectionPooling:
             close_db_pool()
             pool = init_db_pool()
 
-            with patch.object(pool, 'getconn') as mock_getconn:
-                mock_getconn.side_effect = Exception('Failed to get connection')
+            with patch.object(pool, "getconn") as mock_getconn:
+                mock_getconn.side_effect = Exception("Failed to get connection")
 
                 conn = get_db()
 
@@ -94,11 +94,11 @@ class TestConnectionPooling:
             assert g.db is conn
 
             # Teardown should return connection
-            with patch.object(pool, 'putconn') as mock_putconn:
+            with patch.object(pool, "putconn") as mock_putconn:
                 teardown_db(None)
 
                 mock_putconn.assert_called_once_with(conn)
-                assert 'db' not in g
+                assert "db" not in g
 
     def test_teardown_db_closes_on_putconn_failure(self, app):
         """Test teardown_db closes connection if putconn fails"""
@@ -115,8 +115,8 @@ class TestConnectionPooling:
             mock_conn = MagicMock()
             g.db = mock_conn
 
-            with patch.object(pool, 'putconn') as mock_putconn:
-                mock_putconn.side_effect = Exception('putconn failed')
+            with patch.object(pool, "putconn") as mock_putconn:
+                mock_putconn.side_effect = Exception("putconn failed")
 
                 teardown_db(None)
 
@@ -129,7 +129,7 @@ class TestConnectionPooling:
             close_db_pool()
             pool = init_db_pool()
 
-            with patch.object(pool, 'closeall') as mock_closeall:
+            with patch.object(pool, "closeall") as mock_closeall:
                 close_db_pool()
 
                 mock_closeall.assert_called_once()
@@ -140,8 +140,8 @@ class TestConnectionPooling:
             close_db_pool()
             pool = init_db_pool()
 
-            with patch.object(pool, 'closeall') as mock_closeall:
-                mock_closeall.side_effect = Exception('Close failed')
+            with patch.object(pool, "closeall") as mock_closeall:
+                mock_closeall.side_effect = Exception("Close failed")
 
                 # Should not raise exception
                 close_db_pool()
@@ -151,7 +151,7 @@ class TestConnectionPooling:
         with app.app_context():
             close_db_pool()
 
-            with patch('config.ThreadedConnectionPool') as mock_pool_class:
+            with patch("config.ThreadedConnectionPool") as mock_pool_class:
                 mock_pool_class.return_value = MagicMock()
 
                 init_db_pool(minconn=2, maxconn=8)
@@ -159,13 +159,13 @@ class TestConnectionPooling:
                 call_args = mock_pool_class.call_args
                 assert call_args[0][0] == 2  # minconn
                 assert call_args[0][1] == 8  # maxconn
-                assert call_args[1]['host'] == app.config['POSTGRES_HOST']
-                assert call_args[1]['port'] == app.config['POSTGRES_PORT']
-                assert call_args[1]['user'] == app.config['POSTGRES_USER']
-                assert call_args[1]['password'] == app.config['POSTGRES_SECRET']
-                assert call_args[1]['database'] == app.config['POSTGRES_DB_NAME']
-                assert call_args[1]['connect_timeout'] == 10
-                assert 'statement_timeout' in call_args[1]['options']
+                assert call_args[1]["host"] == app.config["POSTGRES_HOST"]
+                assert call_args[1]["port"] == app.config["POSTGRES_PORT"]
+                assert call_args[1]["user"] == app.config["POSTGRES_USER"]
+                assert call_args[1]["password"] == app.config["POSTGRES_SECRET"]
+                assert call_args[1]["database"] == app.config["POSTGRES_DB_NAME"]
+                assert call_args[1]["connect_timeout"] == 10
+                assert "statement_timeout" in call_args[1]["options"]
 
     def test_get_db_without_pool_initialization(self, app):
         """Test get_db initializes pool if not already initialized"""
@@ -184,7 +184,7 @@ class TestConnectionPooling:
             from flask import g
 
             # Ensure no connection in g
-            g.pop('db', None)
+            g.pop("db", None)
 
             # Should not raise exception
             teardown_db(None)
@@ -199,16 +199,16 @@ class TestPoolerModeDetection:
 
         # This is informational only - Config is set at import time
         # Just verify the detection logic exists
-        assert hasattr(Config, 'POOLER_MODE')
+        assert hasattr(Config, "POOLER_MODE")
 
     def test_session_mode_detection_from_url(self):
         """Test session mode is detected from pooler.supabase.com"""
         from config import Config
 
-        assert hasattr(Config, 'POOLER_MODE')
+        assert hasattr(Config, "POOLER_MODE")
 
     def test_direct_connection_detection(self):
         """Test direct connection is detected"""
         from config import Config
 
-        assert hasattr(Config, 'POOLER_MODE')
+        assert hasattr(Config, "POOLER_MODE")

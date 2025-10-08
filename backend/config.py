@@ -38,10 +38,6 @@ class Config:
             type: string
             description: Secret key used for securing the Flask application.
             example: "supersecret"
-          UPLOAD_FOLDER:
-            type: string
-            description: Local path where uploaded files will be stored.
-            example: "./uploads"
           ALLOWED_EXTENSIONS:
             type: array
             items:
@@ -73,7 +69,6 @@ class Config:
 
     ENV = os.getenv("ENV")
     SECRET_KEY = os.getenv("SECRET_KEY", "supersecret")
-    UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "./uploads")
     ALLOWED_EXTENSIONS = {"csv"}
     MAX_CONTENT_LENGTH = 16 * 1000 * 10000
     SUPABASE_URL = os.getenv("SUPABASE_URL")
