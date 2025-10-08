@@ -7,7 +7,7 @@
 BEGIN;
 
 -- Load pgTAP extension
-SELECT plan(16);
+SELECT plan(19);
 
 -- ============================================================================
 -- TEST 1: SCHEMA EXISTENCE
@@ -44,6 +44,9 @@ SELECT has_column('_realtime', 'metadata_tables', 'origin',
 SELECT has_column('_realtime', 'metadata_tables', 'created_at',
   'metadata_tables should have created_at column');
 
+SELECT has_column('_realtime', 'metadata_tables', 'user_id',
+  'metadata_tables should have user_id column for data isolation');
+
 -- Test column types
 SELECT col_type_is('_realtime', 'metadata_tables', 'id', 'integer',
   'id column should be integer type');
@@ -53,6 +56,9 @@ SELECT col_type_is('_realtime', 'metadata_tables', 'table_name', 'text',
 
 SELECT col_type_is('_realtime', 'metadata_tables', 'main_table', 'text',
   'main_table column should be text type');
+
+SELECT col_type_is('_realtime', 'metadata_tables', 'user_id', 'uuid',
+  'user_id column should be uuid type');
 
 -- ============================================================================
 -- TEST 3: PRIMARY KEY AND INDEXES
@@ -72,6 +78,9 @@ SELECT has_index('_realtime', 'metadata_tables', 'idx_metadata_table_name',
 
 SELECT has_index('_realtime', 'metadata_tables', 'idx_metadata_main_table',
   'Index on main_table should exist for grouping related chunks');
+
+SELECT has_index('_realtime', 'metadata_tables', 'idx_metadata_user_id',
+  'Index on user_id should exist for user isolation queries');
 
 -- ============================================================================
 -- TEST 4: ROW LEVEL SECURITY

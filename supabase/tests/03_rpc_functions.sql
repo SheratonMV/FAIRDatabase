@@ -7,7 +7,7 @@
 BEGIN;
 
 -- Load pgTAP extension
-SELECT plan(33);
+SELECT plan(35);
 
 -- ============================================================================
 -- TEST 1: INFORMATION SCHEMA FUNCTIONS EXIST
@@ -75,27 +75,36 @@ SELECT function_returns('public', 'insert_metadata', ARRAY['text', 'text', 'text
 -- ============================================================================
 
 -- Test create_data_table exists with correct signature
-SELECT has_function('public', 'create_data_table', ARRAY['text', 'text[]', 'text', 'text'],
-  'create_data_table(text, text[], text, text) function should exist');
+SELECT has_function('public', 'create_data_table', ARRAY['text', 'text', 'text[]', 'text'],
+  'create_data_table(text, text, text[], text) function should exist');
 
-SELECT function_returns('public', 'create_data_table', ARRAY['text', 'text[]', 'text', 'text'], 'boolean',
+SELECT function_returns('public', 'create_data_table', ARRAY['text', 'text', 'text[]', 'text'], 'boolean',
   'create_data_table should return a boolean');
 
--- Test enable_table_rls exists with correct signature
-SELECT has_function('public', 'enable_table_rls', ARRAY['text', 'text'],
-  'enable_table_rls(text, text) function should exist');
-
-SELECT function_returns('public', 'enable_table_rls', ARRAY['text', 'text'], 'boolean',
-  'enable_table_rls should return a boolean');
-
 -- ============================================================================
--- TEST 5: FUNCTION PERMISSIONS
+-- TEST 5: HELPER FUNCTIONS EXIST
 -- ============================================================================
 
--- NOTE: The RLS migration (20251007000000_enable_rls.sql) attempts to revoke
--- anon access from functions, but PostgreSQL grants are cumulative.
--- Since the initial RPC migration granted EXECUTE to anon, these grants persist.
--- These tests document the CURRENT state for security auditing.
+-- Test get_current_user_id exists
+SELECT has_function('public', 'get_current_user_id', ARRAY[]::text[],
+  'get_current_user_id() function should exist');
+
+SELECT function_returns('public', 'get_current_user_id', ARRAY[]::text[], 'uuid',
+  'get_current_user_id should return uuid');
+
+-- Test user_owns_table exists
+SELECT has_function('public', 'user_owns_table', ARRAY['text'],
+  'user_owns_table(text) function should exist');
+
+SELECT function_returns('public', 'user_owns_table', ARRAY['text'], 'boolean',
+  'user_owns_table should return a boolean');
+
+-- ============================================================================
+-- TEST 6: FUNCTION PERMISSIONS
+-- ============================================================================
+
+-- NOTE: Only authenticated users have access to RPC functions.
+-- Anonymous users have no EXECUTE permissions for security.
 
 -- Verify authenticated users have EXECUTE on information schema functions
 SELECT function_privs_are('public', 'search_tables_by_column', ARRAY['text', 'text'], 'authenticated', ARRAY['EXECUTE'],
@@ -120,13 +129,16 @@ SELECT function_privs_are('public', 'update_table_row', ARRAY['text', 'integer',
 SELECT function_privs_are('public', 'insert_metadata', ARRAY['text', 'text', 'text', 'text'], 'authenticated', ARRAY['EXECUTE'],
   'authenticated should have EXECUTE permission on insert_metadata');
 
--- service_role should have EXECUTE on create_data_table
-SELECT function_privs_are('public', 'create_data_table', ARRAY['text', 'text[]', 'text', 'text'], 'service_role', ARRAY['EXECUTE'],
+-- service_role should have EXECUTE on create_data_table (admin operation)
+SELECT function_privs_are('public', 'create_data_table', ARRAY['text', 'text', 'text[]', 'text'], 'service_role', ARRAY['EXECUTE'],
   'service_role should have EXECUTE permission on create_data_table');
 
--- service_role should have EXECUTE on enable_table_rls
-SELECT function_privs_are('public', 'enable_table_rls', ARRAY['text', 'text'], 'service_role', ARRAY['EXECUTE'],
-  'service_role should have EXECUTE permission on enable_table_rls');
+-- authenticated users should have EXECUTE on helper functions
+SELECT function_privs_are('public', 'get_current_user_id', ARRAY[]::text[], 'authenticated', ARRAY['EXECUTE'],
+  'authenticated should have EXECUTE permission on get_current_user_id');
+
+SELECT function_privs_are('public', 'user_owns_table', ARRAY['text'], 'authenticated', ARRAY['EXECUTE'],
+  'authenticated should have EXECUTE permission on user_owns_table');
 
 -- ============================================================================
 -- TEST 7: FUNCTIONAL TESTS WITH TEST DATA
@@ -155,23 +167,18 @@ SELECT is(
 -- Test get_table_columns returns expected columns for metadata_tables
 SELECT is(
   (SELECT COUNT(*) FROM public.get_table_columns('metadata_tables', '_realtime')
-   WHERE column_name IN ('id', 'table_name', 'main_table', 'description', 'origin', 'created_at')),
-  6::bigint,
-  'get_table_columns should return all 6 columns of metadata_tables'
+   WHERE column_name IN ('id', 'table_name', 'main_table', 'description', 'origin', 'created_at', 'user_id')),
+  7::bigint,
+  'get_table_columns should return all 7 columns of metadata_tables'
 );
 
--- Test insert_metadata inserts data and returns id
-SELECT is(
-  (SELECT public.insert_metadata('test_table', 'test_main', 'test description', 'test origin') > 0),
-  true,
-  'insert_metadata should insert data and return positive id'
-);
-
--- Verify the inserted data exists
-SELECT is(
-  (SELECT COUNT(*) FROM _realtime.metadata_tables WHERE table_name = 'test_table'),
-  1::bigint,
-  'Inserted metadata should be retrievable from metadata_tables'
+-- Test insert_metadata requires authentication
+-- Note: pgTAP tests run without authenticated user context
+SELECT throws_ok(
+  'SELECT public.insert_metadata(''test_table'', ''test_main'', ''test description'', ''test origin'')',
+  'P0001',
+  'User must be authenticated to insert metadata',
+  'insert_metadata should require authentication'
 );
 
 -- Finish tests

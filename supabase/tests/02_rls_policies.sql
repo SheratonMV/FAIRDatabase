@@ -7,7 +7,7 @@
 BEGIN;
 
 -- Load pgTAP extension
-SELECT plan(9);
+SELECT plan(13);
 
 -- ============================================================================
 -- TEST 1: RLS ENABLED ON METADATA_TABLES
@@ -25,23 +25,44 @@ SELECT is(
 -- TEST 2: METADATA_TABLES POLICIES EXIST
 -- ============================================================================
 
--- Test that required policies exist
+-- Test that required policies exist (user-level isolation)
 SELECT policies_are('_realtime', 'metadata_tables',
-  ARRAY['authenticated_users_view_metadata', 'service_role_full_metadata_access'],
-  'metadata_tables should have exactly two RLS policies');
+  ARRAY[
+    'users_view_own_metadata',
+    'users_insert_own_metadata',
+    'users_update_own_metadata',
+    'users_delete_own_metadata',
+    'service_role_full_metadata_access'
+  ],
+  'metadata_tables should have 5 RLS policies for user-level isolation');
 
 -- ============================================================================
--- TEST 3: AUTHENTICATED_USERS_VIEW_METADATA POLICY
+-- TEST 3: USER-LEVEL ISOLATION POLICIES
 -- ============================================================================
 
--- Test policy exists and is for SELECT operations
-SELECT policy_cmd_is('_realtime', 'metadata_tables', 'authenticated_users_view_metadata', 'SELECT',
-  'authenticated_users_view_metadata policy should be for SELECT operations');
+-- Test SELECT policy
+SELECT policy_cmd_is('_realtime', 'metadata_tables', 'users_view_own_metadata', 'SELECT',
+  'users_view_own_metadata policy should be for SELECT operations');
 
--- Test policy applies to authenticated role
-SELECT policy_roles_are('_realtime', 'metadata_tables', 'authenticated_users_view_metadata',
+SELECT policy_roles_are('_realtime', 'metadata_tables', 'users_view_own_metadata',
   ARRAY['authenticated'],
-  'authenticated_users_view_metadata should apply to authenticated role');
+  'users_view_own_metadata should apply to authenticated role');
+
+-- Test INSERT policy
+SELECT policy_cmd_is('_realtime', 'metadata_tables', 'users_insert_own_metadata', 'INSERT',
+  'users_insert_own_metadata policy should be for INSERT operations');
+
+SELECT policy_roles_are('_realtime', 'metadata_tables', 'users_insert_own_metadata',
+  ARRAY['authenticated'],
+  'users_insert_own_metadata should apply to authenticated role');
+
+-- Test UPDATE policy
+SELECT policy_cmd_is('_realtime', 'metadata_tables', 'users_update_own_metadata', 'UPDATE',
+  'users_update_own_metadata policy should be for UPDATE operations');
+
+-- Test DELETE policy
+SELECT policy_cmd_is('_realtime', 'metadata_tables', 'users_delete_own_metadata', 'DELETE',
+  'users_delete_own_metadata policy should be for DELETE operations');
 
 -- ============================================================================
 -- TEST 4: SERVICE_ROLE_FULL_METADATA_ACCESS POLICY
@@ -60,12 +81,10 @@ SELECT policy_roles_are('_realtime', 'metadata_tables', 'service_role_full_metad
 -- TEST 5: PERMISSION VERIFICATION
 -- ============================================================================
 
--- Test authenticated role has SELECT permission (via RLS policy)
--- Note: authenticated also has REFERENCES, TRIGGER, TRUNCATE from initial GRANT ALL
--- Only INSERT, UPDATE, DELETE were explicitly revoked in RLS migration
+-- Test authenticated role has SELECT and INSERT permissions (enforced by RLS)
 SELECT table_privs_are('_realtime', 'metadata_tables', 'authenticated',
-  ARRAY['SELECT', 'REFERENCES', 'TRIGGER', 'TRUNCATE'],
-  'authenticated role should have SELECT and administrative permissions on metadata_tables');
+  ARRAY['SELECT', 'INSERT'],
+  'authenticated role should have SELECT and INSERT (RLS enforces user isolation)');
 
 -- Test anon role has NO permissions (revoked for security)
 SELECT table_privs_are('_realtime', 'metadata_tables', 'anon', ARRAY[]::text[],

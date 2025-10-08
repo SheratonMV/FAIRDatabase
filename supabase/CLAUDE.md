@@ -35,38 +35,47 @@ npx supabase migration new migration_name
 
 ### Existing Migrations
 
-1. `20250105000000_enable_pgtap.sql` - Enables pgTAP extension for database testing
-2. `20250106000000_initial_schema.sql` - Creates `_realtime` schema, `metadata_tables` table, and base permissions
-3. `20250107000000_rpc_functions.sql` - Creates all RPC functions (11 total)
-4. `20251007000000_enable_rls.sql` - Enables row-level security and updates `create_data_table()` RPC
-5. `20251008000000_update_create_data_table_with_rls.sql` - Production-ready `create_data_table()` with full RLS support
+1. `00_enable_pgtap.sql` - Enables pgTAP extension for database testing
+2. `01_schema_and_rls.sql` - Creates `_realtime` schema, `metadata_tables` table with user_id, and RLS policies for user-level data isolation
+3. `02_rpc_functions.sql` - Creates all RPC functions (10 total) with user isolation built-in
 
 ## RPC Functions
 
-All functions defined in `migrations/20250107000000_rpc_functions.sql`.
+All functions defined in `migrations/02_rpc_functions.sql`.
 
-### Metadata Operations
+### Information Schema Functions
 
-- `get_all_tables(schema_name)` - List all tables in schema
-- `get_table_columns(table_name, schema_name)` - Get column info for table
-- `table_exists(table_name, schema_name)` - Check if table exists
-- `search_tables_by_column(column_name, schema_name)` - Find tables with specific column
+- `search_tables_by_column(p_column_name, p_schema_name)` - Find tables with specific column (case-insensitive)
+- `get_table_columns(p_table_name, p_schema_name)` - Get column info for table
+- `table_exists(p_table_name, p_schema_name)` - Check if table exists
+- `get_all_tables(p_schema_name)` - List all tables in schema
 
-### Data Operations
+### Data Query Functions (User Isolation Built-in)
 
-- `select_from_table(table_name, row_limit, schema_name)` - Query dynamic table
-- `update_table_row(table_name, row_id, updates, schema_name)` - Update row by rowid
-- `insert_metadata(table_name, main_table_name, description, origin)` - Insert metadata record
-- `create_data_table(schema_name, table_name, column_names, id_column)` - **[ACTIVE]** Create dynamic table with full RLS configuration
+- `select_from_table(p_table_name, p_row_limit, p_schema_name)` - Query dynamic table (filters by user_id)
+- `update_table_row(p_table_name, p_row_id, p_updates, p_schema_name)` - Update row (enforces user ownership)
 
-**Note**: `create_data_table` is now the primary method for table creation, replacing direct psycopg2 DDL operations. It includes:
-- Table creation with proper column definitions
-- Index creation on ID column
-- Row Level Security (RLS) setup
-- Permission grants (read-only for authenticated, full access for service_role)
-- PostgREST schema cache reload via `NOTIFY pgrst, 'reload schema'`
+### Metadata Functions
 
-All functions use `SECURITY DEFINER` to access `_realtime` schema from `public`.
+- `insert_metadata(p_table_name, p_main_table, p_description, p_origin)` - Insert metadata with automatic user_id capture
+
+### Table Creation (Service Role Only)
+
+- `create_data_table(p_schema_name, p_table_name, p_column_names, p_id_column)` - Create dynamic table with:
+  - user_id column for data isolation
+  - Indexes on user_id and ID column
+  - Full RLS policies (users see only their data)
+  - Proper permissions
+  - PostgREST schema cache reload
+
+### Helper Functions
+
+- `get_current_user_id()` - Returns authenticated user UUID
+- `user_owns_table(p_table_name)` - Check if user owns a table
+
+**Security Model**: All functions use `SECURITY DEFINER`. Only authenticated users have EXECUTE permissions. Service role bypasses RLS for admin operations.
+
+All parameter names use `p_` prefix for consistency.
 
 ## Schema Configuration
 
@@ -124,24 +133,26 @@ npx supabase db reset && npx supabase test db
 
 ### Test Files
 
-1. **`01_schema_structure.sql`** - Schema, table, and index tests
+1. **`01_schema_structure.sql`** - Schema, table, and index tests (19 tests)
    - Verifies `_realtime` schema exists
-   - Tests `metadata_tables` structure and columns
-   - Checks primary keys and indexes
+   - Tests `metadata_tables` structure including `user_id` column
+   - Checks primary keys and indexes (including `idx_metadata_user_id`)
    - Validates RLS is enabled
 
-2. **`02_rls_policies.sql`** - Row Level Security policy tests
-   - Verifies RLS policies exist and are correctly configured
-   - Tests permissions for `anon`, `authenticated`, and `service_role`
-   - Validates policy commands (SELECT, ALL, etc.)
+2. **`02_rls_policies.sql`** - Row Level Security policy tests (12 tests)
+   - Verifies user-level isolation policies (5 policies)
+   - Tests permissions for `authenticated` and `service_role`
+   - Validates policy commands (SELECT, INSERT, UPDATE, DELETE, ALL)
+   - Ensures anon has no access
 
-3. **`03_rpc_functions.sql`** - RPC function tests
-   - Tests all 11 RPC functions exist with correct signatures
+3. **`03_rpc_functions.sql`** - RPC function tests (35 tests)
+   - Tests all 10 RPC functions exist with correct signatures
    - Validates function return types
-   - Checks permissions for different roles
+   - Checks permissions (authenticated only, service_role for admin)
    - Tests basic functionality with sample data
+   - Includes helper functions (`get_current_user_id`, `user_owns_table`)
 
-**Test Coverage**: 58 tests across 3 files
+**Test Coverage**: 67 tests across 3 files (19 + 13 + 35)
 
 ### Writing New pgTAP Tests
 
