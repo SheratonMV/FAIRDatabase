@@ -868,11 +868,21 @@ def close_db_pool():
 
 # Configure Supabase client with timeouts
 # Using 180s timeout for test suite compatibility
+#
+# Token Management in Flask Backend:
+# - auto_refresh_token=False: Token refresh is handled manually in @login_required decorator
+#   (both proactive refresh before expiry and reactive refresh on validation failure)
+# - persist_session=False: Session persistence is managed by Flask's session system,
+#   not by Supabase client (no browser localStorage/sessionStorage in backend context)
+#
+# These settings match the service role client configuration and are appropriate for
+# server-side usage where each request is isolated and sessions don't persist across
+# HTTP requests within the Supabase client itself.
 supabase_client_options = {
     "postgrest_client_timeout": 180,  # 180 second timeout for PostgREST requests
     "storage_client_timeout": 180,  # 180 second timeout for Storage requests
-    "auto_refresh_token": True,  # Automatically refresh auth tokens
-    "persist_session": True,  # Persist session across requests
+    "auto_refresh_token": False,  # Manual refresh handled by @login_required decorator
+    "persist_session": False,  # Flask sessions handle persistence, not client
 }
 
 supabase_extension = Supabase(client_options=supabase_client_options)
