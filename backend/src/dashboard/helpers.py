@@ -35,24 +35,23 @@ def pg_ensure_schema_and_metadata(cur, schema):
     pass
 
 
-def pg_create_data_table(cur, schema, table_name, columns, patient_col):
+def pg_create_data_table(schema, table_name, columns, patient_col):
     """
-    Create chunked PostgreSQL data table for a CSV column set.
+    Create chunked PostgreSQL data table for a CSV column set using Supabase RPC.
 
-    NOTE: This function continues to use psycopg2 for DDL operations.
-    Dynamic table creation via Supabase REST API has schema cache refresh issues.
-    For CRUD operations, we use Supabase client (see pg_insert_data_rows).
+    This function now uses Supabase RPC instead of direct psycopg2 for table creation,
+    following pure Supabase architecture patterns. The RPC function handles:
+    - Table creation with proper column definitions
+    - Index creation on patient column
+    - Row Level Security (RLS) configuration
+    - Permission grants for authenticated and service_role
+    - PostgREST schema cache reload
 
     ---
     tags:
       - database
-    summary: Create a single chunked data table for incoming CSV data.
+    summary: Create a single chunked data table via Supabase RPC.
     parameters:
-      - name: cur
-        in: code
-        type: psycopg2.extensions.cursor
-        required: true
-        description: PostgreSQL cursor object.
       - name: schema
         in: code
         type: string
@@ -74,107 +73,31 @@ def pg_create_data_table(cur, schema, table_name, columns, patient_col):
         required: true
         description: Name of the patient ID column.
     """
+    from config import supabase_extension
+
+    # Sanitize column names for PostgreSQL compliance
     clean_cols = [pg_sanitize_column(c) for c in columns]
-    cols_def = ", ".join(f"{col} TEXT" for col in clean_cols)
 
-    cur.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS _{schema}.{table_name} (
-            rowid SERIAL PRIMARY KEY,
-            {patient_col} TEXT NOT NULL,
-            {cols_def}
-        );
-    """
-    )
+    # Call Supabase RPC function to create table
+    # Note: Must use service_role client as table creation is an admin operation
+    try:
+        result = supabase_extension.service_role_client.rpc(
+            'create_data_table',
+            {
+                'p_schema_name': f'_{schema}',  # _realtime
+                'p_table_name': table_name,
+                'p_column_names': clean_cols,
+                'p_id_column': patient_col
+            }
+        ).execute()
 
-    # Create index on patient_col for better query performance
-    cur.execute(
-        f"""
-        CREATE INDEX IF NOT EXISTS idx_{table_name}_{patient_col}
-        ON _{schema}.{table_name}({patient_col});
-        """
-    )
+        if not result.data:
+            raise Exception(f"Failed to create table {table_name}")
 
-    # Enable Row Level Security on the table
-    cur.execute(
-        f"""
-        ALTER TABLE _{schema}.{table_name} ENABLE ROW LEVEL SECURITY;
-        """
-    )
+        return result.data
 
-    # Drop existing policies if they exist (for idempotency)
-    cur.execute(
-        f"""
-        DROP POLICY IF EXISTS "authenticated_users_view_data" ON _{schema}.{table_name};
-        """
-    )
-    cur.execute(
-        f"""
-        DROP POLICY IF EXISTS "service_role_full_data_access" ON _{schema}.{table_name};
-        """
-    )
-
-    # Create policy: Authenticated users can view all data
-    cur.execute(
-        f"""
-        CREATE POLICY "authenticated_users_view_data"
-        ON _{schema}.{table_name}
-        FOR SELECT
-        TO authenticated
-        USING (true);
-        """
-    )
-
-    # Create policy: Service role has full access
-    cur.execute(
-        f"""
-        CREATE POLICY "service_role_full_data_access"
-        ON _{schema}.{table_name}
-        FOR ALL
-        TO service_role
-        USING (true)
-        WITH CHECK (true);
-        """
-    )
-
-    # Revoke direct access from anon
-    cur.execute(
-        f"""
-        REVOKE ALL ON TABLE _{schema}.{table_name} FROM anon;
-        """
-    )
-
-    # Revoke write access from authenticated (read-only via RLS)
-    cur.execute(
-        f"""
-        REVOKE INSERT, UPDATE, DELETE ON TABLE _{schema}.{table_name} FROM authenticated;
-        """
-    )
-
-    # Grant SELECT to authenticated (enforced by RLS policy)
-    cur.execute(
-        f"""
-        GRANT SELECT ON TABLE _{schema}.{table_name} TO authenticated;
-        """
-    )
-
-    # Grant all permissions to service role
-    cur.execute(
-        f"""
-        GRANT ALL ON TABLE _{schema}.{table_name} TO service_role;
-        GRANT USAGE, SELECT ON SEQUENCE _{schema}.{table_name}_rowid_seq TO service_role;
-        """
-    )
-
-    # Revoke sequence access from anon and authenticated
-    cur.execute(
-        f"""
-        REVOKE ALL ON SEQUENCE _{schema}.{table_name}_rowid_seq FROM anon, authenticated;
-        """
-    )
-
-    # Notify PostgREST to reload schema cache
-    cur.execute("NOTIFY pgrst, 'reload schema'")
+    except Exception as e:
+        raise Exception(f"Error creating table {table_name}: {str(e)}")
 
 
 def pg_insert_metadata(cur, schema, table_name, main_table, description, origin):

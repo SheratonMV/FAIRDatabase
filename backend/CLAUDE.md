@@ -112,36 +112,42 @@ async def async_endpoint():
 - psycopg2 operations remain synchronous
 - Test suite runs with 180s timeout to accommodate async operations
 
-### psycopg2 (Dynamic Tables Only)
+### psycopg2 (Bulk Inserts Only)
 
-Used exclusively for creating and populating dynamic tables.
+Used exclusively for bulk data inserts for performance.
+
+**Table Creation**: Use `create_data_table` RPC function instead
+
+```python
+from config import supabase_extension
+
+# Create table via Supabase RPC (service_role required)
+supabase_extension.service_role_client.rpc('create_data_table', {
+    'p_schema_name': '_realtime',
+    'p_table_name': 'my_table',
+    'p_column_names': ['col1', 'col2', 'col3'],
+    'p_id_column': 'patient_id'
+}).execute()
+```
+
+**Bulk Inserts**: Use psycopg2 for large datasets
 
 ```python
 from flask import g
 from config import get_db
+from psycopg2.extras import execute_values
 
 conn = g.db  # Get connection from Flask context
 with conn.cursor() as cur:
-    # Create table
-    cur.execute(f"""
-        CREATE TABLE IF NOT EXISTS _realtime.my_table (
-            rowid SERIAL PRIMARY KEY,
-            patient_id TEXT NOT NULL,
-            ...
-        );
-    """)
-
-    # Grant permissions for Supabase
-    cur.execute(f"""
-        GRANT ALL ON TABLE _realtime.my_table
-        TO anon, authenticated, service_role;
-    """)
-
-    # Insert data
-    cur.execute(f"""
-        INSERT INTO _realtime.my_table (patient_id, ...)
-        VALUES (%s, %s, ...);
-    """, [values])
+    # Batch insert for performance
+    execute_values(
+        cur,
+        """
+        INSERT INTO _realtime.my_table (patient_id, col1, col2)
+        VALUES %s
+        """,
+        [(val1, val2, val3), (val1, val2, val3), ...]
+    )
 
 conn.commit()
 ```
@@ -315,10 +321,10 @@ def my_endpoint():
 ## Common Pitfalls
 
 1. **Forgetting `.execute()`**: Supabase queries don't run without it
-2. **Wrong schema**: Remember to use `._realtime` schema, not `public`
-3. **Cache issues**: Don't try to query a table via Supabase RPC immediately after creating it with psycopg2 - the cache needs time
-4. **Using `id` instead of `rowid`**: Dynamic tables use `rowid` as primary key
-5. **Not committing**: Remember `conn.commit()` after psycopg2 operations
+2. **Wrong schema**: Remember to use `_realtime` schema, not `public`
+3. **Using `id` instead of `rowid`**: Dynamic tables use `rowid` as primary key
+4. **Not committing**: Remember `conn.commit()` after psycopg2 bulk insert operations
+5. **Wrong client for table creation**: Use `service_role_client` for `create_data_table`, not regular client
 
 ---
 

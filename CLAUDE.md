@@ -102,9 +102,10 @@ Remember: The best code is code that doesn't exist. The second best is simple co
 
 ### Overview
 
-FAIRDatabase uses **PostgreSQL via Supabase** with a pragmatic hybrid approach:
-- **Supabase** for migrations, RPC functions, and static table operations
-- **psycopg2** for dynamic table creation (due to PostgREST schema cache limitations)
+FAIRDatabase uses **PostgreSQL via Supabase** with a unified approach:
+- **Supabase RPC** for all database operations including dynamic table creation
+- **psycopg2** only for bulk data inserts (performance optimization)
+- **Migrations** for all schema changes and function definitions
 
 ### Connection Configuration
 
@@ -134,16 +135,20 @@ All application data lives in the `_realtime` schema (not `public`):
 - `_realtime.metadata_tables` - Tracks uploaded CSV files
 - `_realtime.<dataset>_p1`, `_realtime.<dataset>_p2`, etc. - Dynamic data tables (chunked by 1200 columns)
 
-### Hybrid Architecture
+### Pure Supabase Architecture
 
-**Why both Supabase and psycopg2?**
+**Why Supabase RPC for table creation?**
 
-PostgREST (Supabase's REST layer) caches database schema for performance. Dynamically created tables aren't immediately visible to the API. Solution: use psycopg2 for the create+insert workflow, then Supabase RPC for all subsequent queries.
+- **Security**: All SQL executed in PostgreSQL functions with proper parameter validation
+- **Consistency**: Single interface for all database operations
+- **Maintainability**: Database logic versioned in migrations, not application code
+- **Scalability**: RPC functions callable from any client (Python, JavaScript, mobile)
+- **Schema Cache**: `NOTIFY pgrst, 'reload schema'` automatically refreshes PostgREST
 
 **What uses what:**
-- **Supabase migrations**: Schema setup (`supabase/migrations/`)
-- **Supabase RPC**: Metadata queries (11 operations in `routes.py`)
-- **psycopg2**: Dynamic table creation and initial inserts (`helpers.py`)
+- **Supabase migrations**: All schema setup and RPC function definitions (`supabase/migrations/`)
+- **Supabase RPC**: Dynamic table creation (`create_data_table`), metadata queries, data queries
+- **psycopg2**: Bulk data inserts only (performance optimization for large CSVs)
 
 See `backend/CLAUDE.md` for Python usage patterns and `supabase/CLAUDE.md` for migration details.
 

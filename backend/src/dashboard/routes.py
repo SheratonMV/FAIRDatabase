@@ -34,7 +34,6 @@ from .helpers import (
     file_chunk_columns,
     file_save_and_read,
     pg_create_data_table,
-    pg_ensure_schema_and_metadata,
     pg_insert_data_rows,
     pg_insert_metadata,
 )
@@ -113,11 +112,15 @@ def upload():
             main_table = file.filename.rsplit(".", 1)[0]
             schema = "realtime"
 
+            # Create tables via Supabase RPC (outside transaction)
+            for i, chunk in enumerate(chunks):
+                table = f"{main_table}_p{i + 1}"
+                pg_create_data_table(schema, table, chunk, patient_col)
+
+            # Insert metadata and data via psycopg2 (in transaction)
             with conn.cursor() as cur:
-                pg_ensure_schema_and_metadata(cur, schema)
                 for i, chunk in enumerate(chunks):
                     table = f"{main_table}_p{i + 1}"
-                    pg_create_data_table(cur, schema, table, chunk, patient_col)
                     pg_insert_metadata(cur, schema, table, main_table, description, origin)
                     pg_insert_data_rows(cur, schema, table, patient_col, rows, chunk, i)
 

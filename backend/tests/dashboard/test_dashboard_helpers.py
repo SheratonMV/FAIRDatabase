@@ -18,7 +18,6 @@ from src.dashboard.helpers import (
     file_chunk_columns,
     file_save_and_read,
     pg_create_data_table,
-    pg_ensure_schema_and_metadata,
     pg_insert_data_rows,
     pg_insert_metadata,
     pg_sanitize_column,
@@ -142,7 +141,7 @@ class TestPgCreateDataTable:
                 conn.commit()
 
                 columns = ["age", "gender", "diagnosis"]
-                pg_create_data_table(cur, "realtime", "test_table_create", columns, "patient_id")
+                pg_create_data_table("realtime","test_table_create", columns, "patient_id")
                 conn.commit()
 
                 # Verify table exists
@@ -185,7 +184,7 @@ class TestPgCreateDataTable:
                 conn.commit()
 
                 columns = ["col1"]
-                pg_create_data_table(cur, "realtime", "test_table_index", columns, "patient_id")
+                pg_create_data_table("realtime","test_table_index", columns, "patient_id")
                 conn.commit()
 
                 # Verify index exists
@@ -215,7 +214,7 @@ class TestPgCreateDataTable:
                 conn.commit()
 
                 columns = ["col1"]
-                pg_create_data_table(cur, "realtime", "test_table_perms", columns, "patient_id")
+                pg_create_data_table("realtime","test_table_perms", columns, "patient_id")
                 conn.commit()
 
                 # Verify anon has NO access (security model: anon must use RPC functions)
@@ -253,7 +252,7 @@ class TestPgCreateDataTable:
 
                 # Columns with special characters (will be sanitized)
                 columns = ["patient-name", "test@date", "value#1"]
-                pg_create_data_table(cur, "realtime", "test_table_special", columns, "patient_id")
+                pg_create_data_table("realtime","test_table_special", columns, "patient_id")
                 conn.commit()
 
                 # Verify table exists
@@ -283,7 +282,7 @@ class TestPgCreateDataTable:
 
                 # Create 100 columns (reasonable test size)
                 columns = [f"col{i}" for i in range(100)]
-                pg_create_data_table(cur, "realtime", "test_table_wide", columns, "patient_id")
+                pg_create_data_table("realtime","test_table_wide", columns, "patient_id")
                 conn.commit()
 
                 # Verify table exists and has correct column count
@@ -316,7 +315,7 @@ class TestPgInsertDataRows:
                 cur.execute("DROP TABLE IF EXISTS _realtime.test_insert_single CASCADE")
                 conn.commit()
                 columns = ["age", "gender"]
-                pg_create_data_table(cur, "realtime", "test_insert_single", columns, "patient_id")
+                pg_create_data_table("realtime","test_insert_single", columns, "patient_id")
                 conn.commit()
 
                 # Insert data
@@ -350,7 +349,7 @@ class TestPgInsertDataRows:
                 cur.execute("DROP TABLE IF EXISTS _realtime.test_insert_multi CASCADE")
                 conn.commit()
                 columns = ["value"]
-                pg_create_data_table(cur, "realtime", "test_insert_multi", columns, "patient_id")
+                pg_create_data_table("realtime","test_insert_multi", columns, "patient_id")
                 conn.commit()
 
                 # Insert multiple rows
@@ -383,7 +382,7 @@ class TestPgInsertDataRows:
                 cur.execute("DROP TABLE IF EXISTS _realtime.test_hash_unique CASCADE")
                 conn.commit()
                 columns = ["value"]
-                pg_create_data_table(cur, "realtime", "test_hash_unique", columns, "patient_id")
+                pg_create_data_table("realtime","test_hash_unique", columns, "patient_id")
                 conn.commit()
 
                 rows = [
@@ -416,7 +415,7 @@ class TestPgInsertDataRows:
                 cur.execute("DROP TABLE IF EXISTS _realtime.test_skip_malformed CASCADE")
                 conn.commit()
                 columns = ["col1"]
-                pg_create_data_table(cur, "realtime", "test_skip_malformed", columns, "patient_id")
+                pg_create_data_table("realtime","test_skip_malformed", columns, "patient_id")
                 conn.commit()
 
                 # Mix of valid and invalid rows
@@ -450,7 +449,7 @@ class TestPgInsertDataRows:
                 conn.commit()
                 # Simulate first chunk (columns 0-4 for testing)
                 columns = ["col0", "col1", "col2", "col3", "col4"]
-                pg_create_data_table(cur, "realtime", "test_chunk_0", columns, "patient_id")
+                pg_create_data_table("realtime","test_chunk_0", columns, "patient_id")
                 conn.commit()
 
                 # Data row with patient ID + 5 column values
@@ -477,7 +476,7 @@ class TestPgInsertDataRows:
                 cur.execute("DROP TABLE IF EXISTS _realtime.test_empty_rows CASCADE")
                 conn.commit()
                 columns = ["col1"]
-                pg_create_data_table(cur, "realtime", "test_empty_rows", columns, "patient_id")
+                pg_create_data_table("realtime","test_empty_rows", columns, "patient_id")
                 conn.commit()
 
                 # Empty rows
@@ -539,14 +538,14 @@ class TestPgEnsureSchemaAndMetadata:
     """Test schema and metadata table setup"""
 
     def test_ensures_schema_exists(self, app):
-        """Schema creation → _realtime schema exists"""
+        """Schema existence → _realtime schema exists (created by migrations)"""
         with app.app_context():
             conn = get_db()
             cur = conn.cursor()
 
             try:
-                pg_ensure_schema_and_metadata(cur, "realtime")
-                conn.commit()
+                # Schema is created by migrations, not by application code
+                # This test verifies migrations have been applied
 
                 # Verify schema exists
                 cur.execute("""
@@ -561,14 +560,14 @@ class TestPgEnsureSchemaAndMetadata:
                 cur.close()
 
     def test_ensures_metadata_table_exists(self, app):
-        """Metadata table creation → metadata_tables exists"""
+        """Metadata table existence → metadata_tables exists (created by migrations)"""
         with app.app_context():
             conn = get_db()
             cur = conn.cursor()
 
             try:
-                pg_ensure_schema_and_metadata(cur, "realtime")
-                conn.commit()
+                # Metadata table is created by migrations, not by application code
+                # This test verifies migrations have been applied
 
                 # Verify metadata_tables exists
                 cur.execute("""
@@ -594,9 +593,7 @@ class TestPgInsertMetadata:
             cur = conn.cursor()
 
             try:
-                # Ensure schema exists
-                pg_ensure_schema_and_metadata(cur, "realtime")
-                conn.commit()
+                # Schema and metadata table created by migrations
 
                 # Clean up any existing test metadata
                 cur.execute("""

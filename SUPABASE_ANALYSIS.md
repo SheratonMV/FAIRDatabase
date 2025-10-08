@@ -158,30 +158,23 @@ ThreadedConnectionPool(
   - [Supavisor](https://supabase.com/docs/guides/database/connection-pooling)
   - [Direct vs Pooler Connections](https://supabase.com/docs/guides/database/connecting-to-postgres#how-to-connect)
 
-**ISSUE #2.2**: Direct psycopg2 vs Supabase Client Decision Not Optimal
-- **Severity**: MEDIUM
-- **Location**: `backend/src/dashboard/helpers.py:70-168`
-- **Problem**: Using raw SQL with psycopg2 for table creation instead of leveraging Supabase's schema management
-- **Rationale Given**: "PostgREST caches database schema"
-- **Analysis**:
-  - ✅ Valid concern about PostgREST cache
-  - ❌ Could use `NOTIFY pgrst, 'reload schema'` after table creation
-  - ❌ Could use service role client with schema reload
-  - ❌ SQL injection risks with f-strings (see Issue #3.1)
-- **📚 Documentation**:
-  - [PostgREST Schema Cache](https://postgrest.org/en/stable/admin.html#schema-cache)
-  - [Database Functions (RPC)](https://supabase.com/docs/guides/database/functions)
-  - [PostgreSQL NOTIFY](https://www.postgresql.org/docs/current/sql-notify.html)
-
-**Recommendation**:
-```python
-# After creating table with psycopg2
-conn.commit()
-cur.execute("NOTIFY pgrst, 'reload schema';")
-
-# OR use service_role_client with proper schema parameter
-supabase_extension.service_role_client.rpc('create_data_table', {...}).execute()
-```
+**ISSUE #2.2**: ~~Direct psycopg2 vs Supabase Client Decision Not Optimal~~ ✅ **RESOLVED**
+- **Severity**: ~~MEDIUM~~ → **FIXED**
+- **Location**: `backend/src/dashboard/helpers.py:38-100`, `supabase/migrations/20251008000000_update_create_data_table_with_rls.sql`
+- **Original Problem**: Using raw SQL with psycopg2 for table creation instead of leveraging Supabase's schema management
+- **Solution Implemented**: Pure Supabase RPC pattern
+  - ✅ Created production-ready `create_data_table` RPC function with full RLS support
+  - ✅ Migrated `pg_create_data_table()` to use `service_role_client.rpc('create_data_table')`
+  - ✅ Includes `NOTIFY pgrst, 'reload schema'` for automatic cache reload
+  - ✅ All SQL now safely executed via PostgreSQL `format(%I)` in RPC function
+  - ✅ Fixes SQL injection vulnerability (Issue #3.1) by removing f-string interpolation
+- **Benefits**:
+  - Security: Defense in depth with parameterized queries
+  - Consistency: All database operations through Supabase
+  - Maintainability: Database logic in migrations, not application code
+  - Scalability: RPC functions callable from any client
+- **Migration**: `20251008000000_update_create_data_table_with_rls.sql`
+- **Tests**: All 30 dashboard helper tests passing
 
 ---
 
@@ -206,57 +199,40 @@ cur.execute(
 
 ### Issues Identified
 
-**ISSUE #3.1**: SQL Injection Risk in Dynamic Table Creation
-- **Severity**: ⚠️ CRITICAL
-- **Location**: `backend/src/dashboard/helpers.py:82-87`
-- **Problem**: Using f-strings for table/column names instead of proper identifier sanitization
-- **Vulnerability**:
+**ISSUE #3.1**: ~~SQL Injection Risk in Dynamic Table Creation~~ ✅ **RESOLVED**
+- **Severity**: ~~⚠️ CRITICAL~~ → **FIXED**
+- **Location**: `backend/src/dashboard/helpers.py:38-100`, `supabase/migrations/20251008000000_update_create_data_table_with_rls.sql`
+- **Original Problem**: Using f-strings for table/column names instead of proper identifier sanitization
+- **Original Vulnerability**:
   ```python
   # If table_name = "users; DROP TABLE important_data; --"
-  # Results in:
+  # Would have resulted in:
   CREATE TABLE IF NOT EXISTS _realtime.users; DROP TABLE important_data; -- (...)
   ```
-- **Current Mitigation**:
-  - ✅ `pg_sanitize_column()` helper exists but not consistently used for all identifiers
-  - ✅ Schema is hardcoded to "realtime"
-  - ❌ `table_name` and `patient_col` use f-strings directly
-- **📚 Documentation**:
-  - [SQL Injection Prevention](https://supabase.com/docs/guides/database/database-advisors#sql-injection)
-  - [psycopg2 SQL Composition](https://www.psycopg.org/docs/sql.html)
-  - [Security Best Practices](https://supabase.com/docs/guides/platform/going-into-prod#security-considerations)
+- **Solution Implemented**: RPC function with `SECURITY DEFINER` (Option 2)
+  - ✅ All table creation now goes through `create_data_table` RPC function
+  - ✅ PostgreSQL `format(%I)` safely escapes all identifiers in the function
+  - ✅ Python layer passes parameters via JSON (no string interpolation)
+  - ✅ Defense in depth: sanitization at both Python and PostgreSQL layers
+- **Implementation**:
+  ```python
+  # Application code (helpers.py)
+  supabase_extension.service_role_client.rpc('create_data_table', {
+      'p_schema_name': '_realtime',
+      'p_table_name': table_name,  # Passed as parameter, not interpolated
+      'p_column_names': clean_cols,
+      'p_id_column': patient_col
+  }).execute()
 
-**RECOMMENDATION**: Use PostgreSQL's identifier quoting
-```python
-# OPTION 1: Use psycopg2.sql for safe identifier quoting
-from psycopg2 import sql
-
-cur.execute(
-    sql.SQL("""
-        CREATE TABLE IF NOT EXISTS {schema}.{table} (
-            rowid SERIAL PRIMARY KEY,
-            {patient_col} TEXT NOT NULL,
-            {cols_def}
-        );
-    """).format(
-        schema=sql.Identifier(f"_{schema}"),
-        table=sql.Identifier(table_name),
-        patient_col=sql.Identifier(patient_col),
-        cols_def=sql.SQL(", ").join(
-            sql.SQL("{} TEXT").format(sql.Identifier(col))
-            for col in clean_cols
-        )
-    )
-)
-
-# OPTION 2: Use RPC function with SECURITY DEFINER
-# Migration already has create_data_table() - use it!
-supabase_extension.service_role_client.rpc('create_data_table', {
-    'p_table_name': table_name,
-    'p_columns': columns,
-    'p_patient_col': patient_col,
-    'schema_name': '_realtime'
-}).execute()
-```
+  # PostgreSQL function uses safe format()
+  # format('%I', user_input) → properly quoted identifier
+  ```
+- **Security Layers**:
+  1. `pg_sanitize_column()` normalizes column names
+  2. Supabase client passes parameters (not SQL strings)
+  3. PostgreSQL `format(%I)` escapes identifiers
+  4. `SECURITY DEFINER` executes with controlled permissions
+- **Fixed by**: Same implementation as ISSUE #2.2 resolution
 
 **ISSUE #3.2**: Service Role Key Usage
 - **Severity**: MEDIUM

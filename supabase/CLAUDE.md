@@ -39,6 +39,7 @@ npx supabase migration new migration_name
 2. `20250106000000_initial_schema.sql` - Creates `_realtime` schema, `metadata_tables` table, and base permissions
 3. `20250107000000_rpc_functions.sql` - Creates all RPC functions (11 total)
 4. `20251007000000_enable_rls.sql` - Enables row-level security and updates `create_data_table()` RPC
+5. `20251008000000_update_create_data_table_with_rls.sql` - Production-ready `create_data_table()` with full RLS support
 
 ## RPC Functions
 
@@ -56,7 +57,14 @@ All functions defined in `migrations/20250107000000_rpc_functions.sql`.
 - `select_from_table(table_name, row_limit, schema_name)` - Query dynamic table
 - `update_table_row(table_name, row_id, updates, schema_name)` - Update row by rowid
 - `insert_metadata(table_name, main_table_name, description, origin)` - Insert metadata record
-- `create_data_table(schema_name, table_name, column_names, id_column)` - Create table (unused - psycopg2 handles this)
+- `create_data_table(schema_name, table_name, column_names, id_column)` - **[ACTIVE]** Create dynamic table with full RLS configuration
+
+**Note**: `create_data_table` is now the primary method for table creation, replacing direct psycopg2 DDL operations. It includes:
+- Table creation with proper column definitions
+- Index creation on ID column
+- Row Level Security (RLS) setup
+- Permission grants (read-only for authenticated, full access for service_role)
+- PostgREST schema cache reload via `NOTIFY pgrst, 'reload schema'`
 
 All functions use `SECURITY DEFINER` to access `_realtime` schema from `public`.
 
