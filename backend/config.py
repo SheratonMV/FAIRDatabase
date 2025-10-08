@@ -731,3 +731,23 @@ supabase_client_options = {
 
 supabase_extension = Supabase(client_options=supabase_client_options)
 limiter = Limiter(get_remote_address, default_limits=["100 per minute", "50 per second"])
+
+
+def validate_config():
+    """
+    Validate that all required configuration variables are set.
+
+    Raises:
+        ValueError: If any required configuration variables are missing or empty.
+    """
+    required = {
+        'SUPABASE_URL': Config.SUPABASE_URL,
+        'SUPABASE_ANON_KEY': Config.SUPABASE_ANON_KEY,
+        'POSTGRES_HOST': Config.POSTGRES_HOST,
+        'POSTGRES_DB_NAME': Config.POSTGRES_DB_NAME
+    }
+
+    missing = [k for k, v in required.items() if not v or not v.strip()]
+
+    if missing:
+        raise ValueError(f"Missing required configuration: {', '.join(missing)}")

@@ -6,7 +6,7 @@ import os
 from flask import Flask, flash, g, json, redirect, url_for
 from flask_cors import CORS
 
-from config import Config, get_db, limiter, supabase_extension, teardown_db
+from config import Config, get_db, limiter, supabase_extension, teardown_db, validate_config
 from src.auth.routes import routes as auth_routes
 from src.dashboard.routes import routes as dashboard_routes
 from src.data.routes import routes as data_routes
@@ -29,6 +29,9 @@ def create_app(db_name=None, env=None):
         app.config["POSTGRES_DB_NAME"] = db_name
     if env is not None:
         app.config["ENV"] = env
+
+    # Validate required configuration
+    validate_config()
 
     # Ensure upload folder exists
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
