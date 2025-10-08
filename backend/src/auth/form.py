@@ -53,10 +53,33 @@ class LoginHandler:
             signup_resp = supabase_extension.client.auth.sign_in_with_password(
                 {"email": self.email, "password": self.password}
             )
-        except AuthApiError:
+        except AuthApiError as e:
+            # Check if MFA is required (Supabase returns specific error for MFA)
+            if hasattr(e, 'message') and 'MFA' in str(e.message):
+                # MFA challenge needed - redirect to MFA verification
+                session["email"] = self.email
+                session["mfa_required"] = True
+
+                # Extract factor_id from error response if available
+                # Note: Actual implementation depends on Supabase error structure
+                flash("Please enter your MFA code to complete login.", "info")
+                return redirect(url_for("mfa_routes.verify"))
+
             flash("Invalid email or password", "danger")
             return render_template("auth/login.html"), 400
 
+        # Check if user has MFA enabled
+        user_factors = getattr(signup_resp.user, 'factors', [])
+        if user_factors and len(user_factors) > 0:
+            # User has MFA enabled - redirect to verification
+            session["email"] = self.email
+            session["mfa_required"] = True
+            session["mfa_factor_id"] = user_factors[0].id
+
+            flash("Please enter your MFA code to complete login.", "info")
+            return redirect(url_for("mfa_routes.verify"))
+
+        # No MFA - complete login normally
         # Store user information
         session["email"] = self.email
         session["user"] = signup_resp.user.id
