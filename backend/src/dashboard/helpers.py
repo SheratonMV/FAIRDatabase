@@ -239,16 +239,19 @@ def pg_insert_metadata(cur, schema, table_name, main_table, description, origin)
 
 def pg_insert_data_rows(cur, schema, table_name, patient_col, rows, columns, chunk_index):
     """
-    Insert chunked rows into the corresponding PostgreSQL data table.
+    Insert chunked rows into the corresponding PostgreSQL data table using batch inserts.
 
     NOTE: Continues to use psycopg2 for dynamic table inserts due to PostgREST
     schema cache limitations. The Supabase REST API can't immediately see
     dynamically created tables.
 
+    Uses execute_values for efficient batch inserts, significantly improving
+    performance for large CSV uploads.
+
     ---
     tags:
       - database
-    summary: Insert CSV row values into chunk table with hashed patient ID.
+    summary: Insert CSV row values into chunk table with hashed patient ID (batch mode).
     parameters:
       - name: cur
         in: code
@@ -286,12 +289,15 @@ def pg_insert_data_rows(cur, schema, table_name, patient_col, rows, columns, chu
         required: true
         description: Current chunk index (zero-based).
     """
+    from psycopg2.extras import execute_values
+
     col_start = chunk_index * 1200
     col_end = col_start + len(columns)
     clean_cols = [pg_sanitize_column(c) for c in columns]
     col_names = ", ".join(clean_cols)
-    placeholders = ", ".join(["%s"] * len(clean_cols))
 
+    # Prepare batch data for execute_values
+    batch_data = []
     for row in rows:
         if len(row) < 2:
             continue
@@ -299,12 +305,18 @@ def pg_insert_data_rows(cur, schema, table_name, patient_col, rows, columns, chu
         values = row[1:][col_start:col_end]
         if len(values) != len(clean_cols):
             continue
-        cur.execute(
+        # Combine patient_hash and values into single tuple
+        batch_data.append(tuple([patient_hash] + values))
+
+    # Perform batch insert if we have data
+    if batch_data:
+        execute_values(
+            cur,
             f"""
             INSERT INTO _{schema}.{table_name} ({patient_col}, {col_names})
-            VALUES (%s, {placeholders});
-        """,
-            [patient_hash] + values,
+            VALUES %s
+            """,
+            batch_data
         )
 
 
