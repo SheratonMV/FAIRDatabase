@@ -262,19 +262,38 @@ backend/
 
 ### Database Connection Lifecycle
 
+**Connection Strategy**: Direct connections relying on Supabase pooler
+
+The application uses direct `psycopg2.connect()` calls without app-level connection pooling. This approach leverages Supabase's Supavisor connection pooler (Session mode, port 5432) for efficient connection management at the infrastructure level.
+
+**Benefits**:
+- Eliminates duplicate pooling layers
+- Leverages Supabase's intelligent connection sharing and monitoring
+- Simpler application code with fewer moving parts
+- Automatic connection reuse across requests via Supabase pooler
+
 ```python
 # In app.py
-from config import get_db, close_db
+from config import get_db, teardown_db
 
 @app.before_request
 def before_request():
     # Connection created lazily on first g.db access
+    # Each request gets a new connection from Supabase pooler
     pass
 
 @app.teardown_appcontext
-def teardown_db(exception):
-    close_db()  # Closes and removes connection
+def teardown_db_handler(exception):
+    teardown_db(exception)  # Closes connection, returned to Supabase pooler
 ```
+
+**Per-request lifecycle**:
+1. Request starts → no connection yet
+2. First `g.db` access → `psycopg2.connect()` called (Supabase pooler provides connection)
+3. Request completes → `teardown_db()` closes connection (returned to Supabase pooler)
+4. Next request → new connection from pooler (may be same underlying connection, pooled by Supabase)
+
+**Production configuration**: Use Session mode pooler (`pooler.supabase.com:5432`) for persistent backends like Flask. Transaction mode (port 6543) is only for serverless functions.
 
 ### Route Pattern
 

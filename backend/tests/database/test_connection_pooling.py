@@ -2,53 +2,15 @@ from unittest.mock import MagicMock, patch
 
 from psycopg2 import OperationalError
 
-from config import close_db_pool, get_db, init_db_pool, teardown_db
+from config import get_db, teardown_db
 
 
-class TestConnectionPooling:
-    """Test connection pool initialization and management"""
-
-    def test_init_db_pool_success(self, app):
-        """Test connection pool initializes successfully"""
-        with app.app_context():
-            # Close any existing pool
-            close_db_pool()
-
-            pool = init_db_pool(minconn=1, maxconn=5)
-
-            assert pool is not None
-            assert pool.minconn == 1
-            assert pool.maxconn == 5
-
-    def test_init_db_pool_singleton(self, app):
-        """Test connection pool is a singleton"""
-        with app.app_context():
-            close_db_pool()
-
-            pool1 = init_db_pool()
-            pool2 = init_db_pool()
-
-            assert pool1 is pool2
-
-    def test_init_db_pool_connection_failure(self, app):
-        """Test connection pool handles connection failures gracefully"""
-        with app.app_context():
-            close_db_pool()
-
-            # Mock ThreadedConnectionPool to raise OperationalError
-            with patch("config.ThreadedConnectionPool") as mock_pool:
-                mock_pool.side_effect = OperationalError("Connection failed")
-
-                pool = init_db_pool()
-
-                assert pool is None
+class TestDatabaseConnection:
+    """Test database connection management (relying on Supabase pooler)"""
 
     def test_get_db_returns_connection(self, app):
         """Test get_db returns a database connection"""
         with app.app_context():
-            close_db_pool()
-            init_db_pool()
-
             conn = get_db()
 
             assert conn is not None
@@ -59,124 +21,56 @@ class TestConnectionPooling:
         with app.app_context():
             from flask import g
 
-            close_db_pool()
-            init_db_pool()
-
             conn1 = get_db()
             conn2 = get_db()
 
+            # Should be the same connection object within the same request
             assert conn1 is conn2
             assert g.db is conn1
 
-    def test_get_db_handles_pool_getconn_failure(self, app):
-        """Test get_db handles connection retrieval failures"""
+    def test_get_db_handles_connection_failure(self, app):
+        """Test get_db handles connection failures gracefully"""
         with app.app_context():
-            close_db_pool()
-            pool = init_db_pool()
-
-            with patch.object(pool, "getconn") as mock_getconn:
-                mock_getconn.side_effect = Exception("Failed to get connection")
+            # Mock psycopg2.connect to raise OperationalError
+            with patch("config.psycopg2.connect") as mock_connect:
+                mock_connect.side_effect = OperationalError("Connection failed")
 
                 conn = get_db()
 
                 assert conn is None
 
-    def test_teardown_db_returns_connection_to_pool(self, app):
-        """Test teardown_db returns connection to pool"""
+    def test_teardown_db_closes_connection(self, app):
+        """Test teardown_db closes the connection"""
         with app.app_context():
             from flask import g
 
-            close_db_pool()
-            pool = init_db_pool()
-
-            # Get a connection
-            conn = get_db()
-            assert g.db is conn
-
-            # Teardown should return connection
-            with patch.object(pool, "putconn") as mock_putconn:
-                teardown_db(None)
-
-                mock_putconn.assert_called_once_with(conn)
-                assert "db" not in g
-
-    def test_teardown_db_closes_on_putconn_failure(self, app):
-        """Test teardown_db closes connection if putconn fails"""
-        with app.app_context():
-            from flask import g
-
-            close_db_pool()
-            pool = init_db_pool()
-
-            # Get real connection first, then replace with mock
+            # Get a real connection first, then replace with mock
             get_db()
 
-            # Replace with mock connection
+            # Replace with mock connection to verify close is called
             mock_conn = MagicMock()
             g.db = mock_conn
 
-            with patch.object(pool, "putconn") as mock_putconn:
-                mock_putconn.side_effect = Exception("putconn failed")
+            teardown_db(None)
 
-                teardown_db(None)
+            # Verify close was called
+            mock_conn.close.assert_called_once()
+            assert "db" not in g
 
-                # Verify close was called on the mock connection
-                mock_conn.close.assert_called_once()
-
-    def test_close_db_pool_success(self, app):
-        """Test close_db_pool closes all connections"""
+    def test_teardown_db_handles_close_failure(self, app):
+        """Test teardown_db handles close failures gracefully"""
         with app.app_context():
-            close_db_pool()
-            pool = init_db_pool()
+            from flask import g
 
-            with patch.object(pool, "closeall") as mock_closeall:
-                close_db_pool()
+            # Create mock connection that fails on close
+            mock_conn = MagicMock()
+            mock_conn.close.side_effect = Exception("Close failed")
+            g.db = mock_conn
 
-                mock_closeall.assert_called_once()
+            # Should not raise exception
+            teardown_db(None)
 
-    def test_close_db_pool_handles_errors(self, app):
-        """Test close_db_pool handles errors gracefully"""
-        with app.app_context():
-            close_db_pool()
-            pool = init_db_pool()
-
-            with patch.object(pool, "closeall") as mock_closeall:
-                mock_closeall.side_effect = Exception("Close failed")
-
-                # Should not raise exception
-                close_db_pool()
-
-    def test_connection_pool_config(self, app):
-        """Test connection pool uses correct configuration"""
-        with app.app_context():
-            close_db_pool()
-
-            with patch("config.ThreadedConnectionPool") as mock_pool_class:
-                mock_pool_class.return_value = MagicMock()
-
-                init_db_pool(minconn=2, maxconn=8)
-
-                call_args = mock_pool_class.call_args
-                assert call_args[0][0] == 2  # minconn
-                assert call_args[0][1] == 8  # maxconn
-                assert call_args[1]["host"] == app.config["POSTGRES_HOST"]
-                assert call_args[1]["port"] == app.config["POSTGRES_PORT"]
-                assert call_args[1]["user"] == app.config["POSTGRES_USER"]
-                assert call_args[1]["password"] == app.config["POSTGRES_SECRET"]
-                assert call_args[1]["database"] == app.config["POSTGRES_DB_NAME"]
-                assert call_args[1]["connect_timeout"] == 10
-                assert "statement_timeout" in call_args[1]["options"]
-
-    def test_get_db_without_pool_initialization(self, app):
-        """Test get_db initializes pool if not already initialized"""
-        with app.app_context():
-            close_db_pool()
-
-            # Don't explicitly call init_db_pool
-            conn = get_db()
-
-            # Should auto-initialize and return connection
-            assert conn is not None
+            assert "db" not in g
 
     def test_teardown_db_no_connection(self, app):
         """Test teardown_db handles case when no connection exists"""
@@ -188,6 +82,43 @@ class TestConnectionPooling:
 
             # Should not raise exception
             teardown_db(None)
+
+    def test_connection_config(self, app):
+        """Test connection uses correct configuration"""
+        with app.app_context():
+            with patch("config.psycopg2.connect") as mock_connect:
+                mock_connect.return_value = MagicMock()
+
+                get_db()
+
+                # Verify psycopg2.connect was called with correct params
+                call_kwargs = mock_connect.call_args[1]
+                assert call_kwargs["host"] == app.config["POSTGRES_HOST"]
+                assert call_kwargs["port"] == app.config["POSTGRES_PORT"]
+                assert call_kwargs["user"] == app.config["POSTGRES_USER"]
+                assert call_kwargs["password"] == app.config["POSTGRES_SECRET"]
+                assert call_kwargs["database"] == app.config["POSTGRES_DB_NAME"]
+                assert call_kwargs["connect_timeout"] == 10
+                assert "statement_timeout" in call_kwargs["options"]
+
+    def test_connection_lifecycle(self, app):
+        """Test complete connection lifecycle within request"""
+        with app.app_context():
+            # Get connection
+            conn1 = get_db()
+            assert conn1 is not None
+
+            # Verify connection is reused
+            conn2 = get_db()
+            assert conn1 is conn2
+
+            # Close connection
+            teardown_db(None)
+
+            # New connection should be created after teardown
+            from flask import g
+
+            assert "db" not in g
 
 
 class TestPoolerModeDetection:

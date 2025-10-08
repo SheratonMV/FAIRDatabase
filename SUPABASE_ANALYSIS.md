@@ -130,27 +130,33 @@ ThreadedConnectionPool(
 
 ### Issues Identified
 
-**ISSUE #2.1**: Custom Pooling Instead of Supabase Pooler
+**ISSUE #2.1**: Custom Pooling Instead of Supabase Pooler ✅ **RESOLVED**
 - **Severity**: MEDIUM
-- **Location**: `config.py:765-817`
-- **Problem**: Implementing custom connection pooling when Supabase provides Supavisor pooler
-- **Impact**:
-  - Duplicate pooling layers (Supabase pooler + app pooling)
-  - Missing Supabase pooler benefits (intelligent connection sharing, monitoring)
-  - Extra complexity maintaining pool lifecycle
-- **📚 Documentation**:
+- **Location**: `config.py:761-805` (previously 765-817)
+- **Status**: Fixed - removed app-level connection pooling, relying on Supabase pooler
+- **Resolution Date**: 2025-10-08
+- **Changes Made**:
+  - Removed `ThreadedConnectionPool` import and global `connection_pool` variable
+  - Removed `init_db_pool()` and `close_db_pool()` functions
+  - Updated `get_db()` to use direct `psycopg2.connect()` calls
+  - Updated `teardown_db()` to close connections instead of returning to pool
+  - Updated tests to match new implementation (248 tests pass)
+  - Updated documentation in `backend/CLAUDE.md`
+
+**Root Cause**: The application was maintaining its own connection pool when Supabase's Supavisor pooler (Session mode, port 5432) already provides connection pooling at the infrastructure level.
+
+**Why This Fix Is Correct**:
+- Eliminates duplicate pooling layers (simpler architecture)
+- Leverages Supabase pooler's intelligent connection sharing and monitoring
+- Reduces application complexity while maintaining same functionality
+- Connection lifecycle: app creates connection → request completes → app closes connection → Supabase pooler reuses connection
+
+**Verification**: Full test suite (248 tests) passes with 86% coverage.
+
+**📚 Documentation**:
   - [Connection Pooling](https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooler)
   - [Supavisor](https://supabase.com/docs/guides/database/connection-pooling)
   - [Direct vs Pooler Connections](https://supabase.com/docs/guides/database/connecting-to-postgres#how-to-connect)
-- **Recommendation**:
-  ```python
-  # Option 1: Remove app-level pooling, rely on Supabase pooler
-  # When using Session mode (port 5432), connections are already pooled
-
-  # Option 2: Keep pooling but document why it's needed
-  # E.g., "Additional pooling for dynamic table creation to avoid
-  # connection limits when using psycopg2 directly"
-  ```
 
 **ISSUE #2.2**: Direct psycopg2 vs Supabase Client Decision Not Optimal
 - **Severity**: MEDIUM
@@ -937,9 +943,8 @@ None identified - security practices are generally good.
 
 ### 🟠 MEDIUM (Optimize When Possible)
 
-1. **ISSUE #2.1**: Custom Pooling Instead of Supabase Pooler
-   - **Impact**: Extra complexity, missing pooler benefits
-   - **Fix**: Evaluate using Supabase pooler directly
+1. ✅ **ISSUE #2.1**: Custom Pooling Instead of Supabase Pooler (RESOLVED)
+   - **Resolution**: Removed app-level pooling, now relying on Supabase pooler
 
 2. **ISSUE #2.2**: Direct psycopg2 vs Supabase Client
    - **Impact**: Bypassing Supabase features
@@ -1012,9 +1017,10 @@ None identified - security practices are generally good.
 
 ### Medium Term (This Quarter)
 
-5. ✅ **Optimize connection pooling** (ISSUE #2.1)
-   - Evaluate removing app-level pooling
-   - Test with Supabase pooler only
+5. ✅ **Optimize connection pooling** (ISSUE #2.1) - COMPLETED
+   - ✅ Removed app-level pooling
+   - ✅ Now using Supabase pooler only
+   - ✅ All tests passing (248/248)
 
 6. ✅ **Add monitoring** (ISSUE #10.2)
    - Integrate Sentry

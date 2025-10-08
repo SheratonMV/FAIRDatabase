@@ -16,8 +16,8 @@ from flask import current_app, g
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from httpx import ConnectError, RequestError, TimeoutException
+import psycopg2
 from psycopg2 import OperationalError
-from psycopg2.pool import ThreadedConnectionPool
 from supabase import AsyncClient, Client, ClientOptions, acreate_client, create_client
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
@@ -758,49 +758,24 @@ def invalidate_metadata_cache():
     _cached_get_table_columns.cache_clear()
 
 
-# Global connection pool
-connection_pool = None
+def get_db():
+    """Get a database connection for the current request.
 
+    Creates a direct connection to PostgreSQL. Supabase's connection pooler
+    (when configured with Session mode on port 5432) handles connection pooling
+    at the infrastructure level, so app-level pooling is not needed.
 
-def init_db_pool(minconn=1, maxconn=10):
-    """Initialize the PostgreSQL connection pool.
-    ---
-    tags:
-      - database_connection
-    parameters:
-      - name: minconn
-        in: query
-        type: integer
-        description: Minimum number of connections in the pool
-        default: 1
-      - name: maxconn
-        in: query
-        type: integer
-        description: Maximum number of connections in the pool
-        default: 10
-    responses:
-      200:
-        description: Connection pool initialized successfully
-        schema:
-          type: object
-          example: {"status": "Pool initialized"}
-      500:
-        description: Failed to initialize connection pool
-        schema:
-          type: string
-          example: "Connection pool initialization failed."
+    Connection lifecycle:
+    - Created per-request when first accessed via g.db
+    - Closed automatically in teardown_db() after request completes
+    - Supabase pooler manages connection reuse across requests
+
+    See: https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooler
     """
-    global connection_pool
-
-    if connection_pool is None:
+    if "db" not in g:
         try:
             config = current_app.config
-            print(
-                f"Initializing connection pool for DB on {config['POSTGRES_HOST']}:{config['POSTGRES_PORT']}"
-            )
-            connection_pool = ThreadedConnectionPool(
-                minconn,
-                maxconn,
+            g.db = psycopg2.connect(
                 host=config["POSTGRES_HOST"],
                 port=config["POSTGRES_PORT"],
                 user=config["POSTGRES_USER"],
@@ -809,61 +784,25 @@ def init_db_pool(minconn=1, maxconn=10):
                 connect_timeout=10,  # 10 second connection timeout
                 options="-c statement_timeout=60000",  # 60 second query timeout
             )
-            print(f"[INFO] Connection pool initialized with {minconn}-{maxconn} connections")
         except OperationalError as e:
-            print(f"[ERROR] Failed to initialize connection pool: {e}")
-            connection_pool = None
-
-    return connection_pool
-
-
-def get_db():
-    """Get a database connection from the pool for the current request."""
-    if "db" not in g:
-        pool = init_db_pool()
-        if pool is not None:
-            try:
-                g.db = pool.getconn()
-            except Exception as e:
-                print(f"[ERROR] Failed to get connection from pool: {e}")
-                g.db = None
-        else:
+            print(f"[ERROR] Failed to create database connection: {e}")
             g.db = None
     return g.db
 
 
 def teardown_db(exception):
-    """Return the database connection to the pool after the request is finished."""
+    """Close the database connection after the request is finished.
+
+    Closes the per-request connection. The Supabase pooler will handle
+    returning the connection to its pool for reuse by future requests.
+    """
     db = g.pop("db", None)
 
-    if db is not None and connection_pool is not None:
+    if db is not None:
         try:
-            connection_pool.putconn(db)
+            db.close()
         except Exception as e:
-            print(f"[ERROR] Failed to return connection to pool: {e}")
-            # If putconn fails, close the connection manually
-            try:
-                db.close()
-            except:
-                pass
-
-
-def close_db_pool():
-    """Close all connections in the pool and reset the pool.
-
-    This is useful for testing when database configuration changes,
-    or during application shutdown.
-    """
-    global connection_pool
-
-    if connection_pool is not None:
-        try:
-            connection_pool.closeall()
-            print("[INFO] Connection pool closed successfully")
-        except Exception as e:
-            print(f"[ERROR] Failed to close connection pool: {e}")
-        finally:
-            connection_pool = None
+            print(f"[ERROR] Failed to close database connection: {e}")
 
 
 # Configure Supabase client with timeouts
