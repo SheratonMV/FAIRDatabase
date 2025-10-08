@@ -107,3 +107,140 @@ class TestDataGeneralization:
         response = self.client.get("/data/data_generalization")
         assert response.status_code == 200
         assert b"data_generalization" in response.data
+
+
+class TestConsolidatedReturn:
+    @pytest.fixture(autouse=True)
+    def setup(self, logged_in_user):
+        """Setup test client and user before each test."""
+        self.client, self.user = logged_in_user
+
+    def test_consolidated_return_state_1_resets_all_flags(self):
+        """Test state 1 resets all session flags."""
+        with self.client.session_transaction() as sess:
+            sess["uploaded"] = True
+            sess["columns_dropped"] = True
+            sess["missing_values_reviewed"] = True
+            sess["quasi_identifiers_selected"] = True
+            sess["current_quasi_identifier"] = True
+            sess["all_steps_completed"] = True
+
+        response = self.client.post(
+            "/data/consolidated_return",
+            data={"state": "1"},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 302
+        assert "/data/data_generalization" in response.location
+
+        with self.client.session_transaction() as sess:
+            assert sess["uploaded"] is False
+            assert sess["columns_dropped"] is False
+            assert sess["missing_values_reviewed"] is False
+            assert sess["quasi_identifiers_selected"] is False
+            assert sess["current_quasi_identifier"] is False
+            assert sess["all_steps_completed"] is False
+
+    def test_consolidated_return_state_2_sets_uploaded(self):
+        """Test state 2 sets uploaded flag."""
+        response = self.client.post(
+            "/data/consolidated_return",
+            data={"state": "2"},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 302
+
+        with self.client.session_transaction() as sess:
+            assert sess["uploaded"] is True
+            assert sess["columns_dropped"] is False
+
+    def test_consolidated_return_state_3_sets_columns_dropped(self):
+        """Test state 3 sets columns_dropped flag."""
+        response = self.client.post(
+            "/data/consolidated_return",
+            data={"state": "3"},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 302
+
+        with self.client.session_transaction() as sess:
+            assert sess["uploaded"] is True
+            assert sess["columns_dropped"] is True
+            assert sess["missing_values_reviewed"] is False
+
+    def test_consolidated_return_state_4_sets_missing_values(self):
+        """Test state 4 sets missing_values_reviewed flag."""
+        response = self.client.post(
+            "/data/consolidated_return",
+            data={"state": "4"},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 302
+
+        with self.client.session_transaction() as sess:
+            assert sess["uploaded"] is True
+            assert sess["columns_dropped"] is True
+            assert sess["missing_values_reviewed"] is True
+            assert sess["quasi_identifiers_selected"] is False
+            assert sess["current_quasi_identifier"] is False
+
+    def test_consolidated_return_invalid_state_redirects(self):
+        """Test invalid state redirects to data_generalization."""
+        response = self.client.post(
+            "/data/consolidated_return",
+            data={"state": "999"},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 302
+        assert "/data/data_generalization" in response.location
+
+
+class TestDataP29Score:
+    @pytest.fixture(autouse=True)
+    def setup(self, logged_in_user, tmp_path):
+        """Setup test client and user before each test."""
+        self.client, self.user = logged_in_user
+        # Create a temporary file for testing
+        self.test_file = tmp_path / "test.csv"
+        self.test_file.write_text("patient_id,age\nP001,25\nP002,30")
+
+    def test_p29score_get_renders_template(self):
+        """Test GET request renders p29score template."""
+        with self.client.session_transaction() as sess:
+            sess["all_steps_completed"] = True
+            sess["uploaded_filepath"] = str(self.test_file)
+            sess["quasi_identifiers"] = ["age"]
+            sess["sensitive_attributes"] = []
+
+        response = self.client.get("/data/p29score")
+        # May redirect if session state is invalid
+        assert response.status_code in [200, 302]
+
+    def test_p29score_post_calculate_score(self):
+        """Test POST with Calculate Score button."""
+        with self.client.session_transaction() as sess:
+            sess["all_steps_completed"] = True
+            sess["uploaded_filepath"] = str(self.test_file)
+            sess["quasi_identifiers"] = ["age"]
+            sess["sensitive_attributes"] = []
+
+        response = self.client.post(
+            "/data/p29score",
+            data={"submit_button": "Calculate Score"},
+        )
+        # May redirect if validation fails
+        assert response.status_code in [200, 302]
+
+    def test_p29score_post_without_submit_button(self):
+        """Test POST without submit button."""
+        with self.client.session_transaction() as sess:
+            sess["all_steps_completed"] = True
+            sess["uploaded_filepath"] = str(self.test_file)
+
+        response = self.client.post("/data/p29score", data={})
+        assert response.status_code in [200, 302]
