@@ -19,7 +19,12 @@ from flask import (
     url_for,
 )
 
-from config import supabase_extension
+from config import (
+    get_cached_table_columns,
+    get_cached_tables,
+    invalidate_metadata_cache,
+    supabase_extension,
+)
 from src.auth.decorators import login_required
 from src.exceptions import GenericExceptionHandler
 from src.types import ColumnInfoResult, TableDataResult, TableNameResult
@@ -112,11 +117,14 @@ def upload():
 
                 conn.commit()
 
+            # Invalidate metadata cache since new tables were created
+            invalidate_metadata_cache()
+
             os.remove(os.path.join(current_app.config["UPLOAD_FOLDER"], filename))
         except Exception as e:
             conn.rollback()
             print(e)
-            raise GenericExceptionHandler(f"Upload failed: {str(e)}", status_code=400)
+            raise GenericExceptionHandler(f"Upload failed: {str(e)}", status_code=400) from e
 
     return render_template("/dashboard/upload.html", user_email=user_email)
 
@@ -170,9 +178,7 @@ def display():
         total_rows = total_columns = 0
 
         for (table,) in matching_tables:
-            columns_data: list[ColumnInfoResult] = supabase_extension.safe_rpc_call(
-                "get_table_columns", {"p_table_name": table}
-            )
+            columns_data: list[ColumnInfoResult] = get_cached_table_columns(table)
             columns = [row["column_name"] for row in columns_data]
 
             table_data: list[TableDataResult] = supabase_extension.safe_rpc_call(
@@ -257,7 +263,7 @@ def search():
     current_path = request.path
 
     if request.method == "GET":
-        data: list[TableNameResult] = supabase_extension.safe_rpc_call("get_all_tables")
+        data: list[TableNameResult] = get_cached_tables()
         table_names = [row["table_name"] for row in data]
 
         return render_template(
@@ -282,7 +288,7 @@ def search():
         )
         search_results = [row["table_name"] for row in search_data]
 
-        all_tables_data: list[TableNameResult] = supabase_extension.safe_rpc_call("get_all_tables")
+        all_tables_data: list[TableNameResult] = get_cached_tables()
         table_names = [row["table_name"] for row in all_tables_data]
 
         return render_template(
@@ -331,7 +337,7 @@ def update():
             raise GenericExceptionHandler("No matching data found", status_code=404)
 
         for table in tables:
-            success: bool = supabase_extension.safe_rpc_call(
+            supabase_extension.safe_rpc_call(
                 "update_table_row",
                 {
                     "p_table_name": table,
@@ -391,9 +397,7 @@ def table_preview():
             status_code=404,
         )
 
-    columns_data: list[ColumnInfoResult] = supabase_extension.safe_rpc_call(
-        "get_table_columns", {"p_table_name": table_name}
-    )
+    columns_data: list[ColumnInfoResult] = get_cached_table_columns(table_name)
     columns = [row["column_name"] for row in columns_data]
 
     table_data: list[TableDataResult] = supabase_extension.safe_rpc_call(

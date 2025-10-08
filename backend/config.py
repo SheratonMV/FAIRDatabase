@@ -1,4 +1,6 @@
 import os
+import time
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, TypeVar
 from urllib.parse import urlparse
@@ -13,14 +15,14 @@ load_dotenv(dotenv_path, override=True)
 from flask import current_app, g
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from httpx import ConnectError, RequestError, TimeoutException
 from psycopg2 import OperationalError
 from psycopg2.pool import ThreadedConnectionPool
-from supabase import Client, ClientOptions, create_client, acreate_client, AsyncClient
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-from httpx import ConnectError, TimeoutException, RequestError
+from supabase import AsyncClient, Client, ClientOptions, acreate_client, create_client
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 # Type variable for generic RPC return types
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class Config:
@@ -93,13 +95,13 @@ class Config:
         POSTGRES_DB_NAME = _parsed.path.lstrip("/")
 
         # Validate pooler mode from connection string
-        if _parsed.port == 6543 or ':6543' in _postgres_url:
+        if _parsed.port == 6543 or ":6543" in _postgres_url:
             _pooler_mode = "transaction"
             print("[WARNING] Transaction mode pooler detected (port 6543)")
             print("[WARNING] Transaction mode is not recommended for Flask applications")
             print("[WARNING] Consider using Session mode (port 5432) for better compatibility")
-        elif _parsed.port == 5432 or ':5432' in _postgres_url:
-            if 'pooler.supabase.com' in _postgres_url:
+        elif _parsed.port == 5432 or ":5432" in _postgres_url:
+            if "pooler.supabase.com" in _postgres_url:
                 _pooler_mode = "session"
                 print("[INFO] Session mode pooler detected (port 5432) - optimal for Flask")
             else:
@@ -265,7 +267,9 @@ class Supabase:
         For regular operations, use the standard client property instead.
         """
         if self._service_role_client is None:
-            raise RuntimeError("Supabase service role client not initialized. Call init_app() first.")
+            raise RuntimeError(
+                "Supabase service role client not initialized. Call init_app() first."
+            )
         return self._service_role_client
 
     @property
@@ -345,13 +349,15 @@ class Supabase:
                 "postgrest_client_timeout": 180,
                 "storage_client_timeout": 180,
                 "auto_refresh_token": False,  # No token refresh for service role
-                "persist_session": False,     # No session persistence for service role
+                "persist_session": False,  # No session persistence for service role
             }
 
             options = ClientOptions(**service_role_options)
 
             try:
-                g.supabase_async_service_role_client = await acreate_client(url, key, options=options)
+                g.supabase_async_service_role_client = await acreate_client(
+                    url, key, options=options
+                )
             except Exception as e:
                 current_app.logger.error(f"Supabase async service role client init error: {e}")
                 raise
@@ -372,9 +378,11 @@ class Supabase:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception_type((ConnectError, TimeoutException, RequestError)),
-        reraise=True
+        reraise=True,
     )
-    def safe_rpc_call(self, function_name: str, params: dict | None = None) -> list[Any] | bool | Any:
+    def safe_rpc_call(
+        self, function_name: str, params: dict | None = None
+    ) -> list[Any] | bool | Any:
         """
         Execute Supabase RPC with consistent error handling and automatic retry for transient failures.
 
@@ -413,9 +421,10 @@ class Supabase:
             data: list[TableNameResult] = supabase_extension.safe_rpc_call('get_all_tables')
             exists: bool = supabase_extension.safe_rpc_call('table_exists', {'p_table_name': 'my_table'})
         """
-        from src.exceptions import GenericExceptionHandler
-        from postgrest.exceptions import APIError
         from httpx import HTTPStatusError
+        from postgrest.exceptions import APIError
+
+        from src.exceptions import GenericExceptionHandler
 
         try:
             response = self.client.rpc(function_name, params or {}).execute()
@@ -428,25 +437,25 @@ class Supabase:
             )
 
             # Handle specific PostgreSQL error codes
-            if e.code == '42883':  # undefined_function
+            if e.code == "42883":  # undefined_function
                 raise GenericExceptionHandler(
                     f"Function '{function_name}' not found in database", status_code=404
                 ) from e
-            elif e.code == 'PGRST204':  # No rows returned
+            elif e.code == "PGRST204":  # No rows returned
                 return []
-            elif e.code == '42P01':  # undefined_table
+            elif e.code == "42P01":  # undefined_table
                 raise GenericExceptionHandler(
                     f"Table not found for function '{function_name}'", status_code=404
                 ) from e
-            elif e.code in ('42501', '42502'):  # insufficient_privilege
+            elif e.code in ("42501", "42502"):  # insufficient_privilege
                 raise GenericExceptionHandler(
                     f"Permission denied for function '{function_name}'", status_code=403
                 ) from e
-            elif e.code == '23505':  # unique_violation
+            elif e.code == "23505":  # unique_violation
                 raise GenericExceptionHandler(
                     f"Duplicate entry: {e.message or 'Record already exists'}", status_code=409
                 ) from e
-            elif e.code == '23503':  # foreign_key_violation
+            elif e.code == "23503":  # foreign_key_violation
                 raise GenericExceptionHandler(
                     f"Foreign key constraint violation: {e.message}", status_code=409
                 ) from e
@@ -460,29 +469,30 @@ class Supabase:
             current_app.logger.error(f"RPC {function_name} timeout: {e}")
             raise GenericExceptionHandler(
                 f"Request timeout for function '{function_name}'. Operation took too long.",
-                status_code=504
+                status_code=504,
             ) from e
         except ConnectError as e:
             current_app.logger.error(f"RPC {function_name} connection error: {e}")
             raise GenericExceptionHandler(
                 f"Cannot connect to database for function '{function_name}'. Service may be unavailable.",
-                status_code=503
+                status_code=503,
             ) from e
         except HTTPStatusError as e:
             current_app.logger.error(f"RPC {function_name} HTTP error: {e.response.status_code}")
             raise GenericExceptionHandler(
                 f"HTTP error {e.response.status_code} for function '{function_name}'",
-                status_code=e.response.status_code
+                status_code=e.response.status_code,
             ) from e
         except RequestError as e:
             current_app.logger.error(f"RPC {function_name} request error: {e}")
             raise GenericExceptionHandler(
-                f"Network error for function '{function_name}': {str(e)}",
-                status_code=503
+                f"Network error for function '{function_name}': {str(e)}", status_code=503
             ) from e
         except Exception as e:
             # Catch-all for unexpected errors
-            current_app.logger.error(f"RPC {function_name} unexpected error: {type(e).__name__}: {e}")
+            current_app.logger.error(
+                f"RPC {function_name} unexpected error: {type(e).__name__}: {e}"
+            )
             raise GenericExceptionHandler(
                 f"Unexpected error in '{function_name}': {str(e)}", status_code=500
             ) from e
@@ -491,9 +501,11 @@ class Supabase:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception_type((ConnectError, TimeoutException, RequestError)),
-        reraise=True
+        reraise=True,
     )
-    async def async_safe_rpc_call(self, function_name: str, params: dict | None = None) -> list[Any] | bool | Any:
+    async def async_safe_rpc_call(
+        self, function_name: str, params: dict | None = None
+    ) -> list[Any] | bool | Any:
         """
         Execute Supabase RPC asynchronously with consistent error handling and automatic retry for transient failures.
 
@@ -536,9 +548,10 @@ class Supabase:
                 data: list[TableNameResult] = await supabase_extension.async_safe_rpc_call('get_all_tables')
                 return jsonify(data)
         """
-        from src.exceptions import GenericExceptionHandler
-        from postgrest.exceptions import APIError
         from httpx import HTTPStatusError
+        from postgrest.exceptions import APIError
+
+        from src.exceptions import GenericExceptionHandler
 
         try:
             client = await self.async_client
@@ -552,25 +565,25 @@ class Supabase:
             )
 
             # Handle specific PostgreSQL error codes
-            if e.code == '42883':  # undefined_function
+            if e.code == "42883":  # undefined_function
                 raise GenericExceptionHandler(
                     f"Function '{function_name}' not found in database", status_code=404
                 ) from e
-            elif e.code == 'PGRST204':  # No rows returned
+            elif e.code == "PGRST204":  # No rows returned
                 return []
-            elif e.code == '42P01':  # undefined_table
+            elif e.code == "42P01":  # undefined_table
                 raise GenericExceptionHandler(
                     f"Table not found for function '{function_name}'", status_code=404
                 ) from e
-            elif e.code in ('42501', '42502'):  # insufficient_privilege
+            elif e.code in ("42501", "42502"):  # insufficient_privilege
                 raise GenericExceptionHandler(
                     f"Permission denied for function '{function_name}'", status_code=403
                 ) from e
-            elif e.code == '23505':  # unique_violation
+            elif e.code == "23505":  # unique_violation
                 raise GenericExceptionHandler(
                     f"Duplicate entry: {e.message or 'Record already exists'}", status_code=409
                 ) from e
-            elif e.code == '23503':  # foreign_key_violation
+            elif e.code == "23503":  # foreign_key_violation
                 raise GenericExceptionHandler(
                     f"Foreign key constraint violation: {e.message}", status_code=409
                 ) from e
@@ -584,32 +597,170 @@ class Supabase:
             current_app.logger.error(f"Async RPC {function_name} timeout: {e}")
             raise GenericExceptionHandler(
                 f"Request timeout for function '{function_name}'. Operation took too long.",
-                status_code=504
+                status_code=504,
             ) from e
         except ConnectError as e:
             current_app.logger.error(f"Async RPC {function_name} connection error: {e}")
             raise GenericExceptionHandler(
                 f"Cannot connect to database for function '{function_name}'. Service may be unavailable.",
-                status_code=503
+                status_code=503,
             ) from e
         except HTTPStatusError as e:
-            current_app.logger.error(f"Async RPC {function_name} HTTP error: {e.response.status_code}")
+            current_app.logger.error(
+                f"Async RPC {function_name} HTTP error: {e.response.status_code}"
+            )
             raise GenericExceptionHandler(
                 f"HTTP error {e.response.status_code} for function '{function_name}'",
-                status_code=e.response.status_code
+                status_code=e.response.status_code,
             ) from e
         except RequestError as e:
             current_app.logger.error(f"Async RPC {function_name} request error: {e}")
             raise GenericExceptionHandler(
-                f"Network error for function '{function_name}': {str(e)}",
-                status_code=503
+                f"Network error for function '{function_name}': {str(e)}", status_code=503
             ) from e
         except Exception as e:
             # Catch-all for unexpected errors
-            current_app.logger.error(f"Async RPC {function_name} unexpected error: {type(e).__name__}: {e}")
+            current_app.logger.error(
+                f"Async RPC {function_name} unexpected error: {type(e).__name__}: {e}"
+            )
             raise GenericExceptionHandler(
                 f"Unexpected error in '{function_name}': {str(e)}", status_code=500
             ) from e
+
+
+# ============================================================================
+# Metadata Query Caching
+# ============================================================================
+# Implements time-based in-memory caching for frequently called metadata RPC
+# functions to reduce unnecessary database load.
+
+# Cache TTL in seconds (default: 60 seconds / 1 minute)
+METADATA_CACHE_TTL = 60
+
+
+def _get_cache_key() -> int:
+    """
+    Generate a cache key based on current time rounded to cache TTL.
+
+    This ensures cache entries are automatically invalidated after TTL expires
+    by creating a new cache key for each time window.
+
+    Returns:
+        int: Cache key representing current time window
+    """
+    return int(time.time() // METADATA_CACHE_TTL)
+
+
+@lru_cache(maxsize=128)
+def _cached_get_all_tables(cache_key: int, schema_name: str = "_realtime") -> list[Any]:
+    """
+    Internal cached wrapper for get_all_tables RPC call.
+
+    This function should not be called directly. Use get_cached_tables() instead.
+
+    Args:
+        cache_key: Time-based cache key for automatic TTL
+        schema_name: Database schema name (default: '_realtime')
+
+    Returns:
+        list[TableNameResult]: List of table names in the schema
+    """
+    # Note: supabase_extension will be available at runtime
+    # This is called after module initialization
+    return supabase_extension.safe_rpc_call("get_all_tables", {"schema_name": schema_name})
+
+
+@lru_cache(maxsize=256)
+def _cached_get_table_columns(
+    cache_key: int, table_name: str, schema_name: str = "_realtime"
+) -> list[Any]:
+    """
+    Internal cached wrapper for get_table_columns RPC call.
+
+    This function should not be called directly. Use get_cached_table_columns() instead.
+
+    Args:
+        cache_key: Time-based cache key for automatic TTL
+        table_name: Name of the table to get columns for
+        schema_name: Database schema name (default: '_realtime')
+
+    Returns:
+        list[ColumnInfoResult]: List of column information for the table
+    """
+    return supabase_extension.safe_rpc_call(
+        "get_table_columns", {"p_table_name": table_name, "schema_name": schema_name}
+    )
+
+
+def get_cached_tables(schema_name: str = "_realtime") -> list[Any]:
+    """
+    Get all tables in schema with automatic time-based caching.
+
+    This function caches results for METADATA_CACHE_TTL seconds to reduce
+    database load from repeated calls. Use this instead of direct RPC calls
+    to safe_rpc_call('get_all_tables') in read-heavy routes.
+
+    Args:
+        schema_name: Database schema name (default: '_realtime')
+
+    Returns:
+        list[TableNameResult]: List of table names in the schema
+
+    Example:
+        from config import get_cached_tables
+
+        # Returns cached result if available within TTL window
+        tables = get_cached_tables()
+    """
+    cache_key = _get_cache_key()
+    return _cached_get_all_tables(cache_key, schema_name)
+
+
+def get_cached_table_columns(table_name: str, schema_name: str = "_realtime") -> list[Any]:
+    """
+    Get table column information with automatic time-based caching.
+
+    This function caches results for METADATA_CACHE_TTL seconds to reduce
+    database load from repeated calls. Use this instead of direct RPC calls
+    to safe_rpc_call('get_table_columns') in read-heavy routes.
+
+    Args:
+        table_name: Name of the table to get columns for
+        schema_name: Database schema name (default: '_realtime')
+
+    Returns:
+        list[ColumnInfoResult]: List of column information for the table
+
+    Example:
+        from config import get_cached_table_columns
+
+        # Returns cached result if available within TTL window
+        columns = get_cached_table_columns('my_table_p1')
+    """
+    cache_key = _get_cache_key()
+    return _cached_get_table_columns(cache_key, table_name, schema_name)
+
+
+def invalidate_metadata_cache():
+    """
+    Manually clear all metadata caches.
+
+    Call this function after operations that modify database schema or table structure:
+    - After CSV file uploads (new tables created)
+    - After table deletions
+    - After schema migrations
+
+    This ensures subsequent queries return fresh data instead of stale cache.
+
+    Example:
+        from config import invalidate_metadata_cache
+
+        # After uploading new data
+        upload_csv_file(file)
+        invalidate_metadata_cache()  # Clear cache so new tables appear immediately
+    """
+    _cached_get_all_tables.cache_clear()
+    _cached_get_table_columns.cache_clear()
 
 
 # Global connection pool
@@ -724,9 +875,9 @@ def close_db_pool():
 # Using 180s timeout for test suite compatibility
 supabase_client_options = {
     "postgrest_client_timeout": 180,  # 180 second timeout for PostgREST requests
-    "storage_client_timeout": 180,    # 180 second timeout for Storage requests
-    "auto_refresh_token": True,       # Automatically refresh auth tokens
-    "persist_session": True,          # Persist session across requests
+    "storage_client_timeout": 180,  # 180 second timeout for Storage requests
+    "auto_refresh_token": True,  # Automatically refresh auth tokens
+    "persist_session": True,  # Persist session across requests
 }
 
 supabase_extension = Supabase(client_options=supabase_client_options)
@@ -741,10 +892,10 @@ def validate_config():
         ValueError: If any required configuration variables are missing or empty.
     """
     required = {
-        'SUPABASE_URL': Config.SUPABASE_URL,
-        'SUPABASE_ANON_KEY': Config.SUPABASE_ANON_KEY,
-        'POSTGRES_HOST': Config.POSTGRES_HOST,
-        'POSTGRES_DB_NAME': Config.POSTGRES_DB_NAME
+        "SUPABASE_URL": Config.SUPABASE_URL,
+        "SUPABASE_ANON_KEY": Config.SUPABASE_ANON_KEY,
+        "POSTGRES_HOST": Config.POSTGRES_HOST,
+        "POSTGRES_DB_NAME": Config.POSTGRES_DB_NAME,
     }
 
     missing = [k for k, v in required.items() if not v or not v.strip()]
