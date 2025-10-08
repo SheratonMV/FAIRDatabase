@@ -662,7 +662,7 @@ def _cached_get_all_tables(cache_key: int, schema_name: str = "_realtime") -> li
     """
     # Note: supabase_extension will be available at runtime
     # This is called after module initialization
-    return supabase_extension.safe_rpc_call("get_all_tables", {"schema_name": schema_name})
+    return supabase_extension.safe_rpc_call("get_all_tables", {"p_schema_name": schema_name})
 
 
 @lru_cache(maxsize=256)
@@ -683,7 +683,7 @@ def _cached_get_table_columns(
         list[ColumnInfoResult]: List of column information for the table
     """
     return supabase_extension.safe_rpc_call(
-        "get_table_columns", {"p_table_name": table_name, "schema_name": schema_name}
+        "get_table_columns", {"p_table_name": table_name, "p_schema_name": schema_name}
     )
 
 

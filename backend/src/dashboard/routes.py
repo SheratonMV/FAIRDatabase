@@ -117,12 +117,15 @@ def upload():
                 table = f"{main_table}_p{i + 1}"
                 pg_create_data_table(schema, table, chunk, patient_col)
 
+            # Get current user ID from Flask context (set by @login_required decorator)
+            user_id = g.user
+
             # Insert metadata and data via psycopg2 (in transaction)
             with conn.cursor() as cur:
                 for i, chunk in enumerate(chunks):
                     table = f"{main_table}_p{i + 1}"
-                    pg_insert_metadata(cur, schema, table, main_table, description, origin)
-                    pg_insert_data_rows(cur, schema, table, patient_col, rows, chunk, i)
+                    pg_insert_metadata(cur, schema, table, main_table, description, origin, user_id)
+                    pg_insert_data_rows(cur, schema, table, patient_col, rows, chunk, i, user_id)
 
                 conn.commit()
 
@@ -191,7 +194,7 @@ def display():
         search_column, _, _ = search_term
 
         data: list[TableNameResult] = supabase_extension.safe_rpc_call(
-            "search_tables_by_column", {"search_column": search_column}
+            "search_tables_by_column", {"p_column_name": search_column}
         )
         matching_tables = [(row["table_name"],) for row in data]
 
@@ -203,7 +206,7 @@ def display():
             columns = [row["column_name"] for row in columns_data]
 
             table_data: list[TableDataResult] = supabase_extension.safe_rpc_call(
-                "select_from_table", {"p_table_name": table, "p_limit": 1000000}
+                "select_from_table", {"p_table_name": table, "p_row_limit": 1000000}
             )
 
             # Convert JSONB data to tuples matching column order
@@ -305,7 +308,7 @@ def search():
         session["search_term"] = [search_term, seq_a, seq_na]
 
         search_data: list[TableNameResult] = supabase_extension.safe_rpc_call(
-            "search_tables_by_column", {"search_column": search_term}
+            "search_tables_by_column", {"p_column_name": search_term}
         )
         search_results = [row["table_name"] for row in search_data]
 
@@ -422,7 +425,7 @@ def table_preview():
     columns = [row["column_name"] for row in columns_data]
 
     table_data: list[TableDataResult] = supabase_extension.safe_rpc_call(
-        "select_from_table", {"p_table_name": table_name, "p_limit": 100}
+        "select_from_table", {"p_table_name": table_name, "p_row_limit": 100}
     )
 
     # Convert JSONB data to tuples matching column order

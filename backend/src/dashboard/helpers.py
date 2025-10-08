@@ -100,18 +100,21 @@ def pg_create_data_table(schema, table_name, columns, patient_col):
         raise Exception(f"Error creating table {table_name}: {str(e)}")
 
 
-def pg_insert_metadata(cur, schema, table_name, main_table, description, origin):
+def pg_insert_metadata(cur, schema, table_name, main_table, description, origin, user_id):
     """
-    Insert a record into _realtime.metadata_tables for tracking.
+    Insert a record into _realtime.metadata_tables for tracking with user ownership.
 
     NOTE: Uses psycopg2 cursor to participate in the same transaction as table
     creation and data inserts. This ensures atomicity - if data inserts fail,
     metadata entries are also rolled back.
 
+    IMPORTANT: user_id must be provided from Flask g.user context to establish
+    ownership for user-level data isolation.
+
     ---
     tags:
       - database
-    summary: Store metadata for uploaded file chunk.
+    summary: Store metadata for uploaded file chunk with user ownership.
     parameters:
       - name: cur
         in: code
@@ -143,23 +146,29 @@ def pg_insert_metadata(cur, schema, table_name, main_table, description, origin)
         type: string
         required: false
         description: Source or origin of the file.
+      - name: user_id
+        in: code
+        type: string (UUID)
+        required: true
+        description: UUID of the user uploading the data (from g.user).
     """
     # Use direct SQL to participate in the psycopg2 transaction
     # This ensures metadata inserts are rolled back if data inserts fail
+    # Include user_id for user-level data isolation
     cur.execute(
         f"""
-        INSERT INTO _{schema}.metadata_tables (table_name, main_table, description, origin)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO _{schema}.metadata_tables (table_name, main_table, description, origin, user_id)
+        VALUES (%s, %s, %s, %s, %s)
         RETURNING id;
         """,
-        (table_name, main_table, description, origin),
+        (table_name, main_table, description, origin, user_id),
     )
 
     result = cur.fetchone()
     return result[0] if result else None
 
 
-def pg_insert_data_rows(cur, schema, table_name, patient_col, rows, columns, chunk_index):
+def pg_insert_data_rows(cur, schema, table_name, patient_col, rows, columns, chunk_index, user_id):
     """
     Insert chunked rows into the corresponding PostgreSQL data table using batch inserts.
 
@@ -170,10 +179,13 @@ def pg_insert_data_rows(cur, schema, table_name, patient_col, rows, columns, chu
     Uses execute_values for efficient batch inserts, significantly improving
     performance for large CSV uploads.
 
+    IMPORTANT: user_id must be provided from Flask g.user context to establish
+    ownership for user-level data isolation. All inserted rows will have this user_id.
+
     ---
     tags:
       - database
-    summary: Insert CSV row values into chunk table with hashed patient ID (batch mode).
+    summary: Insert CSV row values into chunk table with hashed patient ID and user ownership.
     parameters:
       - name: cur
         in: code
@@ -210,6 +222,11 @@ def pg_insert_data_rows(cur, schema, table_name, patient_col, rows, columns, chu
         type: integer
         required: true
         description: Current chunk index (zero-based).
+      - name: user_id
+        in: code
+        type: string (UUID)
+        required: true
+        description: UUID of the user uploading the data (from g.user).
     """
     from psycopg2.extras import execute_values
 
@@ -227,15 +244,17 @@ def pg_insert_data_rows(cur, schema, table_name, patient_col, rows, columns, chu
         values = row[1:][col_start:col_end]
         if len(values) != len(clean_cols):
             continue
-        # Combine patient_hash and values into single tuple
-        batch_data.append(tuple([patient_hash] + values))
+        # Combine user_id, patient_hash and values into single tuple
+        # Order: user_id, patient_id_hash, data_columns...
+        batch_data.append(tuple([user_id, patient_hash] + values))
 
     # Perform batch insert if we have data
+    # Include user_id column for user-level data isolation
     if batch_data:
         execute_values(
             cur,
             f"""
-            INSERT INTO _{schema}.{table_name} ({patient_col}, {col_names})
+            INSERT INTO _{schema}.{table_name} (user_id, {patient_col}, {col_names})
             VALUES %s
             """,
             batch_data,
