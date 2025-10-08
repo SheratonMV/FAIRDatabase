@@ -1,5 +1,109 @@
 # Backend Development Guide
 
+## Session Management & Authentication
+
+### Why Flask Uses Manual Session Management
+
+FAIRDatabase uses **manual cookie-based session management** instead of Supabase's client-side `persist_session` feature. This is the correct approach for server-side Flask applications:
+
+**Reasons**:
+1. **Server-Side vs Client-Side**: Supabase's `persist_session` is designed for browser-based SPAs (Single Page Applications) where the client manages session state. Flask is a server-side framework where session state is managed by the server.
+
+2. **No Browser Storage**: Supabase's client-side session management relies on browser localStorage/sessionStorage, which doesn't exist in backend contexts.
+
+3. **Security**: Server-side session management with HTTP-only cookies provides better security than client-side storage, which is vulnerable to XSS attacks.
+
+4. **Control**: Manual management gives fine-grained control over session lifecycle, token refresh timing, and error handling.
+
+**Implementation**:
+- Tokens stored in Flask session (server-side, encrypted)
+- HTTP-only cookies prevent client-side JavaScript access
+- Proactive token refresh before expiration (5 minutes buffer)
+- Reactive refresh fallback if validation fails
+
+See `backend/src/auth/decorators.py:login_required()` for implementation details.
+
+## User-Level Data Isolation
+
+### Overview
+
+All data in FAIRDatabase is isolated per user. Users can only see and manage their own uploaded datasets.
+
+**Implementation**:
+- Every table has a `user_id UUID` column (FK to `auth.users(id)`)
+- Row Level Security (RLS) policies enforce `auth.uid() = user_id` filtering
+- Service role bypasses RLS for admin operations and bulk imports
+
+**Key Points**:
+- ✅ `metadata_tables` tracks dataset ownership via `user_id`
+- ✅ All dynamically created data tables include `user_id` column
+- ✅ RLS policies automatically filter queries by authenticated user
+- ✅ Bulk inserts via psycopg2 include `user_id` from Flask `g.user` context
+- ✅ Service role can see all data (required for admin operations)
+
+### How It Works
+
+**Table Creation** (`create_data_table` RPC):
+```sql
+CREATE TABLE _realtime.my_table_p1 (
+    rowid SERIAL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id),
+    patient_id_hash TEXT NOT NULL,
+    ...data columns...
+);
+
+-- RLS policy: users see only their own data
+CREATE POLICY "users_view_own_data" ON _realtime.my_table_p1
+FOR SELECT TO authenticated
+USING (auth.uid() = user_id);
+```
+
+**Data Upload** (routes.py):
+```python
+@login_required()
+def upload():
+    user_id = g.user  # Set by @login_required decorator
+
+    # Create tables (service_role for admin operation)
+    pg_create_data_table(schema, table, columns, patient_col)
+
+    # Insert data with user_id (establishes ownership)
+    pg_insert_metadata(cur, schema, table, main_table, desc, origin, user_id)
+    pg_insert_data_rows(cur, schema, table, patient_col, rows, chunk, i, user_id)
+```
+
+**Data Queries** (automatic filtering):
+```python
+# User A uploads data → user_id = 'uuid-a'
+# User B uploads data → user_id = 'uuid-b'
+
+# When User A queries:
+tables = get_cached_tables()  # Only sees tables where user_id = 'uuid-a'
+data = safe_rpc_call('select_from_table', {'p_table_name': 'my_table'})  # Only rows where user_id = 'uuid-a'
+
+# When User B queries:
+tables = get_cached_tables()  # Only sees tables where user_id = 'uuid-b'
+data = safe_rpc_call('select_from_table', {'p_table_name': 'my_table'})  # Only rows where user_id = 'uuid-b'
+```
+
+### Service Role vs Anon Client
+
+**Service Role Client** (`service_role_client`):
+- Bypasses RLS (sees all data)
+- Used for: table creation, bulk inserts, admin operations
+- Example: `pg_create_data_table()` uses service_role for DDL operations
+
+**Anon Client** (`client`):
+- Respects RLS (sees only user's data)
+- Used for: all data queries, metadata queries
+- Example: `safe_rpc_call()` uses anon client by default
+
+**Rule of Thumb**:
+- Use service_role ONLY when you need to bypass RLS (table creation, bulk inserts)
+- Use anon client for everything else (queries, updates)
+
+# Backend Development Guide
+
 ## Database Usage Patterns
 
 ### Supabase Client
