@@ -57,16 +57,6 @@ else
     echo "ℹ️ Supabase already initialized"
 fi
 
-# Install Claude Code CLI for AI assistance
-echo "🤖 Installing Claude Code CLI..."
-npm install -g @anthropic-ai/claude-code
-echo "✅ Claude Code CLI installed"
-
-# Configure Claude Code MCP for semantic code analysis
-echo "⚙️ Configuring Claude Code MCP (Serena)..."
-claude mcp add serena -- uvx --from git+https://github.com/oraios/serena serena start-mcp-server --context ide-assistant --project "$(pwd)"
-echo "✅ Claude Code MCP configured"
-
 # Display completion message
 echo ""
 echo "╔═══════════════════════════════════════════════════════════════════╗"

@@ -19,7 +19,6 @@
         "ms-python.python",
         "charliermarsh.ruff",
         // AI assistants
-        "Anthropic.claude-code",
         "GitHub.copilot",
         "GitHub.copilot-chat",
         // Database
