@@ -170,8 +170,6 @@ npx supabase db reset && npx supabase test db
 - Row-level security (RLS) policies and permissions
 - All 11 RPC functions with signature and functionality validation
 
-See [`supabase/CLAUDE.md`](supabase/CLAUDE.md#database-testing-with-pgtap) for detailed test documentation.
-
 ## Troubleshooting
 
 ### Container Issues
