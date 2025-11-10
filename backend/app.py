@@ -14,6 +14,7 @@ from src.data.routes import routes as data_routes
 from src.privacy.routes import routes as privacy_routes
 from src.main.routes import routes as main_routes
 
+from backend.config import load_settings
 
 def create_app(db_name=None):
     """Construct the core application of Flask. Holds an
@@ -61,4 +62,5 @@ def create_app(db_name=None):
 
 if __name__ == "__main__":
     app = create_app()
+    load_settings(app)
     app.run(debug=True)
