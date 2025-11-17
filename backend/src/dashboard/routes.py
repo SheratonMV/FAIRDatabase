@@ -85,7 +85,9 @@ def upload():
     """
     user_email = session.get("email", "")
     conn = g.db
-
+    print("DEBUG: request.files =", request.files)
+    print("DEBUG: request.form =", request.form)
+    print("DEBUG: request.content_type =", request.content_type)
     if request.method == "POST":
         file = request.files.get("file", "")
 
@@ -101,7 +103,7 @@ def upload():
             patient_col, columns = header[0], header[1:]
             chunks = file_chunk_columns(columns, 1200)
             main_table = filename.rsplit(".", 1)[0]
-            schema = "realtime"
+            schema = "fd"
 
             with conn.cursor() as cur:
                 pg_ensure_schema_and_metadata(cur, schema)
@@ -177,7 +179,7 @@ def display():
                     SELECT DISTINCT table_name
                     FROM information_schema.columns
                     WHERE column_name ILIKE %s
-                    AND table_schema = '_realtime';
+                    AND table_schema = '_fd';
                     """,
                     (f"%{search_column}%",),
                 )
@@ -198,7 +200,7 @@ def display():
                         """
                         SELECT column_name
                         FROM information_schema.columns
-                        WHERE table_schema = '_realtime'
+                        WHERE table_schema = '_fd'
                         AND table_name = %s;
                         """,
                         (table,),
@@ -208,7 +210,7 @@ def display():
                 with conn.cursor() as cur:
                     cur.execute(
                         sql.SQL("SELECT * FROM {}.{}").format(
-                            sql.Identifier("_realtime"),
+                            sql.Identifier("_fd"),
                             sql.Identifier(table),
                         )
                     )
@@ -300,7 +302,7 @@ def search():
                 """
                 SELECT DISTINCT table_name
                 FROM information_schema.tables
-                WHERE table_schema = '_realtime';
+                WHERE table_schema = '_fd';
             """
             )
 
@@ -330,7 +332,7 @@ def search():
                     SELECT DISTINCT table_name
                     FROM information_schema.columns
                     WHERE column_name ILIKE %s
-                    AND table_schema = '_realtime';
+                    AND table_schema = '_fd';
                 """,
                     (f"%{search_term}%",),
                 )
@@ -341,7 +343,7 @@ def search():
                     """
                     SELECT DISTINCT table_name
                     FROM information_schema.tables
-                    WHERE table_schema = '_realtime';
+                    WHERE table_schema = '_fd';
                 """
                 )
                 table_names = [row[0] for row in cur.fetchall()]
@@ -397,7 +399,7 @@ def update():
                     SELECT DISTINCT table_name
                     FROM information_schema.columns
                     WHERE column_name ILIKE %s
-                    AND table_schema = '_realtime';
+                    AND table_schema = '_fd';
                     """,
                     (f"%{column_name}%",),
                 )
@@ -417,7 +419,7 @@ def update():
                 for table in tables:
                     cur.execute(
                         sql.SQL("UPDATE {}.{} SET {} = %s WHERE rowid = %s").format(
-                            sql.Identifier("_realtime"),
+                            sql.Identifier("_fd"),
                             sql.Identifier(table),
                             sql.Identifier(column_name),
                         ),
@@ -482,7 +484,7 @@ def table_preview():
                 """
                 SELECT table_name
                 FROM information_schema.tables
-                WHERE table_schema = '_realtime'
+                WHERE table_schema = '_fd'
                 AND table_name = %s;
                 """,
                 (table_name,),
@@ -499,7 +501,7 @@ def table_preview():
 
     if not res:
         raise GenericExceptionHandler(
-            message=f"Table '{table_name}' not found in _realtime schema.",
+            message=f"Table '{table_name}' not found in _fd schema.",
             status_code=404,
         )
 
@@ -509,7 +511,7 @@ def table_preview():
                 """
                 SELECT column_name
                 FROM information_schema.columns
-                WHERE table_schema = '_realtime'
+                WHERE table_schema = '_fd'
                 AND table_name = %s;
                 """,
                 (table_name,),
@@ -518,7 +520,7 @@ def table_preview():
 
             cur.execute(
                 sql.SQL("SELECT * FROM {}.{} LIMIT 100;").format(
-                    sql.Identifier("_realtime"),
+                    sql.Identifier("_fd"),
                     sql.Identifier(table_name),
                 )
             )

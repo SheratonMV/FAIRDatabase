@@ -4,8 +4,8 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 
 # quick one-time debug
 import os
-print("DEBUG SUPABASE_URL =", os.getenv("SUPABASE_URL"))
-print("DEBUG SUPABASE_KEY/ANON =", (os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_ANON_KEY") or "")[:15])
+# print("DEBUG SUPABASE_URL =", os.getenv("SUPABASE_URL"))
+# print("DEBUG SUPABASE_KEY/ANON =", (os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_ANON_KEY") or "")[:15])
 
 
 # from dotenv import load_dotenv
@@ -248,8 +248,8 @@ def load_settings(app):
     app.config["POSTGRES_HOST"] = os.getenv("POSTGRES_HOST", "127.0.0.1")
     app.config["POSTGRES_PORT"] = int(os.getenv("POSTGRES_PORT", "5433"))
     app.config["POSTGRES_USER"] = os.getenv("POSTGRES_USER", "postgres")
-    app.config["POSTGRES_PASSWORD"] = os.getenv("POSTGRES_SECRET", "")
-    app.config["POSTGRES_DB"] = os.getenv("POSTGRES_DB_NAME", "postgres")
+    app.config["POSTGRES_SECRET"] = os.getenv("POSTGRES_SECRET", "")
+    app.config["POSTGRES_DB_NAME"] = os.getenv("POSTGRES_DB_NAME", "postgres")
 
 supabase_extension = Supabase()
 limiter = Limiter(get_remote_address, default_limits=["100 per minute", "50 per second"])
