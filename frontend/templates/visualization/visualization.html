@@ -1,0 +1,21 @@
+{% extends "dashboard/layout.html" %}
+{% block title %}FAIRMicrobiome | Visualization Tool{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+   {% with messages = get_flashed_messages(with_categories=true) %}
+   {% if messages %}
+      <div class="container mt-3">
+         {% for category, message in messages %}
+         <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+         </div>
+         {% endfor %}
+      </div>
+   {% endif %}
+   {% endwith %}
+   <br>
+   <h1>Visualization Tool</h1>
+   <div style="height:5vh;"></div>
+</div>
+{% endblock %}
