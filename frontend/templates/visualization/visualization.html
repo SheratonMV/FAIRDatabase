@@ -1,5 +1,6 @@
 {% extends "dashboard/layout.html" %}
 {% block title %}FAIRMicrobiome | Visualization Tool{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
    {% with messages = get_flashed_messages(with_categories=true) %}
@@ -14,8 +15,413 @@
       </div>
    {% endif %}
    {% endwith %}
-   <br>
-   <h1>Visualization Tool</h1>
+
+   <h1>Dataset Visualization
+      <small class="text-muted">Exploratory Data Analysis</small>
+   </h1>
+   <div style="height:3vh;"></div>
+
+   {% if stats_data %}
+   <!-- Summary Cards -->
+   <div class="row mb-4">
+      <div class="col-md-3">
+         <div class="card text-center">
+            <div class="card-body">
+               <h5 class="card-title text-muted">Total Datasets</h5>
+               <h2 class="text-primary">{{ stats_data.summary.total_datasets }}</h2>
+            </div>
+         </div>
+      </div>
+      <div class="col-md-3">
+         <div class="card text-center">
+            <div class="card-body">
+               <h5 class="card-title text-muted">Total Rows</h5>
+               <h2 class="text-success">{{ "{:,}".format(stats_data.summary.total_rows) }}</h2>
+            </div>
+         </div>
+      </div>
+      <div class="col-md-3">
+         <div class="card text-center">
+            <div class="card-body">
+               <h5 class="card-title text-muted">Total Columns</h5>
+               <h2 class="text-info">{{ stats_data.summary.total_columns }}</h2>
+            </div>
+         </div>
+      </div>
+      <div class="col-md-3">
+         <div class="card text-center">
+            <div class="card-body">
+               <h5 class="card-title text-muted">Avg Rows/Dataset</h5>
+               <h2 class="text-warning">{{ "{:,}".format(stats_data.summary.avg_rows) }}</h2>
+            </div>
+         </div>
+      </div>
+   </div>
+
+   <!-- Charts Row -->
+   <div class="row mb-4">
+      <div class="col-md-6">
+         <div class="card">
+            <div class="card-header">
+               <h5>Rows per Dataset</h5>
+            </div>
+            <div class="card-body">
+               <canvas id="rowsChart"></canvas>
+            </div>
+         </div>
+      </div>
+      <div class="col-md-6">
+         <div class="card">
+            <div class="card-header">
+               <h5>Columns per Dataset</h5>
+            </div>
+            <div class="card-body">
+               <canvas id="columnsChart"></canvas>
+            </div>
+         </div>
+      </div>
+   </div>
+
+   <!-- Dataset Table -->
+   <div class="row">
+      <div class="col-md-12">
+         <div class="card">
+            <div class="card-header">
+               <h5>Dataset Details</h5>
+            </div>
+            <div class="card-body">
+               <div class="table-responsive">
+                  <table class="table table-striped table-hover">
+                     <thead>
+                        <tr>
+                           <th>Table Name</th>
+                           <th>Rows</th>
+                           <th>Columns</th>
+                        </tr>
+                     </thead>
+                     <tbody>
+                        {% for table in stats_data.tables %}
+                        <tr>
+                           <td><code>{{ table.name }}</code></td>
+                           <td>{{ "{:,}".format(table.rows) }}</td>
+                           <td>{{ table.columns }}</td>
+                        </tr>
+                        {% endfor %}
+                     </tbody>
+                  </table>
+               </div>
+            </div>
+         </div>
+      </div>
+   </div>
+   {% else %}
+   <div class="alert alert-info">
+      <i class="fas fa-info-circle"></i> No dataset statistics available. Please upload some data first.
+   </div>
+   {% endif %}
+
+   <!-- NEW SECTION: Dataset-Specific Visualization -->
    <div style="height:5vh;"></div>
+   <hr>
+   <h2 class="mt-5">Dataset-Specific Visualization
+      <small class="text-muted">Beta Diversity Heatmap</small>
+   </h2>
+   <div style="height:2vh;"></div>
+
+   {% if stats_data and stats_data.tables %}
+   <!-- Controls Card -->
+   <div class="row">
+      <div class="col-12">
+         <div class="card">
+            <div class="card-header">
+               <h5><i class="fas fa-sliders-h"></i> Visualization Controls</h5>
+            </div>
+            <div class="card-body">
+               <form id="viz-form" method="GET" action="">
+                  <div class="row">
+                     <div class="col-md-6 mb-3">
+                        <label for="dataset-select" class="form-label">Select Dataset</label>
+                        <select id="dataset-select" name="dataset" class="form-select" required>
+                           <option value="">-- Choose a dataset --</option>
+                           {% for table in stats_data.tables %}
+                           <option value="{{ table.name }}" {% if table_name == table.name %}selected{% endif %}>
+                              {{ table.name }} ({{ "{:,}".format(table.rows) }} rows, {{ table.columns }} columns)
+                           </option>
+                           {% endfor %}
+                        </select>
+                     </div>
+                     <div class="col-md-3 mb-3">
+                        <label for="row-limit" class="form-label">OTUs/Features (max 1000)</label>
+                        <input type="number" id="row-limit" name="row_limit" class="form-control"
+                               min="1" max="1000" value="{{ row_limit or 50 }}" required>
+                        <small class="form-text text-muted">Number of rows to analyze</small>
+                     </div>
+                     <div class="col-md-3 mb-3">
+                        <label for="column-limit" class="form-label">Samples (max 500)</label>
+                        <input type="number" id="column-limit" name="column_limit" class="form-control"
+                               min="2" max="500" value="{{ column_limit or 10 }}" required>
+                        <small class="form-text text-muted">Number of samples to compare</small>
+                     </div>
+                  </div>
+                  <div class="row">
+                     <div class="col-12">
+                        <button type="submit" class="btn btn-primary-custom btn-lg">
+                           <i class="fas fa-chart-area"></i> Generate Beta Diversity Heatmap
+                        </button>
+                        {% if viz_data %}
+                        <button type="button" class="btn btn-secondary ms-2" onclick="exportHeatmap()">
+                           <i class="fas fa-download"></i> Export as PNG
+                        </button>
+                        {% endif %}
+                     </div>
+                  </div>
+               </form>
+            </div>
+         </div>
+      </div>
+   </div>
+
+   <!-- Visualization Container -->
+   {% if viz_data and viz_data.success %}
+   <div class="row mt-4">
+      <div class="col-12">
+         <div class="card">
+            <div class="card-header">
+               <h5><i class="fas fa-chart-area"></i> Beta Diversity Heatmap - {{ table_name }}</h5>
+               <small class="text-muted">
+                  Bray-Curtis Dissimilarity |
+                  {{ viz_data.data.row_count }} OTUs × {{ viz_data.data.column_count }} Samples |
+                  Processing time: {{ viz_data.metadata.processing_time_ms }}ms
+               </small>
+            </div>
+            <div class="card-body">
+               <div id="heatmap-container" style="width: 100%; height: 700px;"></div>
+               {% if viz_data.data.total_columns_available > viz_data.data.column_count %}
+               <div class="alert alert-info mt-3">
+                  <i class="fas fa-info-circle"></i>
+                  Showing {{ viz_data.data.column_count }} of {{ viz_data.data.total_columns_available }} available samples.
+                  Increase the "Samples" limit to include more.
+               </div>
+               {% endif %}
+            </div>
+         </div>
+      </div>
+   </div>
+   {% elif table_name %}
+   <div class="row mt-4">
+      <div class="col-12">
+         <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle"></i>
+            Unable to generate visualization. Please check the error messages above.
+         </div>
+      </div>
+   </div>
+   {% else %}
+   <div class="row mt-4">
+      <div class="col-12">
+         <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i>
+            Select a dataset and click "Generate Beta Diversity Heatmap" to visualize the data.
+         </div>
+      </div>
+   </div>
+   {% endif %}
+   {% endif %}
 </div>
+
+<!-- Chart.js Script -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- Plotly.js for Heatmap -->
+<script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+
+<script>
+   // Get stats data from backend
+   const statsData = {{ stats_json | safe }};
+
+   if (statsData && statsData.tables) {
+      // Prepare data for charts
+      const tableNames = statsData.tables.map(t => t.name.replace(/_/g, ' ').substring(0, 20) + '...');
+      const rowCounts = statsData.tables.map(t => t.rows);
+      const columnCounts = statsData.tables.map(t => t.columns);
+
+      // Rows Chart
+      const rowsCtx = document.getElementById('rowsChart').getContext('2d');
+      new Chart(rowsCtx, {
+         type: 'bar',
+         data: {
+            labels: tableNames,
+            datasets: [{
+               label: 'Number of Rows',
+               data: rowCounts,
+               backgroundColor: 'rgba(40, 167, 69, 0.6)',
+               borderColor: 'rgba(40, 167, 69, 1)',
+               borderWidth: 1
+            }]
+         },
+         options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+               y: {
+                  beginAtZero: true
+               }
+            }
+         }
+      });
+
+      // Columns Chart
+      const columnsCtx = document.getElementById('columnsChart').getContext('2d');
+      new Chart(columnsCtx, {
+         type: 'bar',
+         data: {
+            labels: tableNames,
+            datasets: [{
+               label: 'Number of Columns',
+               data: columnCounts,
+               backgroundColor: 'rgba(23, 162, 184, 0.6)',
+               borderColor: 'rgba(23, 162, 184, 1)',
+               borderWidth: 1
+            }]
+         },
+         options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+               y: {
+                  beginAtZero: true
+               }
+            }
+         }
+      });
+   }
+
+   // Handle form submission for visualization
+   const vizForm = document.getElementById('viz-form');
+   if (vizForm) {
+      vizForm.addEventListener('submit', function(e) {
+         e.preventDefault();
+
+         const datasetSelect = document.getElementById('dataset-select');
+         const rowLimitInput = document.getElementById('row-limit');
+         const colLimitInput = document.getElementById('column-limit');
+
+         if (!datasetSelect || !rowLimitInput || !colLimitInput) {
+            console.error('Form elements not found');
+            return;
+         }
+
+         const dataset = datasetSelect.value;
+         const rowLimit = rowLimitInput.value;
+         const colLimit = colLimitInput.value;
+
+         if (!dataset) {
+            alert('Please select a dataset');
+            return;
+         }
+
+         // Redirect to visualization route with parameters
+         window.location.href = `/visualization/dataset/${dataset}?row_limit=${rowLimit}&column_limit=${colLimit}`;
+      });
+   }
+
+   // Render Beta Diversity Heatmap if data is available
+   {% if viz_data and viz_data.success %}
+   try {
+      const vizData = {{ viz_json | safe }};
+      console.log('Viz data loaded:', vizData);
+
+      if (vizData && vizData.success && vizData.data) {
+         const heatmapContainer = document.getElementById('heatmap-container');
+
+         if (!heatmapContainer) {
+            console.error('Heatmap container not found!');
+         } else if (typeof Plotly === 'undefined') {
+            console.error('Plotly.js not loaded!');
+         } else {
+            console.log('Rendering heatmap...');
+
+            const data = [{
+               z: vizData.data.distance_matrix,
+               x: vizData.data.sample_names,
+               y: vizData.data.sample_names,
+               type: 'heatmap',
+               colorscale: 'RdYlBu',
+               reversescale: true,
+               showscale: true,
+               colorbar: {
+                  title: {
+                     text: 'Bray-Curtis<br>Dissimilarity',
+                     side: 'right'
+                  },
+                  tickformat: '.2f',
+                  len: 0.7
+               },
+               hovertemplate: '<b>%{x}</b><br><b>%{y}</b><br>Distance: %{z:.3f}<extra></extra>',
+               zmin: 0,
+               zmax: 1
+            }];
+
+            const layout = {
+               title: {
+                  text: 'Beta Diversity Heatmap<br><sub>Bray-Curtis Dissimilarity Matrix</sub>',
+                  font: { size: 20 }
+               },
+               xaxis: {
+                  title: 'Samples',
+                  tickangle: -45,
+                  side: 'bottom',
+                  tickfont: { size: 10 }
+               },
+               yaxis: {
+                  title: 'Samples',
+                  tickfont: { size: 10 },
+                  autorange: 'reversed'
+               },
+               height: 700,
+               margin: { l: 100, r: 150, t: 100, b: 150 },
+               paper_bgcolor: '#ffffff',
+               plot_bgcolor: '#ffffff'
+            };
+
+            const config = {
+               responsive: true,
+               displayModeBar: true,
+               displaylogo: false,
+               modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+               toImageButtonOptions: {
+                  format: 'png',
+                  filename: 'beta_diversity_' + vizData.metadata.table_name,
+                  height: 1000,
+                  width: 1000,
+                  scale: 2
+               }
+            };
+
+            Plotly.newPlot('heatmap-container', data, layout, config)
+               .then(function() {
+                  console.log('Heatmap rendered successfully!');
+               })
+               .catch(function(err) {
+                  console.error('Plotly rendering error:', err);
+               });
+         }
+      } else {
+         console.error('Invalid viz data structure');
+      }
+   } catch (error) {
+      console.error('Error rendering heatmap:', error);
+   }
+   {% endif %}
+
+   // Export heatmap function
+   function exportHeatmap() {
+      Plotly.downloadImage(document.getElementById('heatmap-container'), {
+         format: 'png',
+         width: 1200,
+         height: 1200,
+         filename: 'beta_diversity_heatmap'
+      });
+   }
+</script>
 {% endblock %}
