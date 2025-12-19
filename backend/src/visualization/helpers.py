@@ -5,7 +5,7 @@ from flask import current_app
 from psycopg2 import sql
 
 
-def call_visualization_edge_function(table_name, row_limit=50, column_limit=10):
+def call_visualization_edge_function(table_name, row_limit=50, column_limit=10, metric='bray_curtis', pseudocount=1.0):
     """
     Call Supabase Edge Function to generate visualization data.
 
@@ -13,6 +13,8 @@ def call_visualization_edge_function(table_name, row_limit=50, column_limit=10):
         table_name (str): Name of table in _fd schema
         row_limit (int): Maximum rows to process (default 50)
         column_limit (int): Maximum columns/samples to include (default 10)
+        metric (str): Distance metric to use ('bray_curtis' or 'aitchison', default 'bray_curtis')
+        pseudocount (float): Pseudocount for CLR transformation (default 1.0, only used for aitchison)
 
     Returns:
         dict: Visualization data from Edge Function
@@ -31,7 +33,9 @@ def call_visualization_edge_function(table_name, row_limit=50, column_limit=10):
     payload = {
         "table_name": table_name,
         "row_limit": row_limit,
-        "column_limit": column_limit
+        "column_limit": column_limit,
+        "metric": metric,
+        "pseudocount": pseudocount
     }
 
     response = requests.post(

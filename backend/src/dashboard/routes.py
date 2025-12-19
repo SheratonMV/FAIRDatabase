@@ -117,10 +117,15 @@ def upload():
                     pg_insert_data_rows(cur, schema, table,
                                         patient_col, rows, chunk, i)
 
-                conn.commit()
+            conn.commit()
 
             os.remove(os.path.join(
                 current_app.config["UPLOAD_FOLDER"], filename))
+
+            # Success message
+            flash(f"Dataset '{main_table}' uploaded successfully! {len(chunks)} table(s) created.", "success")
+            return redirect(url_for("dashboard_routes.upload"))
+
         except Exception as e:
             conn.rollback()
             print(e)

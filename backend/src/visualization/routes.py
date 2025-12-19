@@ -127,6 +127,9 @@ def dataset_visualization(table_name):
     # Get query parameters
     row_limit = request.args.get('row_limit', 50, type=int)
     column_limit = request.args.get('column_limit', 10, type=int)
+    metric = request.args.get('metric', 'bray_curtis', type=str)
+    colorscale = request.args.get('colorscale', 'RdYlBu', type=str)
+    pseudocount = request.args.get('pseudocount', 1.0, type=float)
 
     # Validate limits
     if row_limit > 1000 or row_limit < 1:
@@ -135,6 +138,23 @@ def dataset_visualization(table_name):
 
     if column_limit > 500 or column_limit < 2:
         flash("Column limit must be between 2 and 500", "warning")
+        return redirect(url_for('visualization_routes.visualization'))
+
+    # Validate metric
+    if metric not in ['bray_curtis', 'aitchison']:
+        flash("Invalid metric. Must be 'bray_curtis' or 'aitchison'", "warning")
+        return redirect(url_for('visualization_routes.visualization'))
+
+    # Validate colorscale
+    valid_colorscales = ['RdYlBu', 'Viridis', 'Cividis', 'Plasma', 'Inferno', 'Hot', 'Bluered', 'Jet', 'Portland', 'Picnic']
+    if colorscale not in valid_colorscales:
+        flash("Invalid colorscale", "warning")
+        return redirect(url_for('visualization_routes.visualization'))
+
+    # Validate pseudocount
+    valid_pseudocounts = [0.1, 0.5, 1.0]
+    if pseudocount not in valid_pseudocounts:
+        flash("Invalid pseudocount. Must be 0.1, 0.5, or 1.0", "warning")
         return redirect(url_for('visualization_routes.visualization'))
 
     # Verify table exists
@@ -171,7 +191,9 @@ def dataset_visualization(table_name):
         viz_data = call_visualization_edge_function(
             table_name,
             row_limit,
-            column_limit
+            column_limit,
+            metric,
+            pseudocount
         )
 
         if not viz_data.get('success'):
@@ -192,6 +214,19 @@ def dataset_visualization(table_name):
         flash(f"Unexpected error: {error_message}", "danger")
         current_app.logger.error(f"Unexpected error: {e}")
 
+    # Get metadata if available
+    from src.data.metadata_helpers import get_metadata, get_metadata_fields, has_metadata
+    metadata_dict = {}
+    metadata_fields = []
+    has_meta = False
+    try:
+        has_meta = has_metadata(table_name, conn)
+        if has_meta:
+            metadata_dict = get_metadata(table_name, conn)
+            metadata_fields = get_metadata_fields(table_name, conn)
+    except:
+        pass
+
     return (
         render_template(
             "/visualization/visualization.html",
@@ -204,6 +239,12 @@ def dataset_visualization(table_name):
             viz_json=json.dumps(viz_data) if viz_data else "null",
             row_limit=row_limit,
             column_limit=column_limit,
+            metric=metric,
+            colorscale=colorscale,
+            pseudocount=pseudocount,
+            metadata=json.dumps(metadata_dict) if metadata_dict else "{}",
+            metadata_fields=metadata_fields,
+            has_metadata=has_meta,
         ),
         200,
     )

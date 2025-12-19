@@ -38,6 +38,25 @@ def pg_ensure_schema_and_metadata(cur, schema):
     """
     )
 
+    # Create sample metadata table
+    cur.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS _{schema}.sample_metadata (
+            id SERIAL PRIMARY KEY,
+            parent_table TEXT NOT NULL,
+            sample_id TEXT NOT NULL,
+            metadata_field TEXT NOT NULL,
+            metadata_value TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(parent_table, sample_id, metadata_field)
+        );
+        CREATE INDEX IF NOT EXISTS idx_sample_metadata_parent
+            ON _{schema}.sample_metadata(parent_table);
+        CREATE INDEX IF NOT EXISTS idx_sample_metadata_sample
+            ON _{schema}.sample_metadata(sample_id);
+    """
+    )
+
 
 def pg_create_data_table(cur, schema, table_name, columns, patient_col):
     """

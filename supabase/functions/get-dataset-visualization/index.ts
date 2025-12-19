@@ -9,39 +9,77 @@ const corsHeaders = {
 
 // Calculate Bray-Curtis dissimilarity between two samples
 function brayCurtisDistance(sample1: number[], sample2: number[]): number {
-  let sumMin = 0
-  let sum1 = 0
-  let sum2 = 0
+  let lesser_count = 0
+  let total_count_sample1 = 0
+  let total_count_sample2 = 0
 
   for (let i = 0; i < sample1.length; i++) {
-    sumMin += Math.min(sample1[i], sample2[i])
-    sum1 += sample1[i]
-    sum2 += sample2[i]
+    lesser_count += Math.min(sample1[i], sample2[i])
+    total_count_sample1 += sample1[i]
+    total_count_sample2 += sample2[i]
   }
 
-  // Handle edge case where both samples are all zeros
-  if (sum1 === 0 && sum2 === 0) {
+  // Make sure we don't divide by zero
+  if (total_count_sample1 === 0 && total_count_sample2 === 0) {
     return 0
   }
 
-  // Bray-Curtis formula: 1 - (2 * sum_min) / (sum1 + sum2)
-  return 1 - (2 * sumMin) / (sum1 + sum2)
+  // Bray-Curtis formula= 1 - (2 * lessercount) / (total_count_sample1 + total_count_sample2)
+  let distance = 1 - (2 * lesser_count) / (total_count_sample1 + total_count_sample2)
+  return distance
+}
+
+// Centered Log-Ratio (CLR) transformation for compositional data
+function clrTransform(sample: number[]): number[] {
+  // Add pseudocount to avoid the log of zero
+  const pseudocount = 0.5
+  const sample_with_pseudocount = sample.map((x) => x + pseudocount)
+
+  // log transform each value
+  const log_values = sample_with_pseudocount.map(x => Math.log(x))
+  // add log values together and calculate average
+  const sum_log_values = log_values.reduce((sum, x) => sum + x, 0)
+  const avg_log_abundance = sum_log_values / sample_with_pseudocount.length
+
+  // Apply CLR transformation: take the log value minus the average log abundance
+  return log_values.map(x => x - avg_log_abundance)
+}
+
+// Calculate Aitchison distance between two CLR-transformed samples
+function aitchisonDistance(sample1: number[], sample2: number[]): number {
+  // Transform both samples using CLR
+  const clr1 = clrTransform(sample1)
+  const clr2 = clrTransform(sample2)
+
+  // Aitchison distance is Euclidean distance in CLR space
+  let sum_square_difference = 0
+  for (let i = 0; i < clr1.length; i++) {
+    const a = clr1[i]
+    const b = clr2[i]
+    const diff = a - b
+
+    sum_square_difference += diff * diff
+  }
+
+  return Math.sqrt(sum_square_difference)
 }
 
 // Calculate full distance matrix for all sample pairs
-function calculateBetaDiversityMatrix(data: number[][]): number[][] {
-  const numSamples = data.length
+function calculateBetaDiversityMatrix(data: number[][], metric: string = 'bray_curtis'): number[][] {
+  const num_samples = data.length
   const distanceMatrix: number[][] = []
 
   // Initialize matrix with zeros
-  for (let i = 0; i < numSamples; i++) {
-    distanceMatrix[i] = new Array(numSamples).fill(0)
+  for (let i = 0; i < num_samples; i++) {
+    distanceMatrix[i] = new Array(num_samples).fill(0)
   }
 
-  // Calculate pairwise distances
-  for (let i = 0; i < numSamples; i++) {
-    for (let j = i + 1; j < numSamples; j++) {
-      const distance = brayCurtisDistance(data[i], data[j])
+  // Calculate pairwise distances using selected metric
+  for (let i = 0; i < num_samples; i++) {
+    for (let j = i + 1; j < num_samples; j++) {
+      const distance = metric === 'aitchison'
+        ? aitchisonDistance(data[i], data[j])
+        : brayCurtisDistance(data[i], data[j])
       distanceMatrix[i][j] = distance
       distanceMatrix[j][i] = distance // Matrix is symmetric
     }
@@ -57,6 +95,112 @@ function parseNumeric(value: string | number): number {
   return isNaN(parsed) ? 0 : parsed
 }
 
+// Classical MDS / PCoA calculation
+function calculatePCoA(distanceMatrix: number[][]): {
+  coordinates: number[][],
+  explainedVariance: number[]
+} {
+  const n = distanceMatrix.length
+
+  // Step 1: Square the distance matrix
+  const D2 = distanceMatrix.map(row => row.map(d => d * d))
+
+  // Step 2: Apply double centering to get B matrix
+  // To get matrix B, you take the matrix of squared distances, subtract the row and column averages so everything is centered around zero,
+  // and then multiply by −0.5 to convert those centered distances into an inner-product matrix that can be used for PCoA.
+  const rowMeans = D2.map(row => row.reduce((a, b) => a + b, 0) / n)
+  const total_mean = rowMeans.reduce((a, b) => a + b, 0) / n
+
+  const B: number[][] = []
+  for (let i = 0; i < n; i++) {
+    B[i] = []
+    for (let j = 0; j < n; j++) {
+      B[i][j] = -0.5 * (D2[i][j] - rowMeans[i] - rowMeans[j] + total_mean)
+    }
+  }
+
+  // Step 3: Eigenvalue decomposition using power iteration
+  // Calculate top 10 eigenvalues to get accurate total variance
+  const allEigenResults = powerIteration(B, Math.min(10, n))
+  const eigenvalues = [allEigenResults.eigenvalues[0], allEigenResults.eigenvalues[1]]
+  const eigenvectors = [allEigenResults.eigenvectors[0], allEigenResults.eigenvectors[1]]
+
+  // Step 4: Calculate principal coordinates
+  const coordinates: number[][] = []
+  for (let i = 0; i < n; i++) {
+    coordinates.push([
+      eigenvectors[0][i] * Math.sqrt(Math.abs(eigenvalues[0])),
+      eigenvectors[1][i] * Math.sqrt(Math.abs(eigenvalues[1]))
+    ])
+  }
+
+  // Calculate explained variance percentages
+  // Total variance = sum of all POSITIVE eigenvalues (not just top 2)
+  const totalVariance = allEigenResults.eigenvalues
+    .filter(val => val > 1e-10)
+    .reduce((sum, val) => sum + val, 0)
+  const explainedVariance = eigenvalues.map(val => (val / totalVariance) * 100)
+
+  return { coordinates, explainedVariance }
+}
+
+// Power iteration method to find top k eigenvalues and eigenvectors
+function powerIteration(matrix: number[][], k: number): {
+  eigenvalues: number[],
+  eigenvectors: number[][]
+} {
+  const n = matrix.length
+  const eigenvalues: number[] = []
+  const eigenvectors: number[][] = []
+
+  // Copy matrix for deflation
+  let A = matrix.map(row => [...row])
+
+  for (let iter = 0; iter < k; iter++) {
+    // Initialize random vector
+    let v = Array(n).fill(0).map(() => Math.random() - 0.5)
+
+    // Normalize
+    let norm = Math.sqrt(v.reduce((sum, val) => sum + val * val, 0))
+    v = v.map(val => val / norm)
+
+    // Power iteration
+    for (let i = 0; i < 100; i++) {
+      // Multiply A * v
+      const Av = Array(n).fill(0)
+      for (let row = 0; row < n; row++) {
+        for (let col = 0; col < n; col++) {
+          Av[row] += A[row][col] * v[col]
+        }
+      }
+
+      // Normalize
+      norm = Math.sqrt(Av.reduce((sum, val) => sum + val * val, 0))
+      v = Av.map(val => val / norm)
+    }
+
+    // Calculate eigenvalue (Rayleigh quotient)
+    let eigenvalue = 0
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        eigenvalue += v[i] * A[i][j] * v[j]
+      }
+    }
+
+    eigenvalues.push(eigenvalue)
+    eigenvectors.push(v)
+
+    // Deflate matrix: A = A - λ * v * v'
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        A[i][j] -= eigenvalue * v[i] * v[j]
+      }
+    }
+  }
+
+  return { eigenvalues, eigenvectors }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -67,16 +211,16 @@ Deno.serve(async (req) => {
 
   try {
     // Parse request body
-    const { table_name, row_limit = 50, column_limit = 10 } = await req.json().catch(() => ({}))
+    const { table_name, row_limit = 50, column_limit = 10, metric = 'bray_curtis' } = await req.json().catch(() => ({}))
 
     if (!table_name) {
       return new Response(
-        JSON.stringify({ success: false, error: 'table_name is required' }),
+        JSON.stringify({ success: false, error: 'please select a table' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
 
-    // Validate limits
+    // Limit row and column counts to reasonable maximums, can be adjusted if needed
     const maxRowLimit = 1000
     const maxColLimit = 500
     const validRowLimit = Math.min(Math.max(1, row_limit), maxRowLimit)
@@ -115,20 +259,20 @@ Deno.serve(async (req) => {
          AND column_name NOT IN ('rowid')
          ORDER BY ordinal_position
          LIMIT $2`,
-        [table_name, validColLimit + 1] // +1 to get patient ID column
+        [table_name, validColLimit + 1] // +1 to get sample ID column
       )
 
       const allColumns = columnsResult.rows.map(row => row.column_name as string)
 
-      // First column is patient/sample ID, rest are data columns
+      // First column is name for sample ID, rest are data columns
       const patientCol = allColumns[0]
-      const dataColumns = allColumns.slice(1, validColLimit + 1) // Limit to validColLimit samples
+      const dataColumns = allColumns.slice(1, validColLimit + 1) // get all the sample names that the user selects
 
       if (dataColumns.length < 2) {
         return new Response(
           JSON.stringify({
             success: false,
-            error: 'Table must have at least 2 data columns for beta diversity calculation'
+            error: 'Cannot apply beta diversity with less than 2 columns'
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
         )
@@ -155,8 +299,8 @@ Deno.serve(async (req) => {
         )
       }
 
-      // Transform data: rows are samples, columns are OTUs/features
-      // We need to transpose: each sample becomes a vector of abundances
+      // Transform data: rows are samples, columns are OTU's
+      // We need to transpose: each sample becomes a vector of all the OTU's
       const sampleData: number[][] = []
 
       for (let colIdx = 0; colIdx < dataColumns.length; colIdx++) {
@@ -172,8 +316,11 @@ Deno.serve(async (req) => {
         sampleData.push(abundances)
       }
 
-      // Calculate beta diversity matrix
-      const distanceMatrix = calculateBetaDiversityMatrix(sampleData)
+      // Calculate beta diversity matrix with selected metric
+      const distanceMatrix = calculateBetaDiversityMatrix(sampleData, metric)
+
+      // Calculate PCoA coordinates
+      const pcoaResult = calculatePCoA(distanceMatrix)
 
       // Get total column count for metadata
       const totalColsResult = await connection.queryObject(
@@ -197,7 +344,9 @@ Deno.serve(async (req) => {
           row_count: dataResult.rows.length,
           column_count: dataColumns.length,
           total_columns_available: totalColumns,
-          metric: 'bray_curtis'
+          metric: metric,
+          pcoa_coordinates: pcoaResult.coordinates,
+          explained_variance: pcoaResult.explainedVariance
         },
         metadata: {
           table_name,
