@@ -159,7 +159,7 @@ def data_p29score():
 @login_required()
 def upload_metadata(table_name):
     """Upload sample metadata for a dataset."""
-    from .metadata_helpers import validate_metadata_csv, store_metadata, ALLOWED_FIELDS
+    from .metadata_helpers import validate_metadata_csv, store_metadata
     from flask import flash, g
 
     conn = g.db
@@ -192,5 +192,4 @@ def upload_metadata(table_name):
             return redirect(request.url)
 
     return render_template("/data/upload_metadata.html",
-                          table_name=table_name,
-                          allowed_fields=ALLOWED_FIELDS)
+                          table_name=table_name)

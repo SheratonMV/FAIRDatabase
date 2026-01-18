@@ -38,7 +38,7 @@ def pg_ensure_schema_and_metadata(cur, schema):
     """
     )
 
-    # Create sample metadata table
+    # Create a table where metadata for samples can be stored
     cur.execute(
         f"""
         CREATE TABLE IF NOT EXISTS _{schema}.sample_metadata (

@@ -85,9 +85,7 @@ def upload():
     """
     user_email = session.get("email", "")
     conn = g.db
-    print("DEBUG: request.files =", request.files)
-    print("DEBUG: request.form =", request.form)
-    print("DEBUG: request.content_type =", request.content_type)
+
     if request.method == "POST":
         file = request.files.get("file", "")
 
@@ -104,6 +102,8 @@ def upload():
             chunks = file_chunk_columns(columns, 1200)
             main_table = filename.rsplit(".", 1)[0]
             schema = "fd"
+            # created a new schema called _fd to store the uploaded datasets. Realtime can not be used anymore due to restrictions with supabase
+
 
             with conn.cursor() as cur:
                 pg_ensure_schema_and_metadata(cur, schema)
@@ -122,7 +122,7 @@ def upload():
             os.remove(os.path.join(
                 current_app.config["UPLOAD_FOLDER"], filename))
 
-            # Success message
+            # show that it is uploaded succesfully
             flash(f"Dataset '{main_table}' uploaded successfully! {len(chunks)} table(s) created.", "success")
             return redirect(url_for("dashboard_routes.upload"))
 

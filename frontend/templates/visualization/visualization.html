@@ -22,7 +22,7 @@
    <div style="height:3vh;"></div>
 
    {% if stats_data %}
-   <!-- Summary Cards -->
+   <!-- Summary stats -->
    <div class="row mb-4">
       <div class="col-md-3">
          <div class="card text-center">
@@ -35,7 +35,7 @@
       <div class="col-md-3">
          <div class="card text-center">
             <div class="card-body">
-               <h5 class="card-title text-muted">Total Rows</h5>
+               <h5 class="card-title text-muted">Total OTUs</h5>
                <h2 class="text-success">{{ "{:,}".format(stats_data.summary.total_rows) }}</h2>
             </div>
          </div>
@@ -43,7 +43,7 @@
       <div class="col-md-3">
          <div class="card text-center">
             <div class="card-body">
-               <h5 class="card-title text-muted">Total Columns</h5>
+               <h5 class="card-title text-muted">Total Samples</h5>
                <h2 class="text-info">{{ stats_data.summary.total_columns }}</h2>
             </div>
          </div>
@@ -51,19 +51,19 @@
       <div class="col-md-3">
          <div class="card text-center">
             <div class="card-body">
-               <h5 class="card-title text-muted">Avg Rows/Dataset</h5>
+               <h5 class="card-title text-muted">Avg OTUs/Dataset</h5>
                <h2 class="text-warning">{{ "{:,}".format(stats_data.summary.avg_rows) }}</h2>
             </div>
          </div>
       </div>
    </div>
 
-   <!-- Charts Row -->
+   <!-- Charts -->
    <div class="row mb-4">
       <div class="col-md-6">
          <div class="card">
             <div class="card-header">
-               <h5>Rows per Dataset</h5>
+               <h5>OTUs per Dataset</h5>
             </div>
             <div class="card-body">
                <canvas id="rowsChart"></canvas>
@@ -73,7 +73,7 @@
       <div class="col-md-6">
          <div class="card">
             <div class="card-header">
-               <h5>Columns per Dataset</h5>
+               <h5>Samples per Dataset</h5>
             </div>
             <div class="card-body">
                <canvas id="columnsChart"></canvas>
@@ -82,7 +82,7 @@
       </div>
    </div>
 
-   <!-- Dataset Table -->
+   <!-- Dataset  -->
    <div class="row">
       <div class="col-md-12">
          <div class="card">
@@ -95,8 +95,8 @@
                      <thead>
                         <tr>
                            <th>Table Name</th>
-                           <th>Rows</th>
-                           <th>Columns</th>
+                           <th>OTUs</th>
+                           <th>Samples</th>
                         </tr>
                      </thead>
                      <tbody>
@@ -124,12 +124,12 @@
    <div style="height:5vh;"></div>
    <hr>
    <h2 class="mt-5">Dataset-Specific Visualization
-      <small class="text-muted">Beta Diversity Heatmap</small>
+      <small class="text-muted">Beta Diversity Heatmap & PCoA</small>
    </h2>
    <div style="height:2vh;"></div>
 
    {% if stats_data and stats_data.tables %}
-   <!-- Controls Card -->
+   <!-- Controls  -->
    <div class="row">
       <div class="col-12">
          <div class="card">
@@ -145,12 +145,12 @@
                            <option value="">-- Choose a dataset --</option>
                            {% for table in stats_data.tables %}
                            <option value="{{ table.name }}" {% if table_name == table.name %}selected{% endif %}>
-                              {{ table.name }} ({{ "{:,}".format(table.rows) }} rows, {{ table.columns }} columns)
+                              {{ table.name }} ({{ "{:,}".format(table.rows) }} OTUs, {{ table.columns }} samples)
                            </option>
                            {% endfor %}
                         </select>
 
-                        <!-- Metadata Status Indicator -->
+                        <!-- Metadata Status  -->
                         {% if table_name %}
                            {% if has_metadata %}
                            <div class="alert alert-success mt-2 mb-0" role="alert">
@@ -186,7 +186,7 @@
                               Bray-Curtis Dissimilarity (does not take compositionality into account)
                            </option>
                            <option value="aitchison" {% if metric == 'aitchison' %}selected{% endif %}>
-                              Aitchison Distance (CLR-transformed, compositional)
+                              Aitchison Distance (CLR-transformed, compositional aware)
                            </option>
                         </select>
                         <small class="form-text text-muted">
@@ -205,6 +205,12 @@
                            <option value="0.1" {% if pseudocount == 0.1 %}selected{% endif %}>
                               0.1
                            </option>
+                           <option value="0.01" {% if pseudocount == 0.01 %}selected{% endif %}>
+                              0.01
+                           </option>
+                           <option value="0.001" {% if pseudocount == 0.001 %}selected{% endif %}>
+                              0.001
+                           </option>
                         </select>
                         <small class="form-text text-muted">
                            Value added to each cell before CLR transformation to avoid log(0)
@@ -213,46 +219,25 @@
                      <div class="col-md-4 mb-3">
                         <label for="colorscale-select" class="form-label">Color Palette</label>
                         <select id="colorscale-select" name="colorscale" class="form-select" required>
-                           <option value="RdYlBu" {% if colorscale == 'RdYlBu' or not colorscale %}selected{% endif %}>
-                              RdYlBu
-                           </option>
-                           <option value="Viridis" {% if colorscale == 'Viridis' %}selected{% endif %}>
-                              Viridis
+                           <option value="Viridis" {% if colorscale == 'Viridis' or not colorscale %}selected{% endif %}>
+                              Viridis (Colorblind Friendly - All Types)
                            </option>
                            <option value="Cividis" {% if colorscale == 'Cividis' %}selected{% endif %}>
-                              Cividis
+                              Cividis (Colorblind Friendly - All Types)
                            </option>
-                           <option value="Plasma" {% if colorscale == 'Plasma' %}selected{% endif %}>
-                              Plasma
-                           </option>
-                           <option value="Inferno" {% if colorscale == 'Inferno' %}selected{% endif %}>
-                              Inferno
-                           </option>
-                           <option value="Hot" {% if colorscale == 'Hot' %}selected{% endif %}>
-                              Hot
-                           </option>
-                           <option value="Bluered" {% if colorscale == 'Bluered' %}selected{% endif %}>
-                              Bluered
-                           </option>
-                           <option value="Jet" {% if colorscale == 'Jet' %}selected{% endif %}>
-                              Jet
-                           </option>
-                           <option value="Portland" {% if colorscale == 'Portland' %}selected{% endif %}>
-                              Portland
-                           </option>
-                           <option value="Picnic" {% if colorscale == 'Picnic' %}selected{% endif %}>
-                              Picnic
+                           <option value="Magma" {% if colorscale == 'Magma' %}selected{% endif %}>
+                              Magma (Colorblind Friendly - All Types)
                            </option>
                         </select>
                         <small class="form-text text-muted">
-                           Choose a colour palette
+                           All palettes are colorblind-friendly
                         </small>
                      </div>
                   </div>
                   <div class="row">
                      <div class="col-12">
                         <button type="submit" class="btn btn-primary-custom btn-lg">
-                           <i class="fas fa-chart-area"></i> Generate Beta Diversity Heatmap
+                           <i class="fas fa-chart-area"></i> Generate Beta Diversity Visualizations
                         </button>
                         {% if table_name %}
                         <a href="/data/upload_metadata/{{ table_name }}" class="btn btn-info ms-2">
@@ -267,7 +252,7 @@
       </div>
    </div>
 
-   <!-- Visualization Container -->
+   <!-- Visualization -->
    {% if viz_data and viz_data.success %}
    <div class="row mt-4">
       <div class="col-12">
@@ -303,7 +288,7 @@
       </div>
    </div>
 
-   <!-- PCoA Ordination Plot -->
+   <!-- PCoA Plot -->
    {% if viz_data.data.pcoa_coordinates %}
    <div class="row mt-4">
       <div class="col-12">
@@ -339,7 +324,7 @@
                         <option value="{{ field }}" {% if loop.first %}selected{% endif %}>{{ field }}</option>
                         {% endfor %}
                      </select>
-                     <small class="form-text text-muted">Select a metadata field to color and shape the points. Click legend items to show/hide groups.</small>
+                     <small class="form-text text-muted">Select a metadata field to color and shape the points</small>
                   </div>
                </div>
                {% endif %}
@@ -373,7 +358,7 @@
       <div class="col-12">
          <div class="alert alert-info">
             <i class="fas fa-info-circle"></i>
-            Select a dataset and click "Generate Beta Diversity Heatmap" to visualize the data.
+            Select a dataset and click "Generate Beta Diversity Visualizations" to visualize the data.
          </div>
       </div>
    </div>
@@ -388,11 +373,11 @@
 <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
 
 <script>
-   // Get stats data from backend
+   // Get stats data from the edge functions
    const statsData = {{ stats_json | safe }};
 
    if (statsData && statsData.tables) {
-      // Prepare data for charts
+      // make data in right format
       const tableNames = statsData.tables.map(t => t.name.replace(/_/g, ' ').substring(0, 20) + '...');
       const rowCounts = statsData.tables.map(t => t.rows);
       const columnCounts = statsData.tables.map(t => t.columns);
@@ -404,7 +389,7 @@
          data: {
             labels: tableNames,
             datasets: [{
-               label: 'Number of Rows',
+               label: 'Number of OTUs',
                data: rowCounts,
                backgroundColor: 'rgba(40, 167, 69, 0.6)',
                borderColor: 'rgba(40, 167, 69, 1)',
@@ -429,7 +414,7 @@
          data: {
             labels: tableNames,
             datasets: [{
-               label: 'Number of Columns',
+               label: 'Number of Samples',
                data: columnCounts,
                backgroundColor: 'rgba(23, 162, 184, 0.6)',
                borderColor: 'rgba(23, 162, 184, 1)',
@@ -448,7 +433,7 @@
       });
    }
 
-   // Toggle pseudocount visibility based on metric selection
+   //  pseudocount visibility based on metric selection
    const metricSelect = document.getElementById('metric-select');
    const pseudocountContainer = document.getElementById('pseudocount-container');
 
@@ -464,7 +449,6 @@
 
    if (metricSelect) {
       metricSelect.addEventListener('change', togglePseudocount);
-      // Initialize on page load
       togglePseudocount();
    }
 
@@ -518,22 +502,21 @@
          } else {
             console.log('Rendering heatmap...');
 
-            // Configure scale based on metric
+            // scale
             const isAitchison = vizData.data.metric === 'aitchison';
             const colorbarTitle = isAitchison
                ? 'Aitchison<br>Distance'
                : 'Bray-Curtis<br>Dissimilarity';
 
-            // Bray-Curtis: bounded 0-1, Aitchison: unbounded (auto scale)
+            // Bray-Curtis:  0-1, Aitchison:  (auto scale)
             const scaleConfig = isAitchison
-               ? { zmin: 0 }  // Let Plotly auto-determine zmax for Aitchison
+               ? { zmin: 0 }  // Let Plotly decide the max for Aitchison
                : { zmin: 0, zmax: 1 };  // Fixed scale for Bray-Curtis
 
-            // Get colorscale from template (passed from Flask)
-            const selectedColorscale = '{{ colorscale }}' || 'RdYlBu';
+            // get the right color pallette
+            const selectedColorscale = '{{ colorscale }}' || 'Viridis';
 
-            // Determine if we need to reverse the scale (for diverging scales, reverse shows low=blue, high=red)
-            const needsReverse = selectedColorscale === 'RdYlBu' || selectedColorscale === 'Bluered';
+            const needsReverse = false;
 
             const data = [{
                z: vizData.data.distance_matrix,
@@ -611,7 +594,7 @@
    }
    {% endif %}
 
-   // Render PCoA Ordination Plot if data is available
+   // Render PCoA Plot if data is available
    {% if viz_data and viz_data.success and viz_data.data.pcoa_coordinates %}
    try {
       const vizData = {{ viz_json | safe }};
@@ -631,22 +614,22 @@
             const sampleNames = vizData.data.sample_names;
             const explainedVar = vizData.data.explained_variance;
 
-            // Get metadata if available
+            // Get the metadata
             const metadata = {{ metadata | safe }};
             const metadataFields = {{ metadata_fields | tojson }};
             const hasMetadata = {{ has_metadata | tojson }};
 
-            // Color and shape palettes
+            // color and shapes for plot
             const colorPalette = ['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf'];
             const shapePalette = ['circle', 'square', 'diamond', 'triangle-up', 'star', 'pentagon', 'hexagon', 'cross'];
 
-            // Function to create ellipse path for a group of points
+            // ellipses for grouping
             function createEllipse(xCoords, yCoords) {
-               // Calculate center
+               // center
                const cx = xCoords.reduce((a, b) => a + b, 0) / xCoords.length;
                const cy = yCoords.reduce((a, b) => a + b, 0) / yCoords.length;
 
-               // Calculate standard deviations (use 2 std devs for ~95% coverage)
+               // standard deviations (use 2 std devs for ~95% coverage)
                const xStd = Math.sqrt(xCoords.reduce((sum, x) => sum + Math.pow(x - cx, 2), 0) / xCoords.length) * 2;
                const yStd = Math.sqrt(yCoords.reduce((sum, y) => sum + Math.pow(y - cy, 2), 0) / yCoords.length) * 2;
 
@@ -691,13 +674,11 @@
                      groups[metaValue].indices.push(idx);
                   });
 
-                  // Create one trace per group and calculate hulls
                   const groupNames = Object.keys(groups).sort();
                   groupNames.forEach((groupName, i) => {
                      const group = groups[groupName];
                      const groupColor = colorPalette[i % colorPalette.length];
 
-                     // Add trace for markers
                      pcoaData.push({
                         x: group.x,
                         y: group.y,
@@ -719,7 +700,7 @@
                         hovertemplate: '<b>%{text}</b><br>' + selectedField + ': ' + groupName + '<br>PC1: %{x:.3f}<br>PC2: %{y:.3f}<extra></extra>'
                      });
 
-                     // Add ellipse outline for groups with 2+ points
+                     // Add ellipse outline for groups with more than 2 points
                      if (group.x.length >= 2) {
                         const ellipse = createEllipse(group.x, group.y);
                         shapes.push({
@@ -734,7 +715,7 @@
                      }
                   });
                } else {
-                  // No metadata selected - single color, no legend
+                  // No metadata selected is single color, no legend
                   pcoaData = [{
                      x: coords.map(c => c[0]),
                      y: coords.map(c => c[1]),
@@ -808,7 +789,7 @@
                   }
                };
 
-               // Use Plotly.react for efficient updates
+               // Use Plotly.react for updates
                Plotly.react('pcoa-container', pcoaData, pcoaLayout, pcoaConfig)
                   .then(function() {
                      console.log('PCoA plot rendered successfully!');
@@ -837,7 +818,7 @@
    }
    {% endif %}
 
-   // Export heatmap function
+   // Export heatmap to svg
    function exportHeatmap() {
       Plotly.downloadImage(document.getElementById('heatmap-container'), {
          format: 'svg',
@@ -847,7 +828,7 @@
       });
    }
 
-   // Export PCoA function
+   // Export PCoA to svg
    function exportPCoA() {
       Plotly.downloadImage(document.getElementById('pcoa-container'), {
          format: 'svg',

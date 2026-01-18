@@ -58,18 +58,10 @@
 Sample1,Control,Day0
 Sample2,Drug_A,Day7</pre>
 
-               <p class="mt-3"><strong>Allowed Fields:</strong></p>
-               <ul class="small">
-                  {% for field in allowed_fields %}
-                  <li>{{ field }}</li>
-                  {% endfor %}
-               </ul>
-
-               <div class="alert alert-warning small">
-                  <i class="fas fa-exclamation-triangle"></i>
-                  <strong>GDPR Compliance:</strong><br>
-                  Do NOT include personal identifiers (names, emails, addresses, birthdates).
-               </div>
+               <p class="mt-3">
+                  Your CSV must include a <code>sample_id</code> column with sample IDs that match your dataset.
+                  You can include any additional metadata fields you need.
+               </p>
             </div>
          </div>
       </div>

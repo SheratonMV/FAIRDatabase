@@ -1,5 +1,4 @@
-"""Flask blueprint routes for visualization features: exploratory data analysis
-   and visualization of datasets."""
+"""Flask routes for visualizations"""
 
 from flask import (
     render_template,
@@ -30,20 +29,6 @@ routes = Blueprint("visualization_routes", __name__)
 def visualization():
     """
     Main visualization page for exploratory data analysis.
-    ---
-    tags:
-      - visualization
-    parameters:
-      - name: user_email
-        in: session
-        type: string
-        required: true
-        description: Email of the logged-in user.
-    responses:
-      200:
-        description: Renders the visualization page with dataset statistics.
-      401:
-        description: Error response if the user is not logged in.
     """
     user_email = session.get("email", "")
     current_path = request.path
@@ -51,7 +36,7 @@ def visualization():
     error_message = None
 
     try:
-        # Call the Supabase Edge Function
+        # call the Supabase Edge Function
         edge_function_url = "http://localhost:8000/functions/v1/get-dataset-stats"
         headers = {
             "Authorization": f"Bearer {current_app.config['SUPABASE_SERVICE_ROLE_KEY']}",
@@ -92,46 +77,20 @@ def visualization():
 @login_required()
 def dataset_visualization(table_name):
     """
-    Generate beta diversity heatmap visualization for a specific dataset.
-    ---
-    tags:
-      - visualization
-    parameters:
-      - name: table_name
-        in: path
-        type: string
-        required: true
-        description: Name of the table in _fd schema
-      - name: row_limit
-        in: query
-        type: integer
-        required: false
-        description: Maximum rows to process (default 50, max 1000)
-      - name: column_limit
-        in: query
-        type: integer
-        required: false
-        description: Maximum columns to display (default 10, max 500)
-    responses:
-      200:
-        description: Renders visualization page with heatmap
-      404:
-        description: Table not found
-      401:
-        description: User not logged in
+    Generate beta diversity visualization for a specific dataset.
     """
     user_email = session.get("email", "")
     current_path = request.path
     conn = g.db
 
-    # Get query parameters
+    # get parameter form input users
     row_limit = request.args.get('row_limit', 50, type=int)
     column_limit = request.args.get('column_limit', 10, type=int)
     metric = request.args.get('metric', 'bray_curtis', type=str)
-    colorscale = request.args.get('colorscale', 'RdYlBu', type=str)
+    colorscale = request.args.get('colorscale', 'Viridis', type=str)
     pseudocount = request.args.get('pseudocount', 1.0, type=float)
 
-    # Validate limits
+    # check if limit is ok
     if row_limit > 1000 or row_limit < 1:
         flash("Row limit must be between 1 and 1000", "warning")
         return redirect(url_for('visualization_routes.visualization'))
@@ -140,29 +99,29 @@ def dataset_visualization(table_name):
         flash("Column limit must be between 2 and 500", "warning")
         return redirect(url_for('visualization_routes.visualization'))
 
-    # Validate metric
+    # check the metric
     if metric not in ['bray_curtis', 'aitchison']:
         flash("Invalid metric. Must be 'bray_curtis' or 'aitchison'", "warning")
         return redirect(url_for('visualization_routes.visualization'))
 
-    # Validate colorscale
-    valid_colorscales = ['RdYlBu', 'Viridis', 'Cividis', 'Plasma', 'Inferno', 'Hot', 'Bluered', 'Jet', 'Portland', 'Picnic']
+    # check colorscale
+    valid_colorscales = ['Viridis', 'Cividis', 'Magma']
     if colorscale not in valid_colorscales:
         flash("Invalid colorscale", "warning")
         return redirect(url_for('visualization_routes.visualization'))
 
-    # Validate pseudocount
-    valid_pseudocounts = [0.1, 0.5, 1.0]
+    # check pseudocount
+    valid_pseudocounts = [0.001, 0.01, 0.1, 0.5, 1.0]
     if pseudocount not in valid_pseudocounts:
-        flash("Invalid pseudocount. Must be 0.1, 0.5, or 1.0", "warning")
+        flash("Invalid pseudocount. Must be 0.001, 0.01, 0.1, 0.5, or 1.0", "warning")
         return redirect(url_for('visualization_routes.visualization'))
 
-    # Verify table exists
+    # check table exists
     if not validate_table_exists(conn, table_name):
         flash(f"Table '{table_name}' not found", "danger")
         return redirect(url_for('visualization_routes.visualization'))
 
-    # First, get dataset statistics for the form
+    # get dataset statistics for the form
     stats_data = None
     try:
         edge_function_url = "http://localhost:8000/functions/v1/get-dataset-stats"
@@ -183,7 +142,7 @@ def dataset_visualization(table_name):
     except Exception as e:
         current_app.logger.error(f"Could not fetch stats data: {e}")
 
-    # Call Edge Function to get visualization data
+    # call Edge Function to get visualization data
     viz_data = None
     error_message = None
 

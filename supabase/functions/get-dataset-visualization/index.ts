@@ -2,6 +2,10 @@
 // @ts-ignore
 import * as postgres from 'https://deno.land/x/postgres@v0.17.0/mod.ts'
 
+// Import PCoA calculation module from another repository
+// @ts-ignore
+import { calculatePCoA } from 'https://raw.githubusercontent.com/romanvaneldijk/pcoa-module/main/mod.ts'
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -30,9 +34,8 @@ function brayCurtisDistance(sample1: number[], sample2: number[]): number {
 }
 
 // Centered Log-Ratio (CLR) transformation for compositional data
-function clrTransform(sample: number[]): number[] {
+function clrTransform(sample: number[], pseudocount: number = 1.0): number[] {
   // Add pseudocount to avoid the log of zero
-  const pseudocount = 0.5
   const sample_with_pseudocount = sample.map((x) => x + pseudocount)
 
   // log transform each value
@@ -46,10 +49,10 @@ function clrTransform(sample: number[]): number[] {
 }
 
 // Calculate Aitchison distance between two CLR-transformed samples
-function aitchisonDistance(sample1: number[], sample2: number[]): number {
-  // Transform both samples using CLR
-  const clr1 = clrTransform(sample1)
-  const clr2 = clrTransform(sample2)
+function aitchisonDistance(sample1: number[], sample2: number[], pseudocount: number = 1.0): number {
+  // Transform both samples using CLR with the provided pseudocount
+  const clr1 = clrTransform(sample1, pseudocount)
+  const clr2 = clrTransform(sample2, pseudocount)
 
   // Aitchison distance is Euclidean distance in CLR space
   let sum_square_difference = 0
@@ -65,7 +68,7 @@ function aitchisonDistance(sample1: number[], sample2: number[]): number {
 }
 
 // Calculate full distance matrix for all sample pairs
-function calculateBetaDiversityMatrix(data: number[][], metric: string = 'bray_curtis'): number[][] {
+function calculateBetaDiversityMatrix(data: number[][], metric: string = 'bray_curtis', pseudocount: number = 1.0): number[][] {
   const num_samples = data.length
   const distanceMatrix: number[][] = []
 
@@ -78,7 +81,7 @@ function calculateBetaDiversityMatrix(data: number[][], metric: string = 'bray_c
   for (let i = 0; i < num_samples; i++) {
     for (let j = i + 1; j < num_samples; j++) {
       const distance = metric === 'aitchison'
-        ? aitchisonDistance(data[i], data[j])
+        ? aitchisonDistance(data[i], data[j], pseudocount)
         : brayCurtisDistance(data[i], data[j])
       distanceMatrix[i][j] = distance
       distanceMatrix[j][i] = distance // Matrix is symmetric
@@ -95,112 +98,7 @@ function parseNumeric(value: string | number): number {
   return isNaN(parsed) ? 0 : parsed
 }
 
-// Classical MDS / PCoA calculation
-function calculatePCoA(distanceMatrix: number[][]): {
-  coordinates: number[][],
-  explainedVariance: number[]
-} {
-  const n = distanceMatrix.length
-
-  // Step 1: Square the distance matrix
-  const D2 = distanceMatrix.map(row => row.map(d => d * d))
-
-  // Step 2: Apply double centering to get B matrix
-  // To get matrix B, you take the matrix of squared distances, subtract the row and column averages so everything is centered around zero,
-  // and then multiply by −0.5 to convert those centered distances into an inner-product matrix that can be used for PCoA.
-  const rowMeans = D2.map(row => row.reduce((a, b) => a + b, 0) / n)
-  const total_mean = rowMeans.reduce((a, b) => a + b, 0) / n
-
-  const B: number[][] = []
-  for (let i = 0; i < n; i++) {
-    B[i] = []
-    for (let j = 0; j < n; j++) {
-      B[i][j] = -0.5 * (D2[i][j] - rowMeans[i] - rowMeans[j] + total_mean)
-    }
-  }
-
-  // Step 3: Eigenvalue decomposition using power iteration
-  // Calculate top 10 eigenvalues to get accurate total variance
-  const allEigenResults = powerIteration(B, Math.min(10, n))
-  const eigenvalues = [allEigenResults.eigenvalues[0], allEigenResults.eigenvalues[1]]
-  const eigenvectors = [allEigenResults.eigenvectors[0], allEigenResults.eigenvectors[1]]
-
-  // Step 4: Calculate principal coordinates
-  const coordinates: number[][] = []
-  for (let i = 0; i < n; i++) {
-    coordinates.push([
-      eigenvectors[0][i] * Math.sqrt(Math.abs(eigenvalues[0])),
-      eigenvectors[1][i] * Math.sqrt(Math.abs(eigenvalues[1]))
-    ])
-  }
-
-  // Calculate explained variance percentages
-  // Total variance = sum of all POSITIVE eigenvalues (not just top 2)
-  const totalVariance = allEigenResults.eigenvalues
-    .filter(val => val > 1e-10)
-    .reduce((sum, val) => sum + val, 0)
-  const explainedVariance = eigenvalues.map(val => (val / totalVariance) * 100)
-
-  return { coordinates, explainedVariance }
-}
-
-// Power iteration method to find top k eigenvalues and eigenvectors
-function powerIteration(matrix: number[][], k: number): {
-  eigenvalues: number[],
-  eigenvectors: number[][]
-} {
-  const n = matrix.length
-  const eigenvalues: number[] = []
-  const eigenvectors: number[][] = []
-
-  // Copy matrix for deflation
-  let A = matrix.map(row => [...row])
-
-  for (let iter = 0; iter < k; iter++) {
-    // Initialize random vector
-    let v = Array(n).fill(0).map(() => Math.random() - 0.5)
-
-    // Normalize
-    let norm = Math.sqrt(v.reduce((sum, val) => sum + val * val, 0))
-    v = v.map(val => val / norm)
-
-    // Power iteration
-    for (let i = 0; i < 100; i++) {
-      // Multiply A * v
-      const Av = Array(n).fill(0)
-      for (let row = 0; row < n; row++) {
-        for (let col = 0; col < n; col++) {
-          Av[row] += A[row][col] * v[col]
-        }
-      }
-
-      // Normalize
-      norm = Math.sqrt(Av.reduce((sum, val) => sum + val * val, 0))
-      v = Av.map(val => val / norm)
-    }
-
-    // Calculate eigenvalue (Rayleigh quotient)
-    let eigenvalue = 0
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
-        eigenvalue += v[i] * A[i][j] * v[j]
-      }
-    }
-
-    eigenvalues.push(eigenvalue)
-    eigenvectors.push(v)
-
-    // Deflate matrix: A = A - λ * v * v'
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
-        A[i][j] -= eigenvalue * v[i] * v[j]
-      }
-    }
-  }
-
-  return { eigenvalues, eigenvectors }
-}
-
+// PCoA calculation is imported from the separate pcoa-module
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -211,7 +109,7 @@ Deno.serve(async (req) => {
 
   try {
     // Parse request body
-    const { table_name, row_limit = 50, column_limit = 10, metric = 'bray_curtis' } = await req.json().catch(() => ({}))
+    const { table_name, row_limit = 50, column_limit = 10, metric = 'bray_curtis', pseudocount = 1.0 } = await req.json().catch(() => ({}))
 
     if (!table_name) {
       return new Response(
@@ -220,7 +118,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Limit row and column counts to reasonable maximums, can be adjusted if needed
+    // Limit row and column counts to reasonable maximums, can cahnge it if needed
     const maxRowLimit = 1000
     const maxColLimit = 500
     const validRowLimit = Math.min(Math.max(1, row_limit), maxRowLimit)
@@ -317,7 +215,7 @@ Deno.serve(async (req) => {
       }
 
       // Calculate beta diversity matrix with selected metric
-      const distanceMatrix = calculateBetaDiversityMatrix(sampleData, metric)
+      const distanceMatrix = calculateBetaDiversityMatrix(sampleData, metric, pseudocount)
 
       // Calculate PCoA coordinates
       const pcoaResult = calculatePCoA(distanceMatrix)

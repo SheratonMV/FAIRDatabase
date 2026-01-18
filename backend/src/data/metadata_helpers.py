@@ -1,37 +1,20 @@
-"""Helper functions for sample metadata management."""
+"""This is a script that will help with uploading metadata for samples"""
 
 import pandas as pd
-import re
-from flask import current_app
-
-# Whitelist of allowed metadata fields
-ALLOWED_FIELDS = [
-    'treatment', 'timepoint', 'condition', 'sample_type',
-    'age_group', 'sex', 'cohort', 'group'
-]
-
-# Patterns to detect PII
-FORBIDDEN_PATTERNS = [
-    r'email', r'@', r'phone', r'address', r'ssn',
-    r'\b\d{3}-\d{2}-\d{4}\b',  # SSN
-    r'\b\d{2}/\d{2}/\d{4}\b',  # Date
-]
 
 
 def validate_metadata_csv(csv_file, parent_table, conn):
-    """Validate metadata CSV. Returns (valid, errors, df)."""
+    """check if metadata is correct"""
     errors = []
 
     try:
-        # Read CSV
         df = pd.read_csv(csv_file)
 
-        # Check sample_id column
         if 'sample_id' not in df.columns:
             errors.append("CSV must have 'sample_id' column")
             return False, errors, None
 
-        # Get OTU table columns
+        # get samples from parent table
         cur = conn.cursor()
         cur.execute(f"""
             SELECT column_name FROM information_schema.columns
@@ -45,27 +28,12 @@ def validate_metadata_csv(csv_file, parent_table, conn):
             errors.append(f"Parent table {parent_table} not found")
             return False, errors, None
 
-        # First column is patient ID, rest are samples
         valid_samples = set(otu_columns[1:])
 
         # Check all sample_ids exist in OTU table
         missing = set(df['sample_id']) - valid_samples
         if missing:
             errors.append(f"Samples not in OTU table: {', '.join(list(missing)[:5])}")
-
-        # Check metadata fields
-        metadata_fields = [col for col in df.columns if col != 'sample_id']
-        invalid_fields = [f for f in metadata_fields if f not in ALLOWED_FIELDS]
-        if invalid_fields:
-            errors.append(f"Invalid fields (use {', '.join(ALLOWED_FIELDS)}): {', '.join(invalid_fields)}")
-
-        # Check for forbidden patterns in values
-        for col in metadata_fields:
-            for val in df[col].astype(str):
-                for pattern in FORBIDDEN_PATTERNS:
-                    if re.search(pattern, val, re.IGNORECASE):
-                        errors.append(f"Forbidden pattern detected in {col}: {val[:20]}")
-                        break
 
         if errors:
             return False, errors, df
