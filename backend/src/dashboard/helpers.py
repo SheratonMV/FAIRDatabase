@@ -15,7 +15,7 @@ def pg_ensure_schema_and_metadata(cur, schema):
     ---
     tags:
       - database
-    summary: Create _realtime schema and metadata table if missing.
+    summary: Create _fd schema and metadata table if missing.
     parameters:
       - name: cur
         in: code
@@ -103,7 +103,7 @@ def pg_create_data_table(cur, schema, table_name, columns, patient_col):
 
 def pg_insert_metadata(cur, schema, table_name, main_table, description, origin):
     """
-    Insert a record into _realtime.metadata_tables for tracking.
+    Insert a record into _fd.metadata_tables for tracking.
     ---
     tags:
       - database

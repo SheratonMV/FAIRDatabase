@@ -91,12 +91,12 @@ def dataset_visualization(table_name):
     pseudocount = request.args.get('pseudocount', 1.0, type=float)
 
     # check if limit is ok
-    if row_limit > 1000 or row_limit < 1:
-        flash("Row limit must be between 1 and 1000", "warning")
+    if row_limit > 10000 or row_limit < 1:
+        flash("Row limit must be between 1 and 10000", "warning")
         return redirect(url_for('visualization_routes.visualization'))
 
-    if column_limit > 500 or column_limit < 2:
-        flash("Column limit must be between 2 and 500", "warning")
+    if column_limit > 200 or column_limit < 2:
+        flash("Column limit must be between 2 and 200", "warning")
         return redirect(url_for('visualization_routes.visualization'))
 
     # check the metric

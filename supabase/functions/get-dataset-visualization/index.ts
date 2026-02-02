@@ -6,9 +6,23 @@ import * as postgres from 'https://deno.land/x/postgres@v0.17.0/mod.ts'
 // @ts-ignore
 import { calculatePCoA } from 'https://raw.githubusercontent.com/romanvaneldijk/pcoa-module/main/mod.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// Environment-based CORS configuration
+const ALLOWED_ORIGINS = Deno.env.get('ALLOWED_ORIGINS')?.split(',') || [
+  'http://localhost:5000',  // Development
+  'http://localhost:3000',  // Alternative dev port
+]
+
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  // Check if origin is in allowed list
+  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : ALLOWED_ORIGINS[0]
+
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Credentials': 'true',
+  }
 }
 
 // Calculate Bray-Curtis dissimilarity between two samples
@@ -98,11 +112,17 @@ function parseNumeric(value: string | number): number {
   return isNaN(parsed) ? 0 : parsed
 }
 
+// Sanitize SQL identifiers to prevent injection
+function sanitizeIdentifier(identifier: string): string {
+  // Allow only alphanumeric, underscore, and hyphens
+  return identifier.replace(/[^a-zA-Z0-9_-]/g, '')
+}
+
 // PCoA calculation is imported from the separate pcoa-module
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: getCorsHeaders(req.headers.get('Origin')) })
   }
 
   const startTime = Date.now()
@@ -114,13 +134,13 @@ Deno.serve(async (req) => {
     if (!table_name) {
       return new Response(
         JSON.stringify({ success: false, error: 'please select a table' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        { headers: { ...getCorsHeaders(req.headers.get('Origin')), 'Content-Type': 'application/json' }, status: 400 }
       )
     }
 
     // Limit row and column counts to reasonable maximums, can cahnge it if needed
-    const maxRowLimit = 1000
-    const maxColLimit = 500
+    const maxRowLimit = 10000
+    const maxColLimit = 200
     const validRowLimit = Math.min(Math.max(1, row_limit), maxRowLimit)
     const validColLimit = Math.min(Math.max(2, column_limit), maxColLimit)
 
@@ -145,7 +165,7 @@ Deno.serve(async (req) => {
             success: false,
             error: `Table '${table_name}' not found in _fd schema`
           }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+          { headers: { ...getCorsHeaders(req.headers.get('Origin')), 'Content-Type': 'application/json' }, status: 404 }
         )
       }
 
@@ -172,17 +192,17 @@ Deno.serve(async (req) => {
             success: false,
             error: 'Cannot apply beta diversity with less than 2 columns'
           }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+          { headers: { ...getCorsHeaders(req.headers.get('Origin')), 'Content-Type': 'application/json' }, status: 400 }
         )
       }
 
       // Build column list for SQL query
-      const columnsList = dataColumns.map(col => `"${col}"`).join(', ')
+      const columnsList = dataColumns.map(col => `"${sanitizeIdentifier(col)}"`).join(', ')
 
       // Query data
       const dataResult = await connection.queryObject(
         `SELECT ${columnsList}
-         FROM _fd."${table_name}"
+         FROM _fd."${sanitizeIdentifier(table_name)}"
          LIMIT $1`,
         [validRowLimit]
       )
@@ -193,7 +213,7 @@ Deno.serve(async (req) => {
             success: false,
             error: 'No data found in table'
           }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+          { headers: { ...getCorsHeaders(req.headers.get('Origin')), 'Content-Type': 'application/json' }, status: 404 }
         )
       }
 
@@ -257,7 +277,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify(responseData),
         {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...getCorsHeaders(req.headers.get('Origin')), 'Content-Type': 'application/json' },
           status: 200,
         },
       )
@@ -274,7 +294,7 @@ Deno.serve(async (req) => {
         error: error.message || 'Internal server error'
       }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req.headers.get('Origin')), 'Content-Type': 'application/json' },
         status: 500,
       },
     )
