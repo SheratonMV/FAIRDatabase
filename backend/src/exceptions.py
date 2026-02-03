@@ -1,23 +1,6 @@
 class GenericExceptionHandler(Exception):
     """
     Custom exception class for handling application-level errors in a consistent format.
-    ---
-    tags:
-      - error-handling
-    parameters:
-      - name: message
-        type: string
-        description: Human-readable error message to be returned in the response.
-      - name: status_code
-        type: integer
-        default: 400
-        description: HTTP status code to return with the error.
-      - name: payload
-        type: object
-        description: Optional additional data to include in the error response.
-    returns:
-      type: object
-      description: A dictionary representation of the error for JSON serialization.
     """
 
     status_code = 400

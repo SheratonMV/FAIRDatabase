@@ -1,7 +1,17 @@
+from pathlib import Path
 from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
+# quick one-time debug
+import os
+# print("DEBUG SUPABASE_URL =", os.getenv("SUPABASE_URL"))
+# print("DEBUG SUPABASE_KEY/ANON =", (os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_ANON_KEY") or "")[:15])
+
+
+# from dotenv import load_dotenv
 
 load_dotenv()
-import os
+# import os
 
 import psycopg2
 
@@ -10,6 +20,7 @@ from flask_limiter import Limiter
 from psycopg2 import OperationalError, Error
 from flask_limiter.util import get_remote_address
 from supabase import Client, ClientOptions, create_client
+
 
 
 class Config:
@@ -222,6 +233,23 @@ def teardown_db(exception):
     if db is not None:
         db.close()
 
+
+def load_settings(app):
+    # Load .env
+    load_dotenv(Path(__file__).resolve().parent / ".env")
+
+    app.config["SUPABASE_URL"] = (os.getenv("SUPABASE_URL") or "").strip()
+    app.config["SUPABASE_SERVICE_ROLE_KEY"] = (
+        os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        or os.getenv("SUPABASE_SERVICE_KEY")
+        or ""
+    ).strip()
+
+    app.config["POSTGRES_HOST"] = os.getenv("POSTGRES_HOST", "127.0.0.1")
+    app.config["POSTGRES_PORT"] = int(os.getenv("POSTGRES_PORT", "5433"))
+    app.config["POSTGRES_USER"] = os.getenv("POSTGRES_USER", "postgres")
+    app.config["POSTGRES_SECRET"] = os.getenv("POSTGRES_SECRET", "")
+    app.config["POSTGRES_DB_NAME"] = os.getenv("POSTGRES_DB_NAME", "postgres")
 
 supabase_extension = Supabase()
 limiter = Limiter(get_remote_address, default_limits=["100 per minute", "50 per second"])

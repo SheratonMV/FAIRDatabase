@@ -153,3 +153,43 @@ def data_p29score():
             handler.handle_score_calculation()
 
     return render_template("/data/p29score.html", **handler.ctx)
+
+
+@routes.route("/upload_metadata/<table_name>", methods=["GET", "POST"])
+@login_required()
+def upload_metadata(table_name):
+    """Upload sample metadata for a dataset."""
+    from .metadata_helpers import validate_metadata_csv, store_metadata
+    from flask import flash, g
+
+    conn = g.db
+
+    if request.method == "POST":
+        if 'metadata_file' not in request.files:
+            flash("No file uploaded", "danger")
+            return redirect(request.url)
+
+        file = request.files['metadata_file']
+        if file.filename == '':
+            flash("No file selected", "danger")
+            return redirect(request.url)
+
+        # Validate
+        valid, errors, df = validate_metadata_csv(file, table_name, conn)
+
+        if not valid:
+            for error in errors:
+                flash(error, "danger")
+            return redirect(request.url)
+
+        # Store metadata
+        try:
+            store_metadata(df, table_name, conn)
+            flash(f"Metadata uploaded successfully for {table_name}!", "success")
+            return redirect(url_for('visualization_routes.visualization'))
+        except Exception as e:
+            flash(f"Error storing metadata: {str(e)}", "danger")
+            return redirect(request.url)
+
+    return render_template("/data/upload_metadata.html",
+                          table_name=table_name)
