@@ -2,13 +2,37 @@
 {% block title %}FAIRMicrobiome | Federated Learning{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
-   <br>
-   <h1>Federated learning
-   </h1>
-   
-
-
-
+   <div class="col-md-10">
+      <div class="card">
+         <div class="card-body">
+            <h1 class="display-6">Federated learning status</h1>
+            <p id="fed-status" class="mb-2">Loading...</p>
+            <pre id="fed-json" class="bg-light p-3 small"></pre>
+         </div>
+      </div>
+   </div>
 </div>
+
+<script>
+   const modelId = "{{ model_id }}";
+   const statusEl = document.getElementById("fed-status");
+   const jsonEl = document.getElementById("fed-json");
+
+   fetch(`/federated/state?model_id=${encodeURIComponent(modelId)}`)
+      .then((resp) => resp.json().then((data) => ({ ok: resp.ok, data })))
+      .then(({ ok, data }) => {
+         if (!ok || data.error) {
+            statusEl.textContent = data.error || "Failed to load state";
+            jsonEl.textContent = "";
+            return;
+         }
+         statusEl.textContent = `model_id=${data.model_id}, round=${data.round}, status=${data.status}, clients=${data.participating_clients}`;
+         jsonEl.textContent = JSON.stringify(data, null, 2);
+      })
+      .catch(() => {
+         statusEl.textContent = "Failed to load state";
+         jsonEl.textContent = "";
+      });
+</script>
 
 {% endblock %}

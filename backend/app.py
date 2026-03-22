@@ -14,6 +14,7 @@ from src.data.routes import routes as data_routes
 from src.privacy.routes import routes as privacy_routes
 from src.main.routes import routes as main_routes
 from src.visualization.routes import routes as visualization_routes
+from src.federated.routes import routes as federated_routes
 
 from backend.config import load_settings
 
@@ -36,6 +37,7 @@ def create_app(db_name=None):
     app.register_blueprint(data_routes, url_prefix="/data")
     app.register_blueprint(privacy_routes, url_prefix="/privacy")
     app.register_blueprint(visualization_routes, url_prefix="/visualization")
+    app.register_blueprint(federated_routes, url_prefix="/federated")
 
     if app.config["ENV"] == "development":
         CORS(app, origins="http://localhost:5000", supports_credentials=True)
