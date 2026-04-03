@@ -9,10 +9,13 @@ def call_visualization_edge_function(table_name, row_limit=50, column_limit=10, 
     """
     Call Supabase Edge Function to generate visualization output.
     """
-    edge_function_url = "http://localhost:8000/functions/v1/get-dataset-visualization"
+    supabase_url = current_app.config.get("SUPABASE_URL", "http://localhost:8000")
+    edge_function_url = f"{supabase_url}/functions/v1/get-dataset-visualization"
 
+    service_key = current_app.config['SUPABASE_SERVICE_ROLE_KEY']
     headers = {
-        "Authorization": f"Bearer {current_app.config['SUPABASE_SERVICE_ROLE_KEY']}",
+        "Authorization": f"Bearer {service_key}",
+        "apikey": service_key,
         "Content-Type": "application/json"
     }
 

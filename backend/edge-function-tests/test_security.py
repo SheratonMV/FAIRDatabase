@@ -11,7 +11,8 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv('../.env')
 
-EDGE_FUNCTION_URL = "http://localhost:8000/functions/v1/get-dataset-stats"
+SUPABASE_URL = os.getenv('SUPABASE_URL', 'http://localhost:8000')
+EDGE_FUNCTION_URL = f"{SUPABASE_URL}/functions/v1/get-dataset-stats"
 SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
 
 
@@ -92,8 +93,12 @@ def test_network_accessibility():
     print(f"Testing from network IP: {local_ip}")
 
     try:
+        # Extract port from SUPABASE_URL for network test
+        from urllib.parse import urlparse
+        parsed = urlparse(SUPABASE_URL)
+        port = parsed.port or 8000
         response = requests.post(
-            f"http://{local_ip}:8000/functions/v1/get-dataset-stats",
+            f"http://{local_ip}:{port}/functions/v1/get-dataset-stats",
             headers={"Content-Type": "application/json"},
             json={},
             timeout=5
@@ -114,6 +119,19 @@ def test_network_accessibility():
         return True  # Connection refused is good
 
 
+def test_cross_user_access_blocked():
+    """User A should not be able to access User B's tables.
+
+    TODO: Implement once a user_id column is added to _fd.metadata_tables
+    so that edge functions can filter by the authenticated user's ID.
+    Currently, any authenticated user can query any table in the _fd schema.
+    See CLAUDE.md 'Post-Merge: PR #12 Security Fixes Required' for details.
+    """
+    print("\nTest 4: Cross-user authorization (placeholder)")
+    print("SKIP: Requires user_id column in metadata_tables (not yet implemented)")
+    return None
+
+
 if __name__ == "__main__":
     print("Edge Function Security Tests")
 
@@ -121,5 +139,9 @@ if __name__ == "__main__":
     results.append(test_without_authentication())
     results.append(test_with_authentication())
     results.append(test_network_accessibility())
+    results.append(test_cross_user_access_blocked())
 
-    print(f"Passed: {sum(results)}/{len(results)}")
+    passed = sum(1 for r in results if r is True)
+    skipped = sum(1 for r in results if r is None)
+    total = len(results)
+    print(f"\nPassed: {passed}/{total - skipped} (skipped: {skipped})")

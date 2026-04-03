@@ -55,6 +55,7 @@ def differential_privacy():
         description: User not authenticated.
     """
     handler = DifferentialPrivacyHandler()
+    handler.prepare_columns()
 
     if request.method == "POST":
         handler.handle_add_noise()

@@ -18,8 +18,10 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
+SUPABASE_URL = os.getenv('SUPABASE_URL', 'http://localhost:8000')
+
 def test_edge_function_output():
-    url = "http://localhost:8000/functions/v1/get-dataset-visualization"
+    url = f"{SUPABASE_URL}/functions/v1/get-dataset-visualization"
 
     payload = {
         "table_name": "test_edge_function_dataset2_1767949660_p1",

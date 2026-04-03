@@ -12,6 +12,7 @@ from flask import (
     flash,
     g,
     current_app,
+    jsonify,
     )
 
 from .helpers import (
@@ -97,7 +98,11 @@ def upload():
             description = request.form.get("description", "")
             origin = request.form.get("origin", "")
             lines, filename = file_save_and_read(file)
+            if len(lines) < 2:
+                return jsonify({"status": "error", "message": "CSV file is empty or has no data rows."}), 400
             header, rows = lines[0], lines[1:]
+            if len(header) < 2:
+                return jsonify({"status": "error", "message": "CSV must have at least two columns (a patient ID column and one data column)."}), 400
             patient_col, columns = header[0], header[1:]
             chunks = file_chunk_columns(columns, 1200)
             main_table = filename.rsplit(".", 1)[0]
@@ -123,14 +128,12 @@ def upload():
                 current_app.config["UPLOAD_FOLDER"], filename))
 
             # show that it is uploaded succesfully
-            flash(f"Dataset '{main_table}' uploaded successfully! {len(chunks)} table(s) created.", "success")
-            return redirect(url_for("dashboard_routes.upload"))
+            return jsonify({"status": "success", "message": f"Dataset '{main_table}' uploaded successfully! {len(chunks)} table(s) created."}), 200
 
         except Exception as e:
             conn.rollback()
             print(e)
-            raise GenericExceptionHandler(
-                f"Upload failed: {str(e)}", status_code=400)
+            return jsonify({"status": "error", "message": f"Upload failed: {str(e)}"}), 400
 
     return render_template("/dashboard/upload.html", user_email=user_email)
 

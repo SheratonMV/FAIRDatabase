@@ -1,0 +1,45 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+venv/
+.venv/
+backend/venv/
+backend/.venv/
+
+# Environment files (injected at runtime, not baked into image)
+.env
+backend/.env
+backend/tests/.env.test
+
+# Supabase volumes (runtime data, not for image)
+backend/volumes/db/data/
+backend/volumes/storage/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude Code
+.claude/
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+*.cover
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docs
+*.md
+!frontend/**/*.md

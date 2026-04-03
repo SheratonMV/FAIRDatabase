@@ -114,6 +114,6 @@ def validate_column_selection(columns, categorical_cols, numerical_cols):
                    no overlaps.
     """
     selected_cols = categorical_cols + numerical_cols
-    return set(selected_cols) == set(columns) and (
+    return set(selected_cols).issubset(set(columns)) and (
         len(set(categorical_cols).intersection(numerical_cols)) == 0
     )

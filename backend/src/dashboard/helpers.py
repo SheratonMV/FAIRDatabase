@@ -3,10 +3,16 @@
 from hashlib import sha256
 from werkzeug.utils import secure_filename
 from flask import current_app
+from psycopg2 import sql
 
 import time
 import os
 import csv
+
+
+def _clean_identifier(name):
+    """Strip everything except alphanumerics and underscores."""
+    return "".join(c for c in name if c.isalnum() or c == "_")
 
 
 def pg_ensure_schema_and_metadata(cur, schema):
@@ -23,11 +29,13 @@ def pg_ensure_schema_and_metadata(cur, schema):
         required: true
         description: PostgreSQL cursor for executing commands.
     """
-    schema = pg_sanitize_column(schema)
-    cur.execute(f"CREATE SCHEMA IF NOT EXISTS _{schema};")
+    schema_id = sql.Identifier(f"_{_clean_identifier(schema)}")
     cur.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS _{schema}.metadata_tables (
+        sql.SQL("CREATE SCHEMA IF NOT EXISTS {};").format(schema_id)
+    )
+    cur.execute(
+        sql.SQL("""
+        CREATE TABLE IF NOT EXISTS {schema}.metadata_tables (
             id SERIAL PRIMARY KEY,
             table_name TEXT NOT NULL,
             main_table TEXT NOT NULL,
@@ -35,13 +43,13 @@ def pg_ensure_schema_and_metadata(cur, schema):
             origin TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-    """
+        """).format(schema=schema_id)
     )
 
     # Create a table where metadata for samples can be stored
     cur.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS _{schema}.sample_metadata (
+        sql.SQL("""
+        CREATE TABLE IF NOT EXISTS {schema}.sample_metadata (
             id SERIAL PRIMARY KEY,
             parent_table TEXT NOT NULL,
             sample_id TEXT NOT NULL,
@@ -51,10 +59,10 @@ def pg_ensure_schema_and_metadata(cur, schema):
             UNIQUE(parent_table, sample_id, metadata_field)
         );
         CREATE INDEX IF NOT EXISTS idx_sample_metadata_parent
-            ON _{schema}.sample_metadata(parent_table);
+            ON {schema}.sample_metadata(parent_table);
         CREATE INDEX IF NOT EXISTS idx_sample_metadata_sample
-            ON _{schema}.sample_metadata(sample_id);
-    """
+            ON {schema}.sample_metadata(sample_id);
+        """).format(schema=schema_id)
     )
 
 
@@ -87,17 +95,27 @@ def pg_create_data_table(cur, schema, table_name, columns, patient_col):
         required: true
         description: Name of the patient ID column.
     """
-    clean_cols = [pg_sanitize_column(c) for c in columns]
-    cols_def = ", ".join(f"{col} TEXT" for col in clean_cols)
+    schema_id = sql.Identifier(f"_{_clean_identifier(schema)}")
+    table_id = sql.Identifier(_clean_identifier(table_name))
+    patient_id = sql.Identifier(_clean_identifier(patient_col))
+    col_defs = sql.SQL(", ").join(
+        sql.SQL("{} TEXT").format(sql.Identifier(_clean_identifier(c)))
+        for c in columns
+    )
 
     cur.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS _{schema}.{table_name} (
+        sql.SQL("""
+        CREATE TABLE IF NOT EXISTS {schema}.{table} (
             rowid SERIAL PRIMARY KEY,
-            {patient_col} TEXT NOT NULL,
-            {cols_def}
+            {patient} TEXT NOT NULL,
+            {cols}
         );
-    """
+        """).format(
+            schema=schema_id,
+            table=table_id,
+            patient=patient_id,
+            cols=col_defs,
+        )
     )
 
 
@@ -135,13 +153,13 @@ def pg_insert_metadata(cur, schema, table_name, main_table, description, origin)
         required: false
         description: Source or origin of the file.
     """
-    schema = pg_sanitize_column(schema)
+    schema_id = sql.Identifier(f"_{_clean_identifier(schema)}")
     cur.execute(
-        f"""
-        INSERT INTO _{schema}.metadata_tables (table_name, main_table, \
+        sql.SQL("""
+        INSERT INTO {schema}.metadata_tables (table_name, main_table,
           description, origin)
         VALUES (%s, %s, %s, %s);
-    """,
+        """).format(schema=schema_id),
         (table_name, main_table, description, origin),
     )
 
@@ -189,9 +207,23 @@ def pg_insert_data_rows(
     """
     col_start = chunk_index * 1200
     col_end = col_start + len(columns)
-    clean_cols = [pg_sanitize_column(c) for c in columns]
-    col_names = ", ".join(clean_cols)
-    placeholders = ", ".join(["%s"] * len(clean_cols))
+    clean_cols = [_clean_identifier(c) for c in columns]
+    col_ids = sql.SQL(", ").join(sql.Identifier(c) for c in clean_cols)
+    placeholders = sql.SQL(", ").join(sql.Placeholder() for _ in clean_cols)
+    schema_id = sql.Identifier(f"_{_clean_identifier(schema)}")
+    table_id = sql.Identifier(_clean_identifier(table_name))
+    patient_id = sql.Identifier(_clean_identifier(patient_col))
+
+    insert_query = sql.SQL("""
+        INSERT INTO {schema}.{table} ({patient}, {cols})
+        VALUES (%s, {placeholders});
+    """).format(
+        schema=schema_id,
+        table=table_id,
+        patient=patient_id,
+        cols=col_ids,
+        placeholders=placeholders,
+    )
 
     for row in rows:
         if len(row) < 2:
@@ -200,13 +232,7 @@ def pg_insert_data_rows(
         values = row[1:][col_start:col_end]
         if len(values) != len(clean_cols):
             continue
-        cur.execute(
-            f"""
-            INSERT INTO _{schema}.{table_name} ({patient_col}, {col_names})
-            VALUES (%s, {placeholders});
-        """,
-            [patient_hash] + values,
-        )
+        cur.execute(insert_query, [patient_hash] + values)
 
 
 def pg_sanitize_column(col):
@@ -223,8 +249,7 @@ def pg_sanitize_column(col):
         required: true
         description: Column name from CSV header.
     """
-    clean = "".join(c for c in col if c.isalnum() or c == "_")
-    return f'"{clean}"' if "-" in clean else clean
+    return "".join(c for c in col if c.isalnum() or c == "_")
 
 
 def file_chunk_columns(columns, chunk_size=1200):

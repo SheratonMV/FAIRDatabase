@@ -212,3 +212,12 @@ __marimo__/
 backend/uploads/
 CLAUDE.mdy
 CLAUDE.md
+
+# Docker volumes (runtime data, not source)
+backend/volumes/
+
+# Docker override (local dev only)
+backend/docker-compose.override.yml
+
+# Seed/test scripts
+backend/scripts/

@@ -37,9 +37,11 @@ def visualization():
 
     try:
         # call the Supabase Edge Function
-        edge_function_url = "http://localhost:8000/functions/v1/get-dataset-stats"
+        service_key = current_app.config['SUPABASE_SERVICE_ROLE_KEY']
+        edge_function_url = f"{current_app.config.get('SUPABASE_URL', 'http://localhost:8000')}/functions/v1/get-dataset-stats"
         headers = {
-            "Authorization": f"Bearer {current_app.config['SUPABASE_SERVICE_ROLE_KEY']}",
+            "Authorization": f"Bearer {service_key}",
+            "apikey": service_key,
             "Content-Type": "application/json"
         }
 
@@ -53,13 +55,32 @@ def visualization():
         if response.status_code == 200:
             stats_data = response.json()
         else:
-            error_message = f"Edge Function returned status {response.status_code}"
-            flash(f"Could not load visualization data: {error_message}", "warning")
+            current_app.logger.warning(f"Edge Function returned status {response.status_code}")
 
     except requests.exceptions.RequestException as e:
-        error_message = str(e)
-        flash(f"Could not connect to Edge Function: {error_message}", "warning")
-        current_app.logger.error(f"Edge Function call failed: {e}")
+        current_app.logger.warning(f"Edge Function call failed: {e}")
+
+    # Fallback: query DB directly if edge function failed
+    if not stats_data:
+        try:
+            tables = get_available_datasets(g.db)
+            if tables:
+                stats_data = {
+                    "success": True,
+                    "tables": tables,
+                    "summary": {
+                        "total_datasets": len(tables),
+                        "total_rows": sum(t["rows"] for t in tables),
+                        "total_columns": sum(t["columns"] for t in tables),
+                        "avg_rows": round(sum(t["rows"] for t in tables) / len(tables)) if tables else 0,
+                    },
+                    "metadata": [],
+                }
+        except Exception as e:
+            current_app.logger.error(f"DB fallback also failed: {e}")
+
+    if not stats_data:
+        flash("No datasets available. Please upload some data first.", "info")
 
     return (
         render_template(
@@ -124,9 +145,11 @@ def dataset_visualization(table_name):
     # get dataset statistics for the form
     stats_data = None
     try:
-        edge_function_url = "http://localhost:8000/functions/v1/get-dataset-stats"
+        service_key = current_app.config['SUPABASE_SERVICE_ROLE_KEY']
+        edge_function_url = f"{current_app.config.get('SUPABASE_URL', 'http://localhost:8000')}/functions/v1/get-dataset-stats"
         headers = {
-            "Authorization": f"Bearer {current_app.config['SUPABASE_SERVICE_ROLE_KEY']}",
+            "Authorization": f"Bearer {service_key}",
+            "apikey": service_key,
             "Content-Type": "application/json"
         }
 
@@ -140,7 +163,26 @@ def dataset_visualization(table_name):
         if stats_response.status_code == 200:
             stats_data = stats_response.json()
     except Exception as e:
-        current_app.logger.error(f"Could not fetch stats data: {e}")
+        current_app.logger.warning(f"Could not fetch stats from edge function: {e}")
+
+    # Fallback: query DB directly if edge function failed
+    if not stats_data:
+        try:
+            tables = get_available_datasets(conn)
+            if tables:
+                stats_data = {
+                    "success": True,
+                    "tables": tables,
+                    "summary": {
+                        "total_datasets": len(tables),
+                        "total_rows": sum(t["rows"] for t in tables),
+                        "total_columns": sum(t["columns"] for t in tables),
+                        "avg_rows": round(sum(t["rows"] for t in tables) / len(tables)) if tables else 0,
+                    },
+                    "metadata": [],
+                }
+        except Exception as e:
+            current_app.logger.error(f"DB fallback also failed: {e}")
 
     # call Edge Function to get visualization data
     viz_data = None

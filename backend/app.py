@@ -16,7 +16,7 @@ from src.main.routes import routes as main_routes
 from src.visualization.routes import routes as visualization_routes
 from src.federated.routes import routes as federated_routes
 
-from backend.config import load_settings
+from config import load_settings
 
 def create_app(db_name=None):
     """Construct the core application of Flask. Holds an

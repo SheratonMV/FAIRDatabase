@@ -208,6 +208,18 @@ class DifferentialPrivacyHandler(BaseHandler):
             }
         )
 
+    def prepare_columns(self):
+        """Load dataframe and populate columns for the form."""
+        import pandas as pd
+        df = self._load_dataframe()
+        quasi_idents, sensitive_attr = self._get_quasi_and_sensitive()
+        other_columns = self._get_other_columns(df, quasi_idents, sensitive_attr)
+        numeric_cols = df[other_columns].select_dtypes(include="number").columns.tolist()
+        categorical_cols = [c for c in other_columns if c not in numeric_cols]
+        self._ctx["columns"] = other_columns
+        self._ctx["default_numerical"] = numeric_cols
+        self._ctx["default_categorical"] = categorical_cols
+
     def handle_add_noise(self):
         """
         Add noise for differential privacy to selected columns.
@@ -229,6 +241,11 @@ class DifferentialPrivacyHandler(BaseHandler):
             self._ctx.update({"columns": other_columns})
 
             categorical, numerical = self._get_selected_columns()
+
+            print(f"DEBUG DP: other_columns={other_columns}")
+            print(f"DEBUG DP: categorical={categorical}")
+            print(f"DEBUG DP: numerical={numerical}")
+            print(f"DEBUG DP: validation={self._validate_column_selection(other_columns, categorical, numerical)}")
 
             if not self._validate_column_selection(
                 other_columns, categorical, numerical

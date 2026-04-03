@@ -1,0 +1,67 @@
+# docker-compose.test.yml
+# Adds test services to the Supabase stack.
+#
+# Usage:
+#   cd backend
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test-runner
+#   docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm edge-test-runner
+
+services:
+  test-runner:
+    container_name: fairdatabase-test-runner
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      ENV: testing
+      SECRET_KEY: test-secret-key-for-testing-only
+      UPLOAD_FOLDER: ./uploads
+      ALLOWED_EXTENSIONS: csv
+
+      # Database: connect to the Supabase DB container
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_SECRET: ${POSTGRES_PASSWORD}
+      POSTGRES_DB_NAME: postgres
+
+      # Supabase: connect to Kong inside Docker network
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+      kong:
+        condition: service_started
+      auth:
+        condition: service_healthy
+    command: ["pytest", "-m", "not slow", "-v", "--tb=short"]
+
+  edge-test-runner:
+    container_name: fairdatabase-edge-test-runner
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    working_dir: /app/backend/edge-function-tests
+    environment:
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+    depends_on:
+      kong:
+        condition: service_started
+      functions:
+        condition: service_started
+      db:
+        condition: service_healthy
+    command:
+      - bash
+      - -c
+      - |
+        echo "=== Running Edge Function Tests ==="
+        python test_security.py
+        echo "---"
+        python test_edge_function_output.py
+        echo "---"
+        python test_aitchison.py
+        echo "=== Done ==="

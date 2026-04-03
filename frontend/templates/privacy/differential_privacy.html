@@ -29,8 +29,8 @@
             <h3>Select categorical columns</h3>
             <div>
                {% for column in columns %}
-               <input type="checkbox" name="categorical_columns" value="{{ column }}">
-               <label for="{{ column }}">{{ column }}</label><br>
+               <input type="checkbox" name="categorical_columns" value="{{ column }}" id="cat_{{ loop.index }}" {% if column in default_categorical %}checked{% endif %} onchange="uncheckOther(this, 'num_{{ loop.index }}')">
+               <label for="cat_{{ loop.index }}">{{ column }}</label><br>
                {% else %}
                <p>No columns available</p>
                {% endfor %}
@@ -40,14 +40,21 @@
             <h3>Select numerical columns</h3>
             <div>
                {% for column in columns %}
-               <input type="checkbox" name="numerical_columns" value="{{ column }}">
-               <label for="{{ column }}">{{ column }}</label><br>
+               <input type="checkbox" name="numerical_columns" value="{{ column }}" id="num_{{ loop.index }}" {% if column in default_numerical %}checked{% endif %} onchange="uncheckOther(this, 'cat_{{ loop.index }}')">
+               <label for="num_{{ loop.index }}">{{ column }}</label><br>
                {% else %}
                <p>No columns available</p>
                {% endfor %}
             </div>
          </div>
       </div>
+      <script>
+      function uncheckOther(el, otherId) {
+         if (el.checked) {
+            document.getElementById(otherId).checked = false;
+         }
+      }
+      </script>
       <div class="mt-3">
          <button type="submit" class="btn btn-primary-custom" style="margin-bottom: 0.5cm;">Submit</button>
       </div>

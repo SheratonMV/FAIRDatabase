@@ -119,7 +119,7 @@ function sanitizeIdentifier(identifier: string): string {
 }
 
 // PCoA calculation is imported from the separate pcoa-module
-Deno.serve(async (req) => {
+export default async function handler(req: Request): Promise<Response> {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: getCorsHeaders(req.headers.get('Origin')) })
@@ -299,4 +299,4 @@ Deno.serve(async (req) => {
       },
     )
   }
-})
+}

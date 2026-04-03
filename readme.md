@@ -6,10 +6,10 @@ Steps to set up and use the Microbiome FAIR Database locally.
 
 ## Table of Contents
 
-- [Dependencies](#dependencies)
-- [Setup (Debian/Ubuntu)](#setup-debianubuntu)
-- [Usage](#usage)
-- [Development Instructions](#development-instructions)
+- [Quick Start (Docker)](#quick-start-docker)
+- [Quick Start (Podman)](#quick-start-podman)
+- [Manual Setup (without Docker)](#manual-setup-without-docker)
+- [Running Tests](#running-tests)
 - [Application Routes](#application-routes)
   - [Authentication](#authentication)
   - [Dashboard](#dashboard)
@@ -18,95 +18,143 @@ Steps to set up and use the Microbiome FAIR Database locally.
 
 ---
 
-## Dependencies
+## Quick Start (Docker)
 
-### Minimally Required
+The fastest way to get everything running. Requires only [Docker](https://docs.docker.com/get-docker/) installed.
 
-- Node.js 18.17.0
-- Python 3.10
+### 1. Set your passwords
 
-### Recommended
+```bash
+cp backend/.env.example backend/.env
+```
 
-- Node.js 20.15.0 (LTS)
-- Python 3.10
-- python3-venv
+Edit `backend/.env` and set just 3 values:
+
+```
+POSTGRES_PASSWORD=your-database-password
+DASHBOARD_PASSWORD=your-dashboard-password
+SECRET_KEY=your-flask-secret-key
+```
+
+### 2. Bootstrap and launch
+
+```bash
+bash scripts/bootstrap.sh        # generates JWT keys, API tokens, Supabase configs
+cd backend
+docker compose up -d              # starts Supabase + Flask (14 services)
+```
+
+### 3. Access the application
+
+| Service          | URL                        |
+|------------------|----------------------------|
+| Flask app        | http://localhost:5000       |
+| Supabase Studio  | http://localhost:3000       |
+| Supabase API     | http://localhost:8000       |
+
+Register a new user at http://localhost:5000/auth/register to get started.
+
+### Fully automatic setup (zero config)
+
+If you just want to try it out with random passwords:
+
+```bash
+bash scripts/bootstrap.sh --auto
+cd backend
+docker compose up -d
+```
+
+The dashboard credentials will be printed in the terminal output.
+
+### Stopping and resetting
+
+```bash
+cd backend
+docker compose down               # stop all services
+docker compose down -v            # stop and delete all data
+```
 
 ---
 
-## Setup (Debian/Ubuntu)
+## Quick Start (Podman)
 
-### Supabase and Docker setup
+```bash
+# One-time setup
+bash scripts/podman-setup.sh
 
-1. Download and install Docker:
+# Then same workflow as Docker
+cp backend/.env.example backend/.env
+# Edit backend/.env with your passwords
+bash scripts/bootstrap.sh
+cd backend
+podman-compose up -d
+```
+
+---
+
+## Running Tests
+
+### Containerized tests (recommended)
+
+Run the full test suite against the live Supabase stack:
+
+```bash
+cd backend
+
+# Unit + integration tests (pytest)
+docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test-runner
+
+# Edge function tests (security, output validation, Aitchison distance)
+docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm edge-test-runner
+```
+
+### Local tests (without Docker)
+
+Requires a running Supabase instance and Python venv:
+
+```bash
+cd backend
+source venv/bin/activate
+export PYTHONPATH=$(pwd)/..
+./run_test.sh                     # excludes slow tests
+pytest                            # all tests including slow ones
+pytest tests/auth/test_authentication.py -v   # single file
+```
+
+---
+
+## Manual Setup (without Docker)
+
+If you prefer to run the Flask app outside Docker while using Supabase in Docker.
+
+### Dependencies
+
+- Python 3.10
+- Node.js 18.17+ (for Supabase CLI, optional)
+
+### Supabase setup
+
+1. Set your passwords and bootstrap:
     ```bash
-    pip install docker
+    cp backend/.env.example backend/.env
+    # Edit backend/.env with your passwords
+    bash scripts/bootstrap.sh
     ```
 
-2. Clone the Supabase repository:
+2. Start only Supabase (without Flask):
     ```bash
-    git clone --depth 1 https://github.com/supabase/supabase
-    ```
-
-3. To avoid errors when composing, go to the `docker-compose.yml` file and comment out the line:
-    ```bash
-    GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: ${ENABLE_ANONYMOUS_USERS}
-    ```
-
-4. Open the `docker` folder inside the Supabase directory:
-    ```bash
-    cd supabase/docker
-    ```
-
-5. Copy `.env.example` as `.env`:
-    ```bash
-    cp .env.example .env
-    ```
-
-6. Edit the `.env` file to insert credentials, make sure to follow instructions at:
-    ```bash
-    https://supabase.com/docs/guides/self-hosting/docker#securing-your-services
-    ```
-
-    For a simple setup, change the following fields:
-    ```bash
-    POSTGRES_PASSWORD, JWT_SECRET, ANON_KEY, SERVICE_ROLE_KEY, DASHBOARD_USERNAME and DASHBOARD_PASSWORD
-    ```
-
-7. Pull the latest images:
-    ```bash
-    docker compose pull
-    ```
-
-8. Remove logflare integration if not required. A sample docker-compose file is included in the developer files.
-
-9. Edit the follwing field inside `docker-compose.yml` file:
-    ```bash
-    GOTRUE_MAILER_AUTOCONFIRM: true
-    ```
-
-
-11. Start the services (in detached mode):
-    ```bash
+    cd backend
     docker compose up -d
     ```
 
-12. Open the Supabase dashboard:
-    ```bash
-    http://localhost:8000
-    ```
-
-    In this dashboard, add yourself as a user in the authentication tab.
-
 ### Flask setup
-
-Assuming the current working directory is the root of the project:
 
 1. Navigate to the `backend` directory:
     ```bash
     cd backend
     ```
 
-2. Highly recommended to set up a virtual environment:
+2. Set up a virtual environment:
     ```bash
     python3 -m venv venv
     source venv/bin/activate
@@ -117,26 +165,16 @@ Assuming the current working directory is the root of the project:
     pip install -r requirements.txt
     ```
 
-4. Set up the environment:
-    ```bash
-    touch .env
+4. Update `.env` for local Flask (Supabase runs in Docker, Flask runs on host):
     ```
-
-5. Edit the created `.env` file using any code editor to configure the credentials generated during the finalization of the Supabase Docker setup:
-    ```
-    SECRET_KEY=<SECRET_KEY_BASE>
-    UPLOAD_FOLDER=./uploads
-    ALLOWED_EXTENSIONS=csv
-
-    SUPABASE_URL=http://localhost:8000
-    SUPABASE_KEY=<ANON_KEY>
-    SUPABASE_SERVICE_KEY=<SERVICE_KEY>
-
-    POSTGRES_DB_NAME=postgres
-    POSTGRES_USER=postgres
-    POSTGRES_SECRET=<POSTGRES_PASSWORD>
-    POSTGRES_PORT=5433
     POSTGRES_HOST=127.0.0.1
+    POSTGRES_PORT=5433
+    SUPABASE_URL=http://localhost:8000
+    ```
+
+5. Start the Flask development server:
+    ```bash
+    ./run.sh
     ```
 
 ---

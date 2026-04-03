@@ -185,10 +185,16 @@ function uploadAndCloseForm() {
             return xhr;
         },
         success: function (response) {
-            $("#progress-message").text("File uploaded successfully.");
+            $("#progress-message").text(response.message || "File uploaded successfully.");
+            $("#progress").removeClass("bg-danger").addClass("bg-success");
         },
-        error: function (error) {
-            $("#progress-message").text("Error uploading file.");
+        error: function (xhr) {
+            var msg = "Error uploading file.";
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                msg = xhr.responseJSON.message;
+            }
+            $("#progress-message").text(msg);
+            $("#progress").removeClass("bg-success").addClass("bg-danger");
         }
     });
 }
