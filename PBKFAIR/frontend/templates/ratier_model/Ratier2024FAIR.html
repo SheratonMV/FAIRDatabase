@@ -1,0 +1,225 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}PBPK Simulation — Lifetime PFAS Model{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Lifetime PBPK Model <small class="text-muted fs-6">PFAS / PFOA</small></h2>
+  <p class="text-muted">
+    Simulates PFAS body burden from birth (~6.77 years) across four breastfeeding
+    exposure scenarios using the <code>Ratier2024FAIR.xml</code> SBML model.
+  </p>
+
+  <!-- ── Parameter form ─────────────────────────────────────────────────── -->
+  <div class="card mb-4">
+    <div class="card-header">Simulation parameters</div>
+    <div class="card-body">
+      <form id="sim-form" class="row g-3">
+
+        <div class="col-md-4">
+          <label for="scenario" class="form-label">Breastfeeding scenario</label>
+          <select id="scenario" name="scenario" class="form-select">
+            {% for s in scenarios %}
+            <option value="{{ s.label }}">{{ s.description }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label for="HalfLife" class="form-label">Chemical half-life (years)</label>
+          <input type="number" id="HalfLife" name="HalfLife"
+                 class="form-control" value="2.5" min="0.01" step="0.1">
+        </div>
+
+        <div class="col-md-3">
+          <label for="RateInj" class="form-label">Dietary intake (ng/kg/min)</label>
+          <input type="number" id="RateInj" name="RateInj"
+                 class="form-control" value="0.451695" min="0" step="0.0001">
+        </div>
+
+        <div class="col-md-2">
+          <label for="BirthYear" class="form-label">Birth year</label>
+          <input type="number" id="BirthYear" name="BirthYear"
+                 class="form-control" value="2007" min="1950" max="2050">
+        </div>
+
+        <div class="col-12">
+          <button type="submit" class="btn btn-primary" id="run-btn">
+            Run simulation
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Status / spinner ───────────────────────────────────────────────── -->
+  <div id="status" class="alert alert-info d-none" role="alert">
+    Running simulation — this may take 30–90 seconds…
+  </div>
+  <div id="error-box" class="alert alert-danger d-none" role="alert"></div>
+
+  <!-- ── Summary cards ──────────────────────────────────────────────────── -->
+  <div id="summary" class="d-none">
+    <div class="row mb-3">
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Peak venous conc.</h6>
+            <span id="peak-c-ven" class="fs-4 fw-bold"></span>
+            <small class="text-muted"> mg/L</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Age at peak</h6>
+            <span id="peak-age" class="fs-4 fw-bold"></span>
+            <small class="text-muted"> yrs</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Final venous conc.</h6>
+            <span id="final-c-ven" class="fs-4 fw-bold"></span>
+            <small class="text-muted"> mg/L</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Final age</h6>
+            <span id="final-age" class="fs-4 fw-bold"></span>
+            <small class="text-muted"> yrs</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Chart ──────────────────────────────────────────────────────────── -->
+    <div class="card mb-4">
+      <div class="card-header">Venous PFAS concentration over time</div>
+      <div class="card-body">
+        <canvas id="sim-chart" height="100"></canvas>
+      </div>
+    </div>
+
+    <!-- ── Download ───────────────────────────────────────────────────────── -->
+    <button id="download-btn" class="btn btn-outline-secondary mb-4">
+      Download timeseries (CSV)
+    </button>
+  </div>
+</div>
+
+<!-- Chart.js (loaded from CDN; swap for a self-hosted copy if needed) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+
+<script>
+(function () {
+  "use strict";
+
+  let _lastResult = null;
+  let _chart      = null;
+
+  document.getElementById("sim-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form    = e.target;
+    const runBtn  = document.getElementById("run-btn");
+    const status  = document.getElementById("status");
+    const errBox  = document.getElementById("error-box");
+    const summary = document.getElementById("summary");
+
+    runBtn.disabled = true;
+    status.classList.remove("d-none");
+    errBox.classList.add("d-none");
+    summary.classList.add("d-none");
+
+    const payload = {
+      scenario:  form.scenario.value,
+      HalfLife:  parseFloat(form.HalfLife.value),
+      RateInj:   parseFloat(form.RateInj.value),
+      BirthYear: parseFloat(form.BirthYear.value),
+    };
+
+    try {
+      const resp = await fetch("/model/run", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(payload),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data.error || `HTTP ${resp.status}`);
+      }
+      _lastResult = data;
+      renderSummary(data);
+      renderChart(data);
+      summary.classList.remove("d-none");
+    } catch (err) {
+      errBox.textContent = "Error: " + err.message;
+      errBox.classList.remove("d-none");
+    } finally {
+      runBtn.disabled = false;
+      status.classList.add("d-none");
+    }
+  });
+
+  function fmt(v) {
+    return v != null ? v.toExponential(3) : "—";
+  }
+
+  function renderSummary(d) {
+    document.getElementById("peak-c-ven").textContent  = fmt(d.peak_C_ven);
+    document.getElementById("peak-age").textContent    = d.peak_Age_yr != null ? d.peak_Age_yr.toFixed(2) : "—";
+    document.getElementById("final-c-ven").textContent = fmt(d.final_C_ven);
+    document.getElementById("final-age").textContent   = d.final_Age_yr != null ? d.final_Age_yr.toFixed(2) : "—";
+  }
+
+  function renderChart(d) {
+    const ts   = d.timeseries;
+    const ages = ts.map(r => r.Age != null ? r.Age.toFixed(3) : r.time);
+    const cVen = ts.map(r => r.C_ven);
+
+    if (_chart) _chart.destroy();
+    _chart = new Chart(document.getElementById("sim-chart"), {
+      type: "line",
+      data: {
+        labels: ages,
+        datasets: [{
+          label: "C_ven (mg/L)",
+          data:  cVen,
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.2,
+        }],
+      },
+      options: {
+        animation: false,
+        plugins: { legend: { display: true } },
+        scales: {
+          x: { title: { display: true, text: "Age (years)" } },
+          y: { title: { display: true, text: "Venous conc. (mg/L)" } },
+        },
+      },
+    });
+  }
+
+  document.getElementById("download-btn").addEventListener("click", () => {
+    if (!_lastResult) return;
+    const ts   = _lastResult.timeseries;
+    const cols = Object.keys(ts[0]);
+    const rows = [cols.join(",")].concat(ts.map(r => cols.map(c => r[c] ?? "").join(",")));
+    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+    const a    = Object.assign(document.createElement("a"), {
+      href:     URL.createObjectURL(blob),
+      download: `pbkfair_${_lastResult.scenario}.csv`,
+    });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+})();
+</script>
+{% endblock %}

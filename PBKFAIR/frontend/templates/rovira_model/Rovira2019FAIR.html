@@ -1,0 +1,217 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Rovira 2019 PBPK — Pregnancy PFAS Model{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Rovira 2019 Pregnancy PBPK <small class="text-muted fs-6">GW0 → GW38</small></h2>
+  <p class="text-muted">
+    Deterministic PFAS pharmacokinetics during pregnancy (Rovira et al. 2019)
+    using <code>Rovira2019FAIR.xml</code>. Returns maternal plasma and
+    cord-blood concentrations at GW12 and delivery (GW38).
+  </p>
+
+  <!-- ── Parameter form ─────────────────────────────────────────────────── -->
+  <div class="card mb-4">
+    <div class="card-header">Simulation parameters</div>
+    <div class="card-body">
+      <form id="sim-form" class="row g-3">
+
+        <div class="col-md-3">
+          <label for="compound" class="form-label">Compound</label>
+          <select id="compound" name="compound" class="form-select">
+            {% for c in compounds %}
+            <option value="{{ c.label }}">{{ c.description }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label for="CVINIT" class="form-label">Pre-pregnancy plasma (mg/L)</label>
+          <input type="number" id="CVINIT" name="CVINIT"
+                 class="form-control" placeholder="default per compound"
+                 min="0.000001" step="0.0001">
+          <div class="form-text">Leave blank to use Rovira 2019 defaults.</div>
+        </div>
+
+        <div class="col-md-3">
+          <label for="BW0" class="form-label">Pre-pregnancy weight (kg)</label>
+          <input type="number" id="BW0" name="BW0"
+                 class="form-control" value="70.0" min="30" max="180" step="0.5">
+        </div>
+
+        <div class="col-12">
+          <button type="submit" class="btn btn-primary" id="run-btn">
+            Run simulation
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Status / spinner ───────────────────────────────────────────────── -->
+  <div id="status" class="alert alert-info d-none" role="alert">
+    Running simulation…
+  </div>
+  <div id="error-box" class="alert alert-danger d-none" role="alert"></div>
+
+  <!-- ── Summary cards ──────────────────────────────────────────────────── -->
+  <div id="summary" class="d-none">
+    <div class="row mb-3">
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Maternal at GW12</h6>
+            <span id="ca-gw12" class="fs-4 fw-bold"></span>
+            <small class="text-muted"> mg/L</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Maternal at delivery</h6>
+            <span id="ca-del" class="fs-4 fw-bold"></span>
+            <small class="text-muted"> mg/L</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Cord blood</h6>
+            <span id="ca-cord" class="fs-4 fw-bold"></span>
+            <small class="text-muted"> mg/L</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Transfer ratio</h6>
+            <span id="transfer-ratio" class="fs-4 fw-bold"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Results table ──────────────────────────────────────────────────── -->
+    <div class="card mb-4">
+      <div class="card-header">Concentration at key time points</div>
+      <div class="card-body p-0">
+        <table class="table table-bordered table-sm mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Gestational week</th>
+              <th>Time (h)</th>
+              <th>CA maternal (mg/L)</th>
+              <th>CA fetal (mg/L)</th>
+              <th>Transfer ratio</th>
+            </tr>
+          </thead>
+          <tbody id="result-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Download ───────────────────────────────────────────────────────── -->
+    <button id="download-btn" class="btn btn-outline-secondary mb-4">
+      Download results (CSV)
+    </button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  let _lastResult = null;
+
+  document.getElementById("sim-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form    = e.target;
+    const runBtn  = document.getElementById("run-btn");
+    const status  = document.getElementById("status");
+    const errBox  = document.getElementById("error-box");
+    const summary = document.getElementById("summary");
+
+    runBtn.disabled = true;
+    status.classList.remove("d-none");
+    errBox.classList.add("d-none");
+    summary.classList.add("d-none");
+
+    const payload = { compound: form.compound.value };
+    const cvinit  = form.CVINIT.value.trim();
+    const bw0     = form.BW0.value.trim();
+    if (cvinit) payload.CVINIT = parseFloat(cvinit);
+    if (bw0)    payload.BW0    = parseFloat(bw0);
+
+    try {
+      const resp = await fetch("/rovira/run", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(payload),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+      _lastResult = data;
+      renderSummary(data);
+      renderTable(data);
+      summary.classList.remove("d-none");
+    } catch (err) {
+      errBox.textContent = "Error: " + err.message;
+      errBox.classList.remove("d-none");
+    } finally {
+      runBtn.disabled = false;
+      status.classList.add("d-none");
+    }
+  });
+
+  function fmt(v) {
+    return (v != null && !isNaN(v)) ? v.toExponential(3) : "—";
+  }
+
+  function renderSummary(d) {
+    const ts  = d.timeseries || [];
+    const gw12 = ts.find(r => r.gestational_wk === 12) || {};
+    const del  = ts.find(r => r.gestational_wk === 38) || {};
+    document.getElementById("ca-gw12").textContent       = fmt(gw12.CA_maternal_mgL);
+    document.getElementById("ca-del").textContent        = fmt(del.CA_maternal_mgL);
+    document.getElementById("ca-cord").textContent       = fmt(d.CA_cord_mgL);
+    document.getElementById("transfer-ratio").textContent =
+      (d.transfer_ratio != null && !isNaN(d.transfer_ratio))
+        ? d.transfer_ratio.toFixed(3) : "—";
+  }
+
+  function renderTable(d) {
+    const tbody = document.getElementById("result-tbody");
+    tbody.innerHTML = "";
+    (d.timeseries || []).forEach(r => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>GW${r.gestational_wk}</td>
+        <td>${r.time_h}</td>
+        <td>${fmt(r.CA_maternal_mgL)}</td>
+        <td>${fmt(r.CA_fetal_mgL)}</td>
+        <td>${(r.transfer_ratio != null && !isNaN(r.transfer_ratio)) ? r.transfer_ratio.toFixed(3) : "—"}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById("download-btn").addEventListener("click", () => {
+    if (!_lastResult) return;
+    const ts   = _lastResult.timeseries;
+    const cols = Object.keys(ts[0]);
+    const rows = [cols.join(",")].concat(ts.map(r => cols.map(c => r[c] ?? "").join(",")));
+    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+    const a    = Object.assign(document.createElement("a"), {
+      href:     URL.createObjectURL(blob),
+      download: `rovira_${_lastResult.compound}.csv`,
+    });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+})();
+</script>
+{% endblock %}

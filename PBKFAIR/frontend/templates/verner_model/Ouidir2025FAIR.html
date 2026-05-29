@@ -1,0 +1,250 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Verner 2015 PBPK — Pregnancy MC Model{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Verner 2015 Pregnancy PBPK <small class="text-muted fs-6">Monte Carlo, GW0 → GW38</small></h2>
+  <p class="text-muted">
+    Monte Carlo PFAS pharmacokinetics during pregnancy (Verner et al. 2015 / Ouidir et al. 2025)
+    using <code>Ouidir2025FAIR.xml</code>. Samples Verner Table 1 parameter distributions
+    and returns monthly maternal plasma percentile bands.
+  </p>
+
+  <!-- ── Runtime warning ────────────────────────────────────────────────── -->
+  <div class="alert alert-warning" role="alert">
+    <strong>Note:</strong> Runtime scales with <em>n_iter</em>.
+    100 iterations &asymp; 30&thinsp;s; 1 000 iterations &asymp; 5&thinsp;min.
+  </div>
+
+  <!-- ── Parameter form ─────────────────────────────────────────────────── -->
+  <div class="card mb-4">
+    <div class="card-header">Simulation parameters</div>
+    <div class="card-body">
+      <form id="sim-form" class="row g-3">
+
+        <div class="col-md-3">
+          <label for="compound" class="form-label">Compound</label>
+          <select id="compound" name="compound" class="form-select">
+            {% for c in compounds %}
+            <option value="{{ c.label }}">{{ c.description }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label for="n_iter" class="form-label">Iterations (n_iter)</label>
+          <input type="number" id="n_iter" name="n_iter"
+                 class="form-control" value="100" min="10" max="1000" step="10">
+        </div>
+
+        <div class="col-md-3">
+          <label for="seed" class="form-label">RNG seed</label>
+          <input type="number" id="seed" name="seed"
+                 class="form-control" value="42" min="0">
+        </div>
+
+        <div class="col-12">
+          <button type="submit" class="btn btn-primary" id="run-btn">
+            Run simulation
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Status / spinner ───────────────────────────────────────────────── -->
+  <div id="status" class="alert alert-info d-none" role="alert">
+    Running Monte Carlo simulation — this may take 30–90 seconds…
+  </div>
+  <div id="error-box" class="alert alert-danger d-none" role="alert"></div>
+
+  <!-- ── Summary cards ──────────────────────────────────────────────────── -->
+  <div id="summary" class="d-none">
+    <div class="row mb-3">
+      <div class="col-md-4">
+        <div class="card text-center">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Mean maternal at m3</h6>
+            <span id="ca-m3" class="fs-4 fw-bold"></span>
+            <small class="text-muted"> mg/L</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card text-center">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Mean maternal at m6</h6>
+            <span id="ca-m6" class="fs-4 fw-bold"></span>
+            <small class="text-muted"> mg/L</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card text-center">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Mean maternal at m9 (delivery)</h6>
+            <span id="ca-m9" class="fs-4 fw-bold"></span>
+            <small class="text-muted"> mg/L</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Chart ──────────────────────────────────────────────────────────── -->
+    <div class="card mb-4">
+      <div class="card-header">Maternal plasma PFAS — monthly mean ± 5th–95th percentile</div>
+      <div class="card-body">
+        <canvas id="sim-chart" height="100"></canvas>
+      </div>
+    </div>
+
+    <!-- ── Download ───────────────────────────────────────────────────────── -->
+    <button id="download-btn" class="btn btn-outline-secondary mb-4">
+      Download timeseries (CSV)
+    </button>
+  </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+
+<script>
+(function () {
+  "use strict";
+
+  let _lastResult = null;
+  let _chart      = null;
+
+  document.getElementById("sim-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form    = e.target;
+    const runBtn  = document.getElementById("run-btn");
+    const status  = document.getElementById("status");
+    const errBox  = document.getElementById("error-box");
+    const summary = document.getElementById("summary");
+
+    runBtn.disabled = true;
+    status.classList.remove("d-none");
+    errBox.classList.add("d-none");
+    summary.classList.add("d-none");
+
+    const payload = {
+      compound: form.compound.value,
+      n_iter:   parseInt(form.n_iter.value, 10),
+      seed:     parseInt(form.seed.value,   10),
+    };
+
+    try {
+      const resp = await fetch("/verner/run", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(payload),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+      _lastResult = data;
+      renderSummary(data);
+      renderChart(data);
+      summary.classList.remove("d-none");
+    } catch (err) {
+      errBox.textContent = "Error: " + err.message;
+      errBox.classList.remove("d-none");
+    } finally {
+      runBtn.disabled = false;
+      status.classList.add("d-none");
+    }
+  });
+
+  function fmt(v) {
+    return (v != null && !isNaN(v)) ? v.toExponential(3) : "—";
+  }
+
+  function renderSummary(d) {
+    const ts = d.timeseries || [];
+    const m3 = ts.find(r => r.month === 3) || {};
+    const m6 = ts.find(r => r.month === 6) || {};
+    const m9 = ts.find(r => r.month === 9) || {};
+    document.getElementById("ca-m3").textContent = fmt(m3.CA_mean_mgL);
+    document.getElementById("ca-m6").textContent = fmt(m6.CA_mean_mgL);
+    document.getElementById("ca-m9").textContent = fmt(m9.CA_mean_mgL);
+  }
+
+  function renderChart(d) {
+    const ts     = d.timeseries || [];
+    const labels = ts.map(r => `m${r.month}`);
+    const means  = ts.map(r => r.CA_mean_mgL);
+    const p5s    = ts.map(r => r.CA_p5_mgL);
+    const p95s   = ts.map(r => r.CA_p95_mgL);
+
+    // Build shaded band as fill between two datasets
+    if (_chart) _chart.destroy();
+    _chart = new Chart(document.getElementById("sim-chart"), {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label:           "5th percentile",
+            data:            p5s,
+            borderWidth:     0,
+            pointRadius:     0,
+            fill:            "+1",
+            backgroundColor: "rgba(99,132,255,0.15)",
+            borderColor:     "transparent",
+          },
+          {
+            label:           "95th percentile",
+            data:            p95s,
+            borderWidth:     0,
+            pointRadius:     0,
+            fill:            false,
+            backgroundColor: "rgba(99,132,255,0.15)",
+            borderColor:     "transparent",
+          },
+          {
+            label:           "Mean CA maternal (mg/L)",
+            data:            means,
+            borderWidth:     2,
+            pointRadius:     3,
+            tension:         0.2,
+            borderColor:     "rgb(54,96,210)",
+            backgroundColor: "rgb(54,96,210)",
+            fill:            false,
+          },
+        ],
+      },
+      options: {
+        animation: false,
+        plugins: {
+          legend: { display: true },
+          tooltip: {
+            callbacks: {
+              label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toExponential(3) : "—"}`,
+            },
+          },
+        },
+        scales: {
+          x: { title: { display: true, text: "Gestational month" } },
+          y: { title: { display: true, text: "Maternal plasma (mg/L)" } },
+        },
+      },
+    });
+  }
+
+  document.getElementById("download-btn").addEventListener("click", () => {
+    if (!_lastResult) return;
+    const ts   = _lastResult.timeseries;
+    const cols = Object.keys(ts[0]);
+    const rows = [cols.join(",")].concat(ts.map(r => cols.map(c => r[c] ?? "").join(",")));
+    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+    const a    = Object.assign(document.createElement("a"), {
+      href:     URL.createObjectURL(blob),
+      download: `verner_${_lastResult.compound}_n${_lastResult.n_iter}.csv`,
+    });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+})();
+</script>
+{% endblock %}

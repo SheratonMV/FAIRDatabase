@@ -1,0 +1,233 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Generic PFAS PBPK — Pregnancy &amp; Child Model{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Generic PFAS PBPK <small class="text-muted fs-6">Pregnancy &amp; Child (GW0 → 12 yr)</small></h2>
+  <p class="text-muted">
+    Simulates PFAS pharmacokinetics from conception through 12 years of child age
+    using the <code>GenericPBKFAIR.xml</code> SBML model. Supports PFOA and PFOS
+    across four breastfeeding exposure scenarios.
+  </p>
+
+  <!-- ── Parameter form ─────────────────────────────────────────────────── -->
+  <div class="card mb-4">
+    <div class="card-header">Simulation parameters</div>
+    <div class="card-body">
+      <form id="sim-form" class="row g-3">
+
+        <div class="col-md-3">
+          <label for="compound" class="form-label">Compound</label>
+          <select id="compound" name="compound" class="form-select">
+            {% for c in compounds %}
+            <option value="{{ c.label }}">{{ c.description }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label for="scenario" class="form-label">Breastfeeding scenario</label>
+          <select id="scenario" name="scenario" class="form-select">
+            {% for s in scenarios %}
+            <option value="{{ s.label }}">{{ s.description }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label for="Ratio_GFR" class="form-label">GFR scaling factor</label>
+          <input type="number" id="Ratio_GFR" name="Ratio_GFR"
+                 class="form-control" value="1.0" min="0.01" step="0.05">
+        </div>
+
+        <div class="col-12">
+          <button type="submit" class="btn btn-primary" id="run-btn">
+            Run simulation
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Status / spinner ───────────────────────────────────────────────── -->
+  <div id="status" class="alert alert-info d-none" role="alert">
+    Running simulation — this may take 30–90 seconds…
+  </div>
+  <div id="error-box" class="alert alert-danger d-none" role="alert"></div>
+
+  <!-- ── Summary cards ──────────────────────────────────────────────────── -->
+  <div id="summary" class="d-none">
+    <div class="row mb-3">
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Peak maternal conc.</h6>
+            <span id="peak-ca-mat" class="fs-4 fw-bold"></span>
+            <small class="text-muted"> mg/L</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Child age at peak</h6>
+            <span id="peak-age" class="fs-4 fw-bold"></span>
+            <small class="text-muted"> yrs</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Peak fetal conc.</h6>
+            <span id="peak-ca-fet" class="fs-4 fw-bold"></span>
+            <small class="text-muted"> mg/L</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card text-center">
+          <div class="card-body">
+            <h6 class="card-subtitle mb-1 text-muted">Final maternal conc.</h6>
+            <span id="final-ca-mat" class="fs-4 fw-bold"></span>
+            <small class="text-muted"> mg/L</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Chart ──────────────────────────────────────────────────────────── -->
+    <div class="card mb-4">
+      <div class="card-header">Maternal &amp; fetal PFAS concentration over time</div>
+      <div class="card-body">
+        <canvas id="sim-chart" height="100"></canvas>
+      </div>
+    </div>
+
+    <!-- ── Download ───────────────────────────────────────────────────────── -->
+    <button id="download-btn" class="btn btn-outline-secondary mb-4">
+      Download timeseries (CSV)
+    </button>
+  </div>
+</div>
+
+<!-- Chart.js (loaded from CDN; swap for a self-hosted copy if needed) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+
+<script>
+(function () {
+  "use strict";
+
+  let _lastResult = null;
+  let _chart      = null;
+
+  document.getElementById("sim-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form    = e.target;
+    const runBtn  = document.getElementById("run-btn");
+    const status  = document.getElementById("status");
+    const errBox  = document.getElementById("error-box");
+    const summary = document.getElementById("summary");
+
+    runBtn.disabled = true;
+    status.classList.remove("d-none");
+    errBox.classList.add("d-none");
+    summary.classList.add("d-none");
+
+    const payload = {
+      compound:  form.compound.value,
+      scenario:  form.scenario.value,
+      Ratio_GFR: parseFloat(form.Ratio_GFR.value),
+    };
+
+    try {
+      const resp = await fetch("/generic/run", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(payload),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data.error || `HTTP ${resp.status}`);
+      }
+      _lastResult = data;
+      renderSummary(data);
+      renderChart(data);
+      summary.classList.remove("d-none");
+    } catch (err) {
+      errBox.textContent = "Error: " + err.message;
+      errBox.classList.remove("d-none");
+    } finally {
+      runBtn.disabled = false;
+      status.classList.add("d-none");
+    }
+  });
+
+  function fmt(v) {
+    return v != null ? v.toExponential(3) : "—";
+  }
+
+  function renderSummary(d) {
+    document.getElementById("peak-ca-mat").textContent  = fmt(d.peak_CA_maternal_mgL);
+    document.getElementById("peak-age").textContent     = d.peak_age_yr != null ? d.peak_age_yr.toFixed(2) : "—";
+    document.getElementById("peak-ca-fet").textContent  = fmt(d.peak_CA_fetal_mgL);
+    document.getElementById("final-ca-mat").textContent = fmt(d.final_CA_maternal_mgL);
+  }
+
+  function renderChart(d) {
+    const ts   = d.timeseries;
+    const ages = ts.map(r => r.age_child_yr != null ? r.age_child_yr.toFixed(3) : r.time_h);
+    const cMat = ts.map(r => r.CA_maternal_mgL);
+    const cFet = ts.map(r => r.CA_fetal_mgL);
+
+    if (_chart) _chart.destroy();
+    _chart = new Chart(document.getElementById("sim-chart"), {
+      type: "line",
+      data: {
+        labels: ages,
+        datasets: [
+          {
+            label:       "CA_maternal (mg/L)",
+            data:        cMat,
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension:     0.2,
+          },
+          {
+            label:       "CA_fetal (mg/L)",
+            data:        cFet,
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension:     0.2,
+            borderDash:  [4, 3],
+          },
+        ],
+      },
+      options: {
+        animation: false,
+        plugins: { legend: { display: true } },
+        scales: {
+          x: { title: { display: true, text: "Child age (years after birth)" } },
+          y: { title: { display: true, text: "Concentration (mg/L)" } },
+        },
+      },
+    });
+  }
+
+  document.getElementById("download-btn").addEventListener("click", () => {
+    if (!_lastResult) return;
+    const ts   = _lastResult.timeseries;
+    const cols = Object.keys(ts[0]);
+    const rows = [cols.join(",")].concat(ts.map(r => cols.map(c => r[c] ?? "").join(",")));
+    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+    const a    = Object.assign(document.createElement("a"), {
+      href:     URL.createObjectURL(blob),
+      download: `generic_${_lastResult.compound}_${_lastResult.scenario}.csv`,
+    });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+})();
+</script>
+{% endblock %}

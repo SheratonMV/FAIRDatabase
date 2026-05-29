@@ -1,0 +1,178 @@
+parameter_id,name,value,units,constant,pbpko_class,chebi_ids
+PFOS,,1,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+PFOA,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+CVINIT,Initial blood concentration (mg/L),0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+BWINIT,Pre-pregnancy body weight (kg),60.9,kg,false,http://purl.obolibrary.org/obo/PBPKO_00008,
+Birthweight,Child birth weight (kg),3.50857,kg,false,http://purl.obolibrary.org/obo/PBPKO_00008,
+Ratio_GFR,GFR scaling factor,1,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+AF_VPlas,,1,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00649,
+AF_VPlasF,,1,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00649,
+AF_VPla,,1,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00649,
+AF_VAF,,1,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00649,
+AF_Htc,,1,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00649,
+AF_QK,,1,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00649,
+DVPlasC_0,Plasma vol fraction at week 0 (extrapolated),0.0415,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00610,
+HtcF,Fetal hematocrit (constant),0.5,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00649,
+HtcINIT_0,Initial maternal hematocrit (week 0 table value),0.38,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00649,
+QCC,Cardiac output coefficient (L/h/kg^0.75),20,L_per_h,true,http://purl.obolibrary.org/obo/PBPKO_00013,
+QLC,Fraction cardiac output to liver (hepatic artery),0.065,L_per_h,true,http://purl.obolibrary.org/obo/PBPKO_00012,
+QSkC,Fraction cardiac output to skin,0.058,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00611,
+QGC,Fraction cardiac output to gut,0.181,L_per_h,true,http://purl.obolibrary.org/obo/PBPKO_00012,
+QMamC,Fraction cardiac output to mammary (initial),0.027,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00611,
+QFatC,Fraction cardiac output to fat (initial),0.052,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00611,
+QFetC,Fetal cardiac output (L/h/kg fetal BW),24,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00611,
+QPlaC,Placental flow as fraction of fetal cardiac output,0.33,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00611,
+VLC,Liver volume fraction,0.026,L,true,http://purl.obolibrary.org/obo/PBPKO_00103,
+VKC,Kidney volume fraction,0.004,L,true,http://purl.obolibrary.org/obo/PBPKO_00103,
+VfilC,Filtrate compartment volume fraction,0.0004,L,true,http://purl.obolibrary.org/obo/PBPKO_00103,
+VGC,Gut volume fraction,0.0171,L,true,http://purl.obolibrary.org/obo/PBPKO_00103,
+VMamC,Mammary tissue volume fraction,0.0062,L,true,http://purl.obolibrary.org/obo/PBPKO_00103,
+VFatC,Fat volume fraction,0.214,L,true,http://purl.obolibrary.org/obo/PBPKO_00085,
+VSk,Skin volume (L) — absolute constant,0.0972,L,true,http://purl.obolibrary.org/obo/PBPKO_00089,
+VPlasFC,Fetal plasma volume fraction of fetal weight,0.0428,L,true,http://purl.obolibrary.org/obo/PBPKO_00103,
+VFet_A1,Fetal growth Gompertz A1,3.779,L,true,http://purl.obolibrary.org/obo/PBPKO_00103,
+VFet_b1,Fetal growth Gompertz b1,16.081,L,true,http://purl.obolibrary.org/obo/PBPKO_00103,
+VFet_c1,Fetal growth Gompertz c1 (1/h),0.000567,L,true,http://purl.obolibrary.org/obo/PBPKO_00103,
+VFet_A2,Fetal growth Gompertz A2,3.833,L,true,http://purl.obolibrary.org/obo/PBPKO_00103,
+VFet_b2,Fetal growth Gompertz b2,140.178,L,true,http://purl.obolibrary.org/obo/PBPKO_00103,
+VFet_c2,Fetal growth Gompertz c2 (1/h),0.000701,L,true,http://purl.obolibrary.org/obo/PBPKO_00103,
+Bw_ref,Reference birth weight for fetal volume scaling (kg),3.50857,kg,true,http://purl.obolibrary.org/obo/PBPKO_00008,
+VPla_A,Placenta Gompertz amplitude (L),0.85,L,true,http://purl.obolibrary.org/obo/PBPKO_00374,
+VPla_b,Placenta Gompertz b,9.434,L,true,http://purl.obolibrary.org/obo/PBPKO_00374,
+VPla_c,Placenta Gompertz c (1/h),0.000523,L,true,http://purl.obolibrary.org/obo/PBPKO_00374,
+VMam_A,Mammary growth Gompertz amplitude,0.0065,L,true,http://purl.obolibrary.org/obo/PBPKO_00103,
+VMam_b,Mammary growth Gompertz b,7.444868477,L,true,http://purl.obolibrary.org/obo/PBPKO_00103,
+VMam_c,Mammary growth Gompertz c (1/h),0.000678,L,true,http://purl.obolibrary.org/obo/PBPKO_00103,
+VFat_A,Fat growth Gompertz amplitude,0.09,L,true,http://purl.obolibrary.org/obo/PBPKO_00085,
+VFat_b,Fat growth Gompertz b,12.90995862,L,true,http://purl.obolibrary.org/obo/PBPKO_00085,
+VFat_c,Fat growth Gompertz c (1/h),0.000797,L,true,http://purl.obolibrary.org/obo/PBPKO_00085,
+PFOS_PL,PFOS liver:plasma PC,3.72,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00170,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_PFat,PFOS fat:plasma PC,0.14,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00174,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_PK,PFOS kidney:plasma PC,0.8,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00171,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_PSk,PFOS skin:plasma PC,0.29,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00176,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_PR,PFOS rest of body:plasma PC,0.2,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00518,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_PG,PFOS gut:plasma PC,0.57,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00166,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_PMam,PFOS mammary:plasma PC,0.16,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00517,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_PPla,PFOS placenta:plasma PC,0.41,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00165,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_PRF,PFOS fetal rest:plasma PC,0.2,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00394,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_TMC,PFOS reabsorption Tm (mg/h/kg^0.75),3.5,mg_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00536,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_KT,PFOS affinity constant (mg/L),0.023,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00535,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_Free,PFOS free fraction maternal plasma,0.025,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00149,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_FreeF,PFOS free fraction fetal plasma,0.025,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00149,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_k1c,PFOS mom→fetus transfer (L/h/kg^0.75),0.46,per_h,true,http://purl.obolibrary.org/obo/PBPKO_00381,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_k2c,PFOS fetus→mom transfer (L/h/kg^0.75),1.01,per_h,true,http://purl.obolibrary.org/obo/PBPKO_00381,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_k3c,PFOS fetal_rest→amniotic (L/h/kg^0.75),0.006,per_h,true,http://purl.obolibrary.org/obo/PBPKO_00381,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_k4c,PFOS amniotic→fetal_rest (L/h/kg^0.75),0.001,per_h,true,http://purl.obolibrary.org/obo/PBPKO_00381,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOS_HL,PFOS half-life (years),5.4,h,true,http://purl.obolibrary.org/obo/PBPKO_00262,
+PFOA_PL,PFOA liver:plasma PC,2.2,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00170,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_PFat,PFOA fat:plasma PC,0.04,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00174,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_PK,PFOA kidney:plasma PC,1.05,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00171,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_PSk,PFOA skin:plasma PC,0.1,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00176,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_PR,PFOA rest of body:plasma PC,0.12,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00518,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_PG,PFOA gut:plasma PC,0.05,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00166,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_PMam,PFOA mammary:plasma PC,0.13,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00517,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_PPla,PFOA placenta:plasma PC,0.28,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00165,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_PRF,PFOA fetal rest:plasma PC,0.12,dimensionless,true,http://purl.obolibrary.org/obo/PBPKO_00394,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_TMC,PFOA reabsorption Tm (mg/h/kg^0.75),10,mg_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00536,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_KT,PFOA affinity constant (mg/L),0.055,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00535,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_Free,PFOA free fraction maternal plasma,0.02,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00149,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_FreeF,PFOA free fraction fetal plasma,0.02,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00149,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_k1c,PFOA mom→fetus transfer (L/h/kg^0.75),0.46,per_h,true,http://purl.obolibrary.org/obo/PBPKO_00381,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_k2c,PFOA fetus→mom transfer (L/h/kg^0.75),0.46,per_h,true,http://purl.obolibrary.org/obo/PBPKO_00381,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_k3c,PFOA fetal_rest→amniotic (L/h/kg^0.75),0.008,per_h,true,http://purl.obolibrary.org/obo/PBPKO_00381,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_k4c,PFOA amniotic→fetal_rest (L/h/kg^0.75),0.001,per_h,true,http://purl.obolibrary.org/obo/PBPKO_00381,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFOA_HL,PFOA half-life (years),3.8,h,true,http://purl.obolibrary.org/obo/PBPKO_00262,
+kurinec,Urinary elimination rate constant (/h/kg^-0.25),0.005,per_h,true,http://purl.obolibrary.org/obo/PBPKO_00237,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+DOSE_INT,Dose interval (h),1,h,true,http://purl.obolibrary.org/obo/PBPKO_00551,
+GD,,0,h,false,http://purl.obolibrary.org/obo/PBPKO_00551,
+WK,,0,h,false,http://purl.obolibrary.org/obo/PBPKO_00551,
+PL,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00170,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PFat,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00174,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PK,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00171,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PSk,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00176,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PR,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00518,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PG,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00166,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PMam,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00517,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PPla,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00165,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+PRF,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00394,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+TMC,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00012,
+KT,,0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00535,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+Free,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00149,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+FreeF,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00149,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+ktrans1c,,0,per_h,false,http://purl.obolibrary.org/obo/PBPKO_00381,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+ktrans2c,,0,per_h,false,http://purl.obolibrary.org/obo/PBPKO_00381,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+ktrans3c,,0,per_h,false,http://purl.obolibrary.org/obo/PBPKO_00381,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+ktrans4c,,0,per_h,false,http://purl.obolibrary.org/obo/PBPKO_00381,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+HALF_LIFE,,0,h,false,http://purl.obolibrary.org/obo/PBPKO_00262,
+IVHOURLYDOSE,,0,mg_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00322,
+Vol_dist,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00103,
+VFet_av,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00103,
+VFet,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00103,
+VAF,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00103,
+Htc,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+HtcINIT,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+VPlasF,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00103,
+VPlas,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00103,
+VPlasINIT,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00103,
+VPla_av,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00374,
+VPla,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00374,
+VL,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00103,
+VK,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00103,
+Vfil,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00103,
+VG,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00103,
+VMamINIT,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00103,
+VFatINIT,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00085,
+VR,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00103,
+VRF,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00103,
+VMam,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00103,
+VFat,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00085,
+BW,,0,kg,false,http://purl.obolibrary.org/obo/PBPKO_00008,
+QFet,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00012,
+QRF,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00012,
+QCINIT,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00013,
+QCPINIT,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00013,
+QL,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00012,
+QG,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00012,
+QSk,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00012,
+QFatINIT,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00012,
+QFat,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00012,
+QMamINIT,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00012,
+QMam,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00012,
+QKINIT,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00012,
+QK,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00012,
+QFilINIT,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00012,
+QFil,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00012,
+QPla,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00012,
+QC,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00013,
+QR,,0,L_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00012,
+kurine,,0,per_h,false,http://purl.obolibrary.org/obo/PBPKO_00237,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+Tm,,0,mg_per_h,false,http://purl.obolibrary.org/obo/PBPKO_00536,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+ktrans1,,0,per_h,false,http://purl.obolibrary.org/obo/PBPKO_00381,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+ktrans2,,0,per_h,false,http://purl.obolibrary.org/obo/PBPKO_00381,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+ktrans3,,0,per_h,false,http://purl.obolibrary.org/obo/PBPKO_00381,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+ktrans4,,0,per_h,false,http://purl.obolibrary.org/obo/PBPKO_00381,https://identifiers.org/CHEBI:35924; https://identifiers.org/CHEBI:36179
+CA_free,,0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+CA,,0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+Cfil,,0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+CVFat,,0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+CVMam,,0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+CVG,,0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+CVL,,0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+CVK,,0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+CVSk,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+CVR,,0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+CVPla,,0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+CA_f_free,,0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+CA_f,,0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+CRF,,0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+CVRF,,0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+CAmf,,0,mg_per_L,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+rtrans1,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+rtrans2,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+rtrans3,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+rtrans4,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+DQK_val,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+DQFil_val,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+DVPlasC_val,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00610,
+DHtc_val,,0,dimensionless,false,http://purl.obolibrary.org/obo/PBPKO_00649,
+VAFX_val,,0,L,false,http://purl.obolibrary.org/obo/PBPKO_00103,
