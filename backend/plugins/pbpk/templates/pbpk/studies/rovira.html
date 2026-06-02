@@ -129,7 +129,9 @@
     <div class="card mb-4">
       <div class="card-header">Maternal plasma concentration at key time points</div>
       <div class="card-body">
-        <canvas id="sim-chart" height="80"></canvas>
+        <div style="position:relative;height:300px">
+          <canvas id="sim-chart"></canvas>
+        </div>
       </div>
     </div>
 
@@ -151,6 +153,53 @@
   "use strict";
 
   const THRESHOLDS = {{ thresholds | default([]) | tojson }};
+
+  const FONT    = "'Inter','Helvetica Neue',system-ui,-apple-system,sans-serif";
+  const PALETTE = ["#0072B2","#009E73","#D55E00","#CC79A7","#56B4E9","#E69F00"];
+
+  function yMax(dataSeries) {
+    const flat = [].concat(...dataSeries).filter(v => v != null && isFinite(v));
+    if (!flat.length) return 1;
+    const mx = Math.max(...flat);
+    const tMax = Math.max(0, ...THRESHOLDS.map(t => t.value).filter(v => v <= mx * 2));
+    return (Math.max(mx, tMax) * 1.18) || 1e-9;
+  }
+
+  function baseOpts(xLabel, yLabel, yMaxVal) {
+    const tf  = { family: FONT, size: 11 };
+    const ttf = { family: FONT, size: 12, weight: "500" };
+    return {
+      animation: false, responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: {
+          display: true, position: "bottom",
+          labels: { font: tf, color: "#374151", boxWidth: 22, boxHeight: 2,
+                    padding: 14, usePointStyle: true, pointStyleWidth: 18 },
+        },
+        tooltip: {
+          backgroundColor: "#fff", borderColor: "rgba(0,0,0,0.1)", borderWidth: 1,
+          titleColor: "#111827", bodyColor: "#374151",
+          titleFont: { family: FONT, size: 11, weight: "600" }, bodyFont: tf, padding: 8,
+          callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toExponential(3) : "—"}` },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false }, border: { color: "rgba(0,0,0,0.2)" },
+          ticks: { font: tf, color: "#6B7280" },
+          title: { display: true, text: xLabel, font: ttf, color: "#374151", padding: { top: 6 } },
+        },
+        y: {
+          min: 0, max: yMaxVal,
+          grid: { color: "rgba(0,0,0,0.06)", lineWidth: 1 }, border: { color: "rgba(0,0,0,0.2)" },
+          ticks: { font: tf, color: "#6B7280", maxTicksLimit: 8,
+                   callback: v => v === 0 ? "0" : (Math.abs(v) >= 0.1 ? +v.toPrecision(3) : v.toExponential(1)) },
+          title: { display: true, text: yLabel, font: ttf, color: "#374151", padding: { bottom: 6 } },
+        },
+      },
+    };
+  }
 
   let _lastResult = null;
   let _chart      = null;
@@ -176,9 +225,8 @@
 
     try {
       const resp = await fetch("/model/studies/rovira/run", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(payload),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
@@ -200,20 +248,17 @@
     }
   });
 
-  function fmt(v) {
-    return (v != null && !isNaN(v)) ? v.toExponential(3) : "—";
-  }
+  function fmt(v) { return (v != null && !isNaN(v)) ? v.toExponential(3) : "—"; }
 
   function renderSummary(d) {
     const ts  = d.timeseries || [];
     const gw12 = ts.find(r => r.gestational_wk === 12) || {};
     const del  = ts.find(r => r.gestational_wk === 38) || {};
-    document.getElementById("ca-gw12").textContent       = fmt(gw12.CA_maternal_mgL);
-    document.getElementById("ca-del").textContent        = fmt(del.CA_maternal_mgL);
-    document.getElementById("ca-cord").textContent       = fmt(d.CA_cord_mgL);
+    document.getElementById("ca-gw12").textContent        = fmt(gw12.CA_maternal_mgL);
+    document.getElementById("ca-del").textContent         = fmt(del.CA_maternal_mgL);
+    document.getElementById("ca-cord").textContent        = fmt(d.CA_cord_mgL);
     document.getElementById("transfer-ratio").textContent =
-      (d.transfer_ratio != null && !isNaN(d.transfer_ratio))
-        ? d.transfer_ratio.toFixed(3) : "—";
+      (d.transfer_ratio != null && !isNaN(d.transfer_ratio)) ? d.transfer_ratio.toFixed(3) : "—";
   }
 
   function renderTable(d) {
@@ -221,13 +266,9 @@
     tbody.innerHTML = "";
     (d.timeseries || []).forEach(r => {
       const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>GW${r.gestational_wk}</td>
-        <td>${r.time_h}</td>
-        <td>${fmt(r.CA_maternal_mgL)}</td>
-        <td>${fmt(r.CA_fetal_mgL)}</td>
-        <td>${(r.transfer_ratio != null && !isNaN(r.transfer_ratio)) ? r.transfer_ratio.toFixed(3) : "—"}</td>
-      `;
+      tr.innerHTML = `<td>GW${r.gestational_wk}</td><td>${r.time_h}</td>` +
+        `<td>${fmt(r.CA_maternal_mgL)}</td><td>${fmt(r.CA_fetal_mgL)}</td>` +
+        `<td>${(r.transfer_ratio != null && !isNaN(r.transfer_ratio)) ? r.transfer_ratio.toFixed(3) : "—"}</td>`;
       tbody.appendChild(tr);
     });
   }
@@ -235,65 +276,29 @@
   function renderChart(d) {
     const ts     = d.timeseries || [];
     const labels = ts.map(r => `GW${r.gestational_wk}`);
-    const maternalData = ts.map(r => r.CA_maternal_mgL);
-    const fetalData    = ts.map(r => r.CA_fetal_mgL);
+    const mat    = ts.map(r => r.CA_maternal_mgL);
+    const fet    = ts.map(r => r.CA_fetal_mgL);
 
     const datasets = [
-      {
-        label: "Maternal plasma (mg/L)",
-        data:  maternalData,
-        borderColor: "#0072B2",
-        backgroundColor: "rgba(0,114,178,0.15)",
-        borderWidth: 1.8,
-        pointRadius: 4,
-        tension: 0.2,
-        type: "line",
-      },
-      {
-        label: "Fetal plasma (mg/L)",
-        data:  fetalData,
-        borderColor: "#009E73",
-        backgroundColor: "rgba(0,158,115,0.15)",
-        borderWidth: 1.8,
-        pointRadius: 4,
-        tension: 0.2,
-        type: "line",
-      },
+      { label: "Maternal plasma (mg/L)", data: mat, borderColor: PALETTE[0],
+        backgroundColor: `${PALETTE[0]}22`, borderWidth: 1.75, pointRadius: 5,
+        pointBackgroundColor: PALETTE[0], tension: 0.2 },
+      { label: "Fetal plasma (mg/L)", data: fet, borderColor: PALETTE[1],
+        backgroundColor: `${PALETTE[1]}22`, borderWidth: 1.75, pointRadius: 5,
+        pointBackgroundColor: PALETTE[1], tension: 0.2 },
+      ...THRESHOLDS.map(t => ({
+        label: `${t.chemical} ${t.endpoint} (${t.value} ${t.units})`,
+        data: Array(labels.length).fill(t.value),
+        borderColor: "#C0392B", backgroundColor: "transparent",
+        borderWidth: 1.2, borderDash: [5, 4], pointRadius: 0, clip: false,
+      })),
     ];
-
-    THRESHOLDS.forEach(t => {
-      datasets.push({
-        label: `${t.chemical} threshold: ${t.value} ${t.units}`,
-        data: new Array(labels.length).fill(t.value),
-        borderColor: "#D00000",
-        backgroundColor: "transparent",
-        borderWidth: 1.5,
-        borderDash: [6, 4],
-        pointRadius: 0,
-        type: "line",
-      });
-    });
 
     if (_chart) _chart.destroy();
     _chart = new Chart(document.getElementById("sim-chart"), {
       type: "line",
       data: { labels, datasets },
-      options: {
-        animation: false,
-        interaction: { mode: "index", intersect: false },
-        plugins: {
-          legend: { display: true, position: "bottom" },
-          tooltip: {
-            callbacks: {
-              label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toExponential(3) : "—"}`,
-            },
-          },
-        },
-        scales: {
-          x: { title: { display: true, text: "Gestational week" } },
-          y: { title: { display: true, text: "Plasma conc. (mg/L)" }, beginAtZero: true },
-        },
-      },
+      options: baseOpts("Gestational week", "Plasma conc. (mg/L)", yMax([mat, fet])),
     });
   }
 
@@ -304,8 +309,7 @@
     const rows = [cols.join(",")].concat(ts.map(r => cols.map(c => r[c] ?? "").join(",")));
     const blob = new Blob([rows.join("\n")], { type: "text/csv" });
     const a    = Object.assign(document.createElement("a"), {
-      href:     URL.createObjectURL(blob),
-      download: `rovira_${_lastResult.compound}.csv`,
+      href: URL.createObjectURL(blob), download: `rovira_${_lastResult.compound}.csv`,
     });
     a.click();
     URL.revokeObjectURL(a.href);

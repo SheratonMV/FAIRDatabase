@@ -106,7 +106,9 @@
     <div class="card mb-4">
       <div class="card-header">Maternal plasma PFAS — monthly mean ± 5th–95th percentile</div>
       <div class="card-body">
-        <canvas id="sim-chart" height="100"></canvas>
+        <div style="position:relative;height:320px">
+          <canvas id="sim-chart"></canvas>
+        </div>
       </div>
     </div>
 
@@ -127,6 +129,53 @@
   "use strict";
 
   const THRESHOLDS = {{ thresholds | default([]) | tojson }};
+
+  const FONT    = "'Inter','Helvetica Neue',system-ui,-apple-system,sans-serif";
+  const BLUE    = "#0072B2";
+
+  function yMax(dataSeries) {
+    const flat = [].concat(...dataSeries).filter(v => v != null && isFinite(v));
+    if (!flat.length) return 1;
+    const mx = Math.max(...flat);
+    const tMax = Math.max(0, ...THRESHOLDS.map(t => t.value).filter(v => v <= mx * 2));
+    return (Math.max(mx, tMax) * 1.18) || 1e-9;
+  }
+
+  function baseOpts(xLabel, yLabel, yMaxVal) {
+    const tf  = { family: FONT, size: 11 };
+    const ttf = { family: FONT, size: 12, weight: "500" };
+    return {
+      animation: false, responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: {
+          display: true, position: "bottom",
+          labels: { font: tf, color: "#374151", boxWidth: 22, boxHeight: 2,
+                    padding: 14, usePointStyle: true, pointStyleWidth: 18 },
+        },
+        tooltip: {
+          backgroundColor: "#fff", borderColor: "rgba(0,0,0,0.1)", borderWidth: 1,
+          titleColor: "#111827", bodyColor: "#374151",
+          titleFont: { family: FONT, size: 11, weight: "600" }, bodyFont: tf, padding: 8,
+          callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toExponential(3) : "—"}` },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false }, border: { color: "rgba(0,0,0,0.2)" },
+          ticks: { font: tf, color: "#6B7280" },
+          title: { display: true, text: xLabel, font: ttf, color: "#374151", padding: { top: 6 } },
+        },
+        y: {
+          min: 0, max: yMaxVal,
+          grid: { color: "rgba(0,0,0,0.06)", lineWidth: 1 }, border: { color: "rgba(0,0,0,0.2)" },
+          ticks: { font: tf, color: "#6B7280", maxTicksLimit: 8,
+                   callback: v => v === 0 ? "0" : (Math.abs(v) >= 0.1 ? +v.toPrecision(3) : v.toExponential(1)) },
+          title: { display: true, text: yLabel, font: ttf, color: "#374151", padding: { bottom: 6 } },
+        },
+      },
+    };
+  }
 
   let _lastResult = null;
   let _chart      = null;
@@ -152,9 +201,8 @@
 
     try {
       const resp = await fetch("/model/studies/verner/run", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(payload),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
@@ -175,9 +223,7 @@
     }
   });
 
-  function fmt(v) {
-    return (v != null && !isNaN(v)) ? v.toExponential(3) : "—";
-  }
+  function fmt(v) { return (v != null && !isNaN(v)) ? v.toExponential(3) : "—"; }
 
   function renderSummary(d) {
     const ts = d.timeseries || [];
@@ -196,69 +242,31 @@
     const p5s    = ts.map(r => r.CA_p5_mgL);
     const p95s   = ts.map(r => r.CA_p95_mgL);
 
-    // Build shaded band as fill between two datasets
     const datasets = [
-      {
-        label:           "5th percentile",
-        data:            p5s,
-        borderWidth:     0,
-        pointRadius:     0,
-        fill:            "+1",
-        backgroundColor: "rgba(99,132,255,0.15)",
-        borderColor:     "transparent",
-      },
-      {
-        label:           "95th percentile",
-        data:            p95s,
-        borderWidth:     0,
-        pointRadius:     0,
-        fill:            false,
-        backgroundColor: "rgba(99,132,255,0.15)",
-        borderColor:     "transparent",
-      },
-      {
-        label:           "Mean CA maternal (mg/L)",
-        data:            means,
-        borderWidth:     2,
-        pointRadius:     3,
-        tension:         0.2,
-        borderColor:     "rgb(54,96,210)",
-        backgroundColor: "rgb(54,96,210)",
-        fill:            false,
-      },
+      // Shaded uncertainty band: p5 fills forward to p95
+      { label: "5th percentile", data: p5s, fill: "+1",
+        backgroundColor: `${BLUE}18`, borderColor: "transparent", borderWidth: 0, pointRadius: 0 },
+      { label: "95th percentile", data: p95s, fill: false,
+        backgroundColor: "transparent", borderColor: `${BLUE}44`, borderWidth: 1,
+        borderDash: [3, 3], pointRadius: 0 },
+      // Mean line on top
+      { label: "Mean CA maternal (mg/L)", data: means,
+        borderColor: BLUE, backgroundColor: BLUE, borderWidth: 2,
+        pointRadius: 3, pointBackgroundColor: BLUE, tension: 0.2, fill: false },
+      // Threshold reference lines
+      ...THRESHOLDS.map(t => ({
+        label: `${t.chemical} ${t.endpoint} (${t.value} ${t.units})`,
+        data: Array(labels.length).fill(t.value),
+        borderColor: "#C0392B", backgroundColor: "transparent",
+        borderWidth: 1.2, borderDash: [5, 4], pointRadius: 0, clip: false,
+      })),
     ];
-
-    THRESHOLDS.forEach(t => {
-      datasets.push({
-        label: `${t.chemical} threshold: ${t.value} ${t.units}`,
-        data: new Array(labels.length).fill(t.value),
-        borderColor: "#D00000",
-        backgroundColor: "transparent",
-        borderWidth: 1.5,
-        borderDash: [6, 4],
-        pointRadius: 0,
-      });
-    });
 
     if (_chart) _chart.destroy();
     _chart = new Chart(document.getElementById("sim-chart"), {
       type: "line",
       data: { labels, datasets },
-      options: {
-        animation: false,
-        plugins: {
-          legend: { display: true },
-          tooltip: {
-            callbacks: {
-              label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toExponential(3) : "—"}`,
-            },
-          },
-        },
-        scales: {
-          x: { title: { display: true, text: "Gestational month" } },
-          y: { title: { display: true, text: "Maternal plasma (mg/L)" } },
-        },
-      },
+      options: baseOpts("Gestational month", "Maternal plasma (mg/L)", yMax([means, p95s])),
     });
   }
 
@@ -269,7 +277,7 @@
     const rows = [cols.join(",")].concat(ts.map(r => cols.map(c => r[c] ?? "").join(",")));
     const blob = new Blob([rows.join("\n")], { type: "text/csv" });
     const a    = Object.assign(document.createElement("a"), {
-      href:     URL.createObjectURL(blob),
+      href: URL.createObjectURL(blob),
       download: `verner_${_lastResult.compound}_n${_lastResult.n_iter}.csv`,
     });
     a.click();

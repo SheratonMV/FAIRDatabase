@@ -124,7 +124,9 @@
     <div class="card mb-4">
       <div class="card-header">Venous PFAS concentration over time</div>
       <div class="card-body">
-        <canvas id="sim-chart" height="100"></canvas>
+        <div style="position:relative;height:320px">
+          <canvas id="sim-chart"></canvas>
+        </div>
       </div>
     </div>
 
@@ -140,7 +142,7 @@
   </div>
 </div>
 
-<!-- Chart.js (loaded from CDN; swap for a self-hosted copy if needed) -->
+<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 
 <script>
@@ -149,9 +151,81 @@
 
   const THRESHOLDS = {{ thresholds | default([]) | tojson }};
 
+  // ── Nature Portfolio chart style ─────────────────────────────────────────
+  const FONT    = "'Inter','Helvetica Neue',system-ui,-apple-system,sans-serif";
+  const PALETTE = ["#0072B2","#D55E00","#009E73","#CC79A7","#56B4E9","#E69F00"];
+
+  /** Compute Y-axis max from simulation data arrays; include thresholds when in range. */
+  function yMax(dataSeries) {
+    const flat = [].concat(...dataSeries).filter(v => v != null && isFinite(v));
+    if (!flat.length) return 1;
+    const mx = Math.max(...flat);
+    const tMax = Math.max(0, ...THRESHOLDS.map(t => t.value).filter(v => v <= mx * 2));
+    return (Math.max(mx, tMax) * 1.18) || 1e-9;
+  }
+
+  /** Shared Chart.js options (Nature Portfolio style). */
+  function baseOpts(xLabel, yLabel, yMaxVal) {
+    const tf = { family: FONT, size: 11 };
+    const ttf = { family: FONT, size: 12, weight: "500" };
+    return {
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: {
+          display: true, position: "bottom",
+          labels: { font: tf, color: "#374151", boxWidth: 22, boxHeight: 2,
+                    padding: 14, usePointStyle: true, pointStyleWidth: 18 },
+        },
+        tooltip: {
+          backgroundColor: "#fff", borderColor: "rgba(0,0,0,0.1)", borderWidth: 1,
+          titleColor: "#111827", bodyColor: "#374151",
+          titleFont: { family: FONT, size: 11, weight: "600" }, bodyFont: tf, padding: 8,
+          callbacks: {
+            label: ctx => {
+              const y = ctx.parsed.y;
+              return `${ctx.dataset.label}: ${y != null ? y.toExponential(3) : "—"}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid:   { display: false },
+          border: { color: "rgba(0,0,0,0.2)" },
+          ticks:  { font: tf, color: "#6B7280", maxTicksLimit: 10 },
+          title:  { display: true, text: xLabel, font: ttf, color: "#374151", padding: { top: 6 } },
+        },
+        y: {
+          min: 0, max: yMaxVal,
+          grid:   { color: "rgba(0,0,0,0.06)", lineWidth: 1 },
+          border: { color: "rgba(0,0,0,0.2)" },
+          ticks: {
+            font: tf, color: "#6B7280", maxTicksLimit: 8,
+            callback: v => v === 0 ? "0" : (Math.abs(v) >= 0.1 ? +v.toPrecision(3) : v.toExponential(1)),
+          },
+          title: { display: true, text: yLabel, font: ttf, color: "#374151", padding: { bottom: 6 } },
+        },
+      },
+    };
+  }
+
+  /** Build threshold reference-line datasets. */
+  function thresholdDatasets(len) {
+    return THRESHOLDS.map(t => ({
+      label: `${t.chemical} ${t.endpoint} (${t.value} ${t.units})`,
+      data:  Array(len).fill(t.value),
+      borderColor: "#C0392B", backgroundColor: "transparent",
+      borderWidth: 1.2, borderDash: [5, 4], pointRadius: 0, clip: false,
+    }));
+  }
+
   let _lastResult = null;
   let _chart      = null;
 
+  // ── Run simulation ───────────────────────────────────────────────────────
   document.getElementById("sim-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const form    = e.target;
@@ -179,9 +253,7 @@
         body:    JSON.stringify(payload),
       });
       const data = await resp.json();
-      if (!resp.ok) {
-        throw new Error(data.error || `HTTP ${resp.status}`);
-      }
+      if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
       _lastResult = data;
       renderSummary(data);
       renderChart(data);
@@ -199,9 +271,7 @@
     }
   });
 
-  function fmt(v) {
-    return v != null ? v.toExponential(3) : "—";
-  }
+  function fmt(v) { return v != null ? v.toExponential(3) : "—"; }
 
   function renderSummary(d) {
     document.getElementById("peak-c-ven").textContent  = fmt(d.peak_C_ven);
@@ -212,54 +282,24 @@
 
   function renderChart(d) {
     const ts   = d.timeseries;
-    const ages = ts.map(r => r.Age != null ? r.Age.toFixed(3) : r.time);
+    const ages = ts.map(r => +(r.Age != null ? r.Age.toFixed(3) : r.time));
     const cVen = ts.map(r => r.C_ven);
 
-    const datasets = [{
-      label: "C_ven (mg/L)",
-      data:  cVen,
-      borderColor: "#0072B2",
-      backgroundColor: "transparent",
-      borderWidth: 1.8,
-      pointRadius: 0,
-      tension: 0.2,
-    }];
-
-    THRESHOLDS.forEach(t => {
-      datasets.push({
-        label: `${t.chemical} threshold: ${t.value} ${t.units}`,
-        data: new Array(ages.length).fill(t.value),
-        borderColor: "#D00000",
-        backgroundColor: "transparent",
-        borderWidth: 1.5,
-        borderDash: [6, 4],
-        pointRadius: 0,
-      });
-    });
+    const datasets = [
+      { label: "C_ven (mg/L)", data: cVen, borderColor: PALETTE[0],
+        backgroundColor: "transparent", borderWidth: 1.75, pointRadius: 0, tension: 0.3 },
+      ...thresholdDatasets(ages.length),
+    ];
 
     if (_chart) _chart.destroy();
     _chart = new Chart(document.getElementById("sim-chart"), {
       type: "line",
       data: { labels: ages, datasets },
-      options: {
-        animation: false,
-        interaction: { mode: "index", intersect: false },
-        plugins: {
-          legend: { display: true, position: "bottom" },
-          tooltip: {
-            callbacks: {
-              label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(4) : "—"}`,
-            },
-          },
-        },
-        scales: {
-          x: { title: { display: true, text: "Age (years)" } },
-          y: { title: { display: true, text: "Venous conc. (mg/L)" }, beginAtZero: true },
-        },
-      },
+      options: baseOpts("Age (years)", "Venous conc. (mg/L)", yMax([cVen])),
     });
   }
 
+  // ── Applicability domain check ───────────────────────────────────────────
   const DOMAIN = {
     HalfLife:  { min: 2,    max: 5,    label: "PFOA half-life (yr)" },
     BirthYear: { min: 1990, max: 2020, label: "birth year" },
@@ -273,9 +313,8 @@
       const el = form.elements[id];
       if (!el) continue;
       const v = parseFloat(el.value);
-      if (!isNaN(v) && (v < rule.min || v > rule.max)) {
+      if (!isNaN(v) && (v < rule.min || v > rule.max))
         warnings.push(`${rule.label} (${v}) outside [${rule.min}–${rule.max}]`);
-      }
     }
     const box = document.getElementById("domain-warning");
     document.getElementById("domain-warning-text").textContent =
@@ -289,11 +328,12 @@
   });
   checkDomain();
 
+  // ── 4-scenario BF comparison ─────────────────────────────────────────────
   const BF_SCENARIOS = [
-    { id: "no_bf",  label: "No breastfeeding",  color: "#555555" },
-    { id: "bf_6mo", label: "BF 6 months",        color: "#0072B2" },
-    { id: "bf_1yr", label: "BF 1 year",          color: "#009E73" },
-    { id: "bf_3yr", label: "BF 3 years",         color: "#D55E00" },
+    { id: "no_bf",  label: "No breastfeeding" },
+    { id: "bf_6mo", label: "BF 6 months"      },
+    { id: "bf_1yr", label: "BF 1 year"        },
+    { id: "bf_3yr", label: "BF 3 years"       },
   ];
 
   document.getElementById("compare-btn").addEventListener("click", async () => {
@@ -319,8 +359,7 @@
       const results = [];
       for (const sc of BF_SCENARIOS) {
         const resp = await fetch("/model/studies/ratier/run", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...base, scenario: sc.id }),
         });
         const data = await resp.json();
@@ -329,47 +368,21 @@
         status.textContent = `Completed ${results.length}/4 scenarios…`;
       }
 
-      const firstTs = results[0].data.timeseries;
-      const ages = firstTs.map(r => r.Age != null ? r.Age.toFixed(3) : r.time);
-      const datasets = results.map(({ meta, data: d }) => ({
-        label: meta.label,
-        data:  d.timeseries.map(r => r.C_ven),
-        borderColor: meta.color,
-        backgroundColor: "transparent",
-        borderWidth: 1.8,
-        pointRadius: 0,
-        tension: 0.2,
+      const ages    = results[0].data.timeseries.map(r => +(r.Age != null ? r.Age.toFixed(3) : r.time));
+      const allVals = results.flatMap(({ data: d }) => d.timeseries.map(r => r.C_ven));
+
+      const datasets = results.map(({ meta, data: d }, i) => ({
+        label: meta.label, data: d.timeseries.map(r => r.C_ven),
+        borderColor: PALETTE[i], backgroundColor: "transparent",
+        borderWidth: 1.75, pointRadius: 0, tension: 0.3,
       }));
-      THRESHOLDS.forEach(t => {
-        datasets.push({
-          label: `${t.chemical} threshold: ${t.value} ${t.units}`,
-          data: new Array(ages.length).fill(t.value),
-          borderColor: "#D00000",
-          backgroundColor: "transparent",
-          borderWidth: 1.5,
-          borderDash: [6, 4],
-          pointRadius: 0,
-        });
-      });
+      datasets.push(...thresholdDatasets(ages.length));
 
       if (_chart) _chart.destroy();
       _chart = new Chart(document.getElementById("sim-chart"), {
         type: "line",
         data: { labels: ages, datasets },
-        options: {
-          animation: false,
-          interaction: { mode: "index", intersect: false },
-          plugins: {
-            legend: { display: true, position: "bottom" },
-            tooltip: { callbacks: {
-              label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(4) : "—"}`,
-            }},
-          },
-          scales: {
-            x: { title: { display: true, text: "Age (years)" } },
-            y: { title: { display: true, text: "Venous conc. (mg/L)" }, beginAtZero: true },
-          },
-        },
+        options: baseOpts("Age (years)", "Venous conc. (mg/L)", yMax([allVals])),
       });
       summary.classList.remove("d-none");
     } catch (err) {
@@ -381,6 +394,7 @@
     }
   });
 
+  // ── CSV download ─────────────────────────────────────────────────────────
   document.getElementById("download-btn").addEventListener("click", () => {
     if (!_lastResult) return;
     const ts   = _lastResult.timeseries;
@@ -388,8 +402,7 @@
     const rows = [cols.join(",")].concat(ts.map(r => cols.map(c => r[c] ?? "").join(",")));
     const blob = new Blob([rows.join("\n")], { type: "text/csv" });
     const a    = Object.assign(document.createElement("a"), {
-      href:     URL.createObjectURL(blob),
-      download: `pbkfair_${_lastResult.scenario}.csv`,
+      href: URL.createObjectURL(blob), download: `pbkfair_${_lastResult.scenario}.csv`,
     });
     a.click();
     URL.revokeObjectURL(a.href);

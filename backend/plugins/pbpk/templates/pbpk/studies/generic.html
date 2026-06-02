@@ -102,7 +102,9 @@
     <div class="card mb-4">
       <div class="card-header">Maternal &amp; fetal PFAS concentration over time</div>
       <div class="card-body">
-        <canvas id="sim-chart" height="100"></canvas>
+        <div style="position:relative;height:320px">
+          <canvas id="sim-chart"></canvas>
+        </div>
       </div>
     </div>
 
@@ -113,12 +115,57 @@
   </div>
 </div>
 
-<!-- Chart.js (loaded from CDN; swap for a self-hosted copy if needed) -->
+<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 
 <script>
 (function () {
   "use strict";
+
+  const FONT    = "'Inter','Helvetica Neue',system-ui,-apple-system,sans-serif";
+  const PALETTE = ["#0072B2","#D55E00","#009E73","#CC79A7"];
+
+  function yMax(dataSeries) {
+    const flat = [].concat(...dataSeries).filter(v => v != null && isFinite(v));
+    if (!flat.length) return 1;
+    return (Math.max(...flat) * 1.18) || 1e-9;
+  }
+
+  function baseOpts(xLabel, yLabel, yMaxVal) {
+    const tf  = { family: FONT, size: 11 };
+    const ttf = { family: FONT, size: 12, weight: "500" };
+    return {
+      animation: false, responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: {
+          display: true, position: "bottom",
+          labels: { font: tf, color: "#374151", boxWidth: 22, boxHeight: 2,
+                    padding: 14, usePointStyle: true, pointStyleWidth: 18 },
+        },
+        tooltip: {
+          backgroundColor: "#fff", borderColor: "rgba(0,0,0,0.1)", borderWidth: 1,
+          titleColor: "#111827", bodyColor: "#374151",
+          titleFont: { family: FONT, size: 11, weight: "600" }, bodyFont: tf, padding: 8,
+          callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toExponential(3) : "—"}` },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false }, border: { color: "rgba(0,0,0,0.2)" },
+          ticks: { font: tf, color: "#6B7280", maxTicksLimit: 10 },
+          title: { display: true, text: xLabel, font: ttf, color: "#374151", padding: { top: 6 } },
+        },
+        y: {
+          min: 0, max: yMaxVal,
+          grid: { color: "rgba(0,0,0,0.06)", lineWidth: 1 }, border: { color: "rgba(0,0,0,0.2)" },
+          ticks: { font: tf, color: "#6B7280", maxTicksLimit: 8,
+                   callback: v => v === 0 ? "0" : (Math.abs(v) >= 0.1 ? +v.toPrecision(3) : v.toExponential(1)) },
+          title: { display: true, text: yLabel, font: ttf, color: "#374151", padding: { bottom: 6 } },
+        },
+      },
+    };
+  }
 
   let _lastResult = null;
   let _chart      = null;
@@ -144,14 +191,11 @@
 
     try {
       const resp = await fetch("/model/studies/generic/run", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(payload),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
       const data = await resp.json();
-      if (!resp.ok) {
-        throw new Error(data.error || `HTTP ${resp.status}`);
-      }
+      if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
       _lastResult = data;
       renderSummary(data);
       renderChart(data);
@@ -165,9 +209,7 @@
     }
   });
 
-  function fmt(v) {
-    return v != null ? v.toExponential(3) : "—";
-  }
+  function fmt(v) { return v != null ? v.toExponential(3) : "—"; }
 
   function renderSummary(d) {
     document.getElementById("peak-ca-mat").textContent  = fmt(d.peak_CA_maternal_mgL);
@@ -178,41 +220,24 @@
 
   function renderChart(d) {
     const ts   = d.timeseries;
-    const ages = ts.map(r => r.age_child_yr != null ? r.age_child_yr.toFixed(3) : r.time_h);
+    const ages = ts.map(r => +(r.age_child_yr != null ? r.age_child_yr.toFixed(3) : r.time_h));
     const cMat = ts.map(r => r.CA_maternal_mgL);
     const cFet = ts.map(r => r.CA_fetal_mgL);
+
+    const datasets = [
+      { label: "Maternal plasma (mg/L)", data: cMat,
+        borderColor: PALETTE[0], backgroundColor: "transparent",
+        borderWidth: 1.75, pointRadius: 0, tension: 0.3 },
+      { label: "Fetal plasma (mg/L)", data: cFet,
+        borderColor: PALETTE[1], backgroundColor: "transparent",
+        borderWidth: 1.75, pointRadius: 0, tension: 0.3, borderDash: [5, 3] },
+    ];
 
     if (_chart) _chart.destroy();
     _chart = new Chart(document.getElementById("sim-chart"), {
       type: "line",
-      data: {
-        labels: ages,
-        datasets: [
-          {
-            label:       "CA_maternal (mg/L)",
-            data:        cMat,
-            borderWidth: 1.5,
-            pointRadius: 0,
-            tension:     0.2,
-          },
-          {
-            label:       "CA_fetal (mg/L)",
-            data:        cFet,
-            borderWidth: 1.5,
-            pointRadius: 0,
-            tension:     0.2,
-            borderDash:  [4, 3],
-          },
-        ],
-      },
-      options: {
-        animation: false,
-        plugins: { legend: { display: true } },
-        scales: {
-          x: { title: { display: true, text: "Child age (years after birth)" } },
-          y: { title: { display: true, text: "Concentration (mg/L)" } },
-        },
-      },
+      data: { labels: ages, datasets },
+      options: baseOpts("Age (years)", "Concentration (mg/L)", yMax([cMat, cFet])),
     });
   }
 
@@ -223,7 +248,7 @@
     const rows = [cols.join(",")].concat(ts.map(r => cols.map(c => r[c] ?? "").join(",")));
     const blob = new Blob([rows.join("\n")], { type: "text/csv" });
     const a    = Object.assign(document.createElement("a"), {
-      href:     URL.createObjectURL(blob),
+      href: URL.createObjectURL(blob),
       download: `generic_${_lastResult.compound}_${_lastResult.scenario}.csv`,
     });
     a.click();
