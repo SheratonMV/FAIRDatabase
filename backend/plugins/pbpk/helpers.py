@@ -217,6 +217,110 @@ def fetch_run(run_id: int) -> dict | None:
     return result
 
 
+def fetch_run_provenance(run_id: int) -> dict | None:
+    """Return a W3C PROV-JSON document for run_id, or None if not found."""
+    cur = g.db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute(
+            """
+            SELECT r.id, r.param_set_id, r.study_slug, r.scenario,
+                   r.compound, r.engine, r.created_at, r.user_id,
+                   ps.name AS param_set_name
+            FROM _fd.pbpk_simulation_runs r
+            LEFT JOIN _fd.pbpk_parameter_sets ps ON ps.id = r.param_set_id
+            WHERE r.id = %s
+            """,
+            (run_id,),
+        )
+        row = cur.fetchone()
+    finally:
+        cur.close()
+
+    if row is None:
+        return None
+
+    run_uri = f"fairdatabase:pbpk/runs/{row['id']}"
+    ps_uri = (
+        f"fairdatabase:pbpk/parameter-sets/{row['param_set_id']}"
+        if row["param_set_id"]
+        else None
+    )
+    user_uri = (
+        f"fairdatabase:users/{row['user_id']}"
+        if row["user_id"]
+        else "fairdatabase:users/anonymous"
+    )
+    ts = row["created_at"].isoformat() if row["created_at"] else None
+
+    doc: dict = {
+        "prefix": {
+            "fairdatabase": "https://github.com/SheratonMV/FAIRDatabase/",
+            "prov": "http://www.w3.org/ns/prov#",
+            "xsd": "http://www.w3.org/2001/XMLSchema#",
+        },
+        "entity": {
+            run_uri: {
+                "prov:type": "prov:Entity",
+                "fairdatabase:run_id": row["id"],
+                "fairdatabase:study_slug": row["study_slug"],
+                "fairdatabase:scenario": row["scenario"],
+                "fairdatabase:compound": row["compound"],
+                "fairdatabase:engine": row["engine"],
+            },
+        },
+        "activity": {
+            f"fairdatabase:pbpk/simulation-events/{row['id']}": {
+                k: v
+                for k, v in {
+                    "prov:type": "prov:Activity",
+                    "prov:startedAtTime": (
+                        {"$": ts, "type": "xsd:dateTime"} if ts else None
+                    ),
+                    "prov:endedAtTime": (
+                        {"$": ts, "type": "xsd:dateTime"} if ts else None
+                    ),
+                }.items()
+                if v is not None
+            },
+        },
+        "agent": {
+            user_uri: {
+                "prov:type": "prov:Agent",
+                "fairdatabase:user_id": (
+                    str(row["user_id"]) if row["user_id"] else None
+                ),
+            },
+        },
+        "wasGeneratedBy": {
+            f"_:wgb{row['id']}": {
+                "prov:entity": run_uri,
+                "prov:activity": f"fairdatabase:pbpk/simulation-events/{row['id']}",
+            },
+        },
+        "wasAttributedTo": {
+            f"_:wat{row['id']}": {
+                "prov:entity": run_uri,
+                "prov:agent": user_uri,
+            },
+        },
+    }
+
+    if ps_uri:
+        doc["entity"][ps_uri] = {
+            "prov:type": "prov:Entity",
+            "fairdatabase:param_set_id": row["param_set_id"],
+            "fairdatabase:param_set_name": row["param_set_name"],
+        }
+        doc["wasDerivedFrom"] = {
+            f"_:wdf{row['id']}": {
+                "prov:generatedEntity": run_uri,
+                "prov:usedEntity": ps_uri,
+            },
+        }
+
+    return doc
+
+
 # ── RBAC: handler-level checks (load-bearing on the Flask path) ───────────────
 #
 # RLS on _fd.pbpk_* exists in pbpk_schema.sql but does NOT fire here because

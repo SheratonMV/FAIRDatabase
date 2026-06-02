@@ -14,6 +14,7 @@ GET  /model/parameter-sets            List all public parameter sets
 GET  /model/parameter-sets/<id>       Fetch one parameter set with full params
 POST /model/runs                      Create + execute a simulation run
 GET  /model/runs/<id>                 Fetch one simulation run
+GET  /model/runs/<id>/provenance      Return W3C PROV-JSON provenance document
 POST /model/runs/<id>/artifacts       Upload a binary artifact for a run
 GET  /model/runs/<id>/artifacts       List a run's artifacts (signed URLs)
 DELETE /model/artifacts/<id>          Delete an artifact (blob + catalog row)
@@ -40,6 +41,7 @@ from .helpers import (
     fetch_artifact,
     fetch_parameter_set,
     fetch_run,
+    fetch_run_provenance,
     insert_artifact,
     list_artifacts,
     list_parameter_sets,
@@ -250,6 +252,25 @@ def get_simulation_run(run_id):
     if run is None:
         return jsonify({"error": "Run not found"}), 404
     return jsonify(run), 200
+
+
+@routes.route("/runs/<int:run_id>/provenance", methods=["GET"])
+@login_required("admin", "curator", "accessor")
+def get_run_provenance(run_id):
+    """Return a W3C PROV-JSON document for the specified simulation run."""
+    cur = g.db.cursor()
+    try:
+        assert_can_read_run(cur, run_id, g.user, g.role)
+    except FileNotFoundError:
+        return jsonify({"error": "Run not found"}), 404
+    except PermissionError:
+        abort(403)
+    finally:
+        cur.close()
+    doc = fetch_run_provenance(run_id)
+    if doc is None:
+        return jsonify({"error": "Run not found"}), 404
+    return jsonify(doc), 200
 
 
 # ── Artifact endpoints (PoC) ──────────────────────────────────────────────────
