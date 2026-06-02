@@ -437,7 +437,7 @@ def results_page(run_id):
 @login_required()
 def run_history_page():
     try:
-        limit = min(int(request.args.get("limit", 100)), 500)
+        limit = max(1, min(int(request.args.get("limit", 100)), 500))
     except (TypeError, ValueError):
         limit = 100
     runs = list_run_history(user_id=g.user, role=g.role, limit=limit)
