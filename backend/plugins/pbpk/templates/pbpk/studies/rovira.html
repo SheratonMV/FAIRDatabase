@@ -12,6 +12,16 @@
     cord-blood concentrations at GW12 and delivery (GW38).
   </p>
 
+  <!-- ── Applicability domain notice ──────────────────────────────────────── -->
+  <div class="alert alert-warning d-flex align-items-start mb-3 py-2" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2 mt-1 flex-shrink-0"></i>
+    <div class="small">
+      <strong>Applicability domain:</strong> INMA cohort (Spain); pregnancy only;
+      outputs at GW12 and GW38 only — no continuous trajectory.
+      <a href="/model/catalogue/rovira" class="alert-link">Full details →</a>
+    </div>
+  </div>
+
   <!-- ── Parameter form ─────────────────────────────────────────────────── -->
   <div class="card mb-4">
     <div class="card-header">Simulation parameters</div>
@@ -115,18 +125,35 @@
       </div>
     </div>
 
-    <!-- ── Download ───────────────────────────────────────────────────────── -->
-    <button id="download-btn" class="btn btn-outline-secondary mb-4">
-      Download results (CSV)
-    </button>
+    <!-- ── Chart ──────────────────────────────────────────────────────────── -->
+    <div class="card mb-4">
+      <div class="card-header">Maternal plasma concentration at key time points</div>
+      <div class="card-body">
+        <canvas id="sim-chart" height="80"></canvas>
+      </div>
+    </div>
+
+    <!-- ── Download + results link ───────────────────────────────────────── -->
+    <div class="d-flex gap-2 mb-4">
+      <button id="download-btn" class="btn btn-outline-secondary">Download results (CSV)</button>
+      <a id="results-link" href="#" class="btn btn-outline-primary d-none">
+        <i class="bi bi-graph-up me-1"></i>View full results &amp; provenance
+      </a>
+    </div>
   </div>
 </div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 
 <script>
 (function () {
   "use strict";
 
+  const THRESHOLDS = {{ thresholds | default([]) | tojson }};
+
   let _lastResult = null;
+  let _chart      = null;
 
   document.getElementById("sim-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -158,7 +185,12 @@
       _lastResult = data;
       renderSummary(data);
       renderTable(data);
+      renderChart(data);
       summary.classList.remove("d-none");
+      if (data.run_id) {
+        const link = document.getElementById("results-link");
+        if (link) { link.href = `/model/results/${data.run_id}`; link.classList.remove("d-none"); }
+      }
     } catch (err) {
       errBox.textContent = "Error: " + err.message;
       errBox.classList.remove("d-none");
@@ -197,6 +229,71 @@
         <td>${(r.transfer_ratio != null && !isNaN(r.transfer_ratio)) ? r.transfer_ratio.toFixed(3) : "—"}</td>
       `;
       tbody.appendChild(tr);
+    });
+  }
+
+  function renderChart(d) {
+    const ts     = d.timeseries || [];
+    const labels = ts.map(r => `GW${r.gestational_wk}`);
+    const maternalData = ts.map(r => r.CA_maternal_mgL);
+    const fetalData    = ts.map(r => r.CA_fetal_mgL);
+
+    const datasets = [
+      {
+        label: "Maternal plasma (mg/L)",
+        data:  maternalData,
+        borderColor: "#0072B2",
+        backgroundColor: "rgba(0,114,178,0.15)",
+        borderWidth: 1.8,
+        pointRadius: 4,
+        tension: 0.2,
+        type: "line",
+      },
+      {
+        label: "Fetal plasma (mg/L)",
+        data:  fetalData,
+        borderColor: "#009E73",
+        backgroundColor: "rgba(0,158,115,0.15)",
+        borderWidth: 1.8,
+        pointRadius: 4,
+        tension: 0.2,
+        type: "line",
+      },
+    ];
+
+    THRESHOLDS.forEach(t => {
+      datasets.push({
+        label: `${t.chemical} threshold: ${t.value} ${t.units}`,
+        data: new Array(labels.length).fill(t.value),
+        borderColor: "#D00000",
+        backgroundColor: "transparent",
+        borderWidth: 1.5,
+        borderDash: [6, 4],
+        pointRadius: 0,
+        type: "line",
+      });
+    });
+
+    if (_chart) _chart.destroy();
+    _chart = new Chart(document.getElementById("sim-chart"), {
+      type: "line",
+      data: { labels, datasets },
+      options: {
+        animation: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: true, position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toExponential(3) : "—"}`,
+            },
+          },
+        },
+        scales: {
+          x: { title: { display: true, text: "Gestational week" } },
+          y: { title: { display: true, text: "Plasma conc. (mg/L)" }, beginAtZero: true },
+        },
+      },
     });
   }
 

@@ -11,6 +11,17 @@
     exposure scenarios using the <code>Ratier2024FAIR.xml</code> SBML model.
   </p>
 
+  <!-- ── Applicability domain notice ──────────────────────────────────────── -->
+  <div class="alert alert-warning alert-sm d-flex align-items-start mb-3 py-2" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2 mt-1 flex-shrink-0"></i>
+    <div class="small">
+      <strong>Applicability domain:</strong> Calibrated on the HELIX birth cohort;
+      PFOA/PFOS; birth year 1990–2020. Breast-milk intake pathway (<code>C_milk</code>)
+      is not yet activated — all 4 breastfeeding scenarios return identical infant C_ven.
+      <a href="/model/catalogue/ratier" class="alert-link">Full details →</a>
+    </div>
+  </div>
+
   <!-- ── Parameter form ─────────────────────────────────────────────────── -->
   <div class="card mb-4">
     <div class="card-header">Simulation parameters</div>
@@ -48,8 +59,17 @@
           <button type="submit" class="btn btn-primary" id="run-btn">
             Run simulation
           </button>
+          <button type="button" id="compare-btn" class="btn btn-outline-secondary">
+            <i class="bi bi-layers me-1" aria-hidden="true"></i>Compare all BF scenarios
+          </button>
         </div>
       </form>
+      <div id="domain-warning" class="alert alert-warning d-none mt-3 py-2 small" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-1" aria-hidden="true"></i>
+        <strong>Outside applicability domain:</strong>
+        <span id="domain-warning-text"></span>
+        Predictions are extrapolations — interpret with caution.
+      </div>
     </div>
   </div>
 
@@ -108,10 +128,15 @@
       </div>
     </div>
 
-    <!-- ── Download ───────────────────────────────────────────────────────── -->
-    <button id="download-btn" class="btn btn-outline-secondary mb-4">
-      Download timeseries (CSV)
-    </button>
+    <!-- ── Download + results link ───────────────────────────────────────── -->
+    <div class="d-flex gap-2 mb-4">
+      <button id="download-btn" class="btn btn-outline-secondary">
+        Download timeseries (CSV)
+      </button>
+      <a id="results-link" href="#" class="btn btn-outline-primary d-none">
+        <i class="bi bi-graph-up me-1"></i>View full results &amp; provenance
+      </a>
+    </div>
   </div>
 </div>
 
@@ -121,6 +146,8 @@
 <script>
 (function () {
   "use strict";
+
+  const THRESHOLDS = {{ thresholds | default([]) | tojson }};
 
   let _lastResult = null;
   let _chart      = null;
@@ -159,6 +186,10 @@
       renderSummary(data);
       renderChart(data);
       summary.classList.remove("d-none");
+      if (data.run_id) {
+        const link = document.getElementById("results-link");
+        if (link) { link.href = `/model/results/${data.run_id}`; link.classList.remove("d-none"); }
+      }
     } catch (err) {
       errBox.textContent = "Error: " + err.message;
       errBox.classList.remove("d-none");
@@ -184,29 +215,171 @@
     const ages = ts.map(r => r.Age != null ? r.Age.toFixed(3) : r.time);
     const cVen = ts.map(r => r.C_ven);
 
+    const datasets = [{
+      label: "C_ven (mg/L)",
+      data:  cVen,
+      borderColor: "#0072B2",
+      backgroundColor: "transparent",
+      borderWidth: 1.8,
+      pointRadius: 0,
+      tension: 0.2,
+    }];
+
+    THRESHOLDS.forEach(t => {
+      datasets.push({
+        label: `${t.chemical} threshold: ${t.value} ${t.units}`,
+        data: new Array(ages.length).fill(t.value),
+        borderColor: "#D00000",
+        backgroundColor: "transparent",
+        borderWidth: 1.5,
+        borderDash: [6, 4],
+        pointRadius: 0,
+      });
+    });
+
     if (_chart) _chart.destroy();
     _chart = new Chart(document.getElementById("sim-chart"), {
       type: "line",
-      data: {
-        labels: ages,
-        datasets: [{
-          label: "C_ven (mg/L)",
-          data:  cVen,
-          borderWidth: 1.5,
-          pointRadius: 0,
-          tension: 0.2,
-        }],
-      },
+      data: { labels: ages, datasets },
       options: {
         animation: false,
-        plugins: { legend: { display: true } },
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: true, position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(4) : "—"}`,
+            },
+          },
+        },
         scales: {
           x: { title: { display: true, text: "Age (years)" } },
-          y: { title: { display: true, text: "Venous conc. (mg/L)" } },
+          y: { title: { display: true, text: "Venous conc. (mg/L)" }, beginAtZero: true },
         },
       },
     });
   }
+
+  const DOMAIN = {
+    HalfLife:  { min: 2,    max: 5,    label: "PFOA half-life (yr)" },
+    BirthYear: { min: 1990, max: 2020, label: "birth year" },
+    RateInj:   { min: 0.1,  max: 2.0,  label: "dietary intake (ng/kg/min)" },
+  };
+
+  function checkDomain() {
+    const form = document.getElementById("sim-form");
+    const warnings = [];
+    for (const [id, rule] of Object.entries(DOMAIN)) {
+      const el = form.elements[id];
+      if (!el) continue;
+      const v = parseFloat(el.value);
+      if (!isNaN(v) && (v < rule.min || v > rule.max)) {
+        warnings.push(`${rule.label} (${v}) outside [${rule.min}–${rule.max}]`);
+      }
+    }
+    const box = document.getElementById("domain-warning");
+    document.getElementById("domain-warning-text").textContent =
+      warnings.length ? warnings.join("; ") + ". " : "";
+    box.classList.toggle("d-none", warnings.length === 0);
+  }
+
+  ["HalfLife", "RateInj", "BirthYear"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", checkDomain);
+  });
+  checkDomain();
+
+  const BF_SCENARIOS = [
+    { id: "no_bf",  label: "No breastfeeding",  color: "#555555" },
+    { id: "bf_6mo", label: "BF 6 months",        color: "#0072B2" },
+    { id: "bf_1yr", label: "BF 1 year",          color: "#009E73" },
+    { id: "bf_3yr", label: "BF 3 years",         color: "#D55E00" },
+  ];
+
+  document.getElementById("compare-btn").addEventListener("click", async () => {
+    const form    = document.getElementById("sim-form");
+    const btn     = document.getElementById("compare-btn");
+    const status  = document.getElementById("status");
+    const errBox  = document.getElementById("error-box");
+    const summary = document.getElementById("summary");
+
+    btn.disabled = true;
+    status.textContent = "Running all 4 breastfeeding scenarios…";
+    status.classList.remove("d-none");
+    errBox.classList.add("d-none");
+    summary.classList.add("d-none");
+
+    const base = {
+      HalfLife:  parseFloat(form.HalfLife.value),
+      RateInj:   parseFloat(form.RateInj.value),
+      BirthYear: parseFloat(form.BirthYear.value),
+    };
+
+    try {
+      const results = [];
+      for (const sc of BF_SCENARIOS) {
+        const resp = await fetch("/model/studies/ratier/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...base, scenario: sc.id }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        results.push({ meta: sc, data });
+        status.textContent = `Completed ${results.length}/4 scenarios…`;
+      }
+
+      const firstTs = results[0].data.timeseries;
+      const ages = firstTs.map(r => r.Age != null ? r.Age.toFixed(3) : r.time);
+      const datasets = results.map(({ meta, data: d }) => ({
+        label: meta.label,
+        data:  d.timeseries.map(r => r.C_ven),
+        borderColor: meta.color,
+        backgroundColor: "transparent",
+        borderWidth: 1.8,
+        pointRadius: 0,
+        tension: 0.2,
+      }));
+      THRESHOLDS.forEach(t => {
+        datasets.push({
+          label: `${t.chemical} threshold: ${t.value} ${t.units}`,
+          data: new Array(ages.length).fill(t.value),
+          borderColor: "#D00000",
+          backgroundColor: "transparent",
+          borderWidth: 1.5,
+          borderDash: [6, 4],
+          pointRadius: 0,
+        });
+      });
+
+      if (_chart) _chart.destroy();
+      _chart = new Chart(document.getElementById("sim-chart"), {
+        type: "line",
+        data: { labels: ages, datasets },
+        options: {
+          animation: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { display: true, position: "bottom" },
+            tooltip: { callbacks: {
+              label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(4) : "—"}`,
+            }},
+          },
+          scales: {
+            x: { title: { display: true, text: "Age (years)" } },
+            y: { title: { display: true, text: "Venous conc. (mg/L)" }, beginAtZero: true },
+          },
+        },
+      });
+      summary.classList.remove("d-none");
+    } catch (err) {
+      errBox.textContent = "Comparison error: " + err.message;
+      errBox.classList.remove("d-none");
+    } finally {
+      btn.disabled = false;
+      status.classList.add("d-none");
+    }
+  });
 
   document.getElementById("download-btn").addEventListener("click", () => {
     if (!_lastResult) return;

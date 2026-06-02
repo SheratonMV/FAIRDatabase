@@ -12,6 +12,16 @@
     and returns monthly maternal plasma percentile bands.
   </p>
 
+  <!-- ── Applicability domain notice ─────────────────────────────────────── -->
+  <div class="alert alert-warning d-flex align-items-start mb-3 py-2" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2 mt-1 flex-shrink-0"></i>
+    <div class="small">
+      <strong>Applicability domain:</strong> NICHD Nuage cohort (USA); PFOS only;
+      gestational months 1–9. n_iter ≥ 1000 recommended for production percentile estimates.
+      <a href="/model/catalogue/verner" class="alert-link">Full details →</a>
+    </div>
+  </div>
+
   <!-- ── Runtime warning ────────────────────────────────────────────────── -->
   <div class="alert alert-warning" role="alert">
     <strong>Note:</strong> Runtime scales with <em>n_iter</em>.
@@ -100,10 +110,12 @@
       </div>
     </div>
 
-    <!-- ── Download ───────────────────────────────────────────────────────── -->
-    <button id="download-btn" class="btn btn-outline-secondary mb-4">
-      Download timeseries (CSV)
-    </button>
+    <div class="d-flex gap-2 mb-4">
+      <button id="download-btn" class="btn btn-outline-secondary">Download timeseries (CSV)</button>
+      <a id="results-link" href="#" class="btn btn-outline-primary d-none">
+        <i class="bi bi-graph-up me-1"></i>View full results &amp; provenance
+      </a>
+    </div>
   </div>
 </div>
 
@@ -113,6 +125,8 @@
 <script>
 (function () {
   "use strict";
+
+  const THRESHOLDS = {{ thresholds | default([]) | tojson }};
 
   let _lastResult = null;
   let _chart      = null;
@@ -148,6 +162,10 @@
       renderSummary(data);
       renderChart(data);
       summary.classList.remove("d-none");
+      if (data.run_id) {
+        const link = document.getElementById("results-link");
+        if (link) { link.href = `/model/results/${data.run_id}`; link.classList.remove("d-none"); }
+      }
     } catch (err) {
       errBox.textContent = "Error: " + err.message;
       errBox.classList.remove("d-none");
@@ -179,42 +197,53 @@
     const p95s   = ts.map(r => r.CA_p95_mgL);
 
     // Build shaded band as fill between two datasets
+    const datasets = [
+      {
+        label:           "5th percentile",
+        data:            p5s,
+        borderWidth:     0,
+        pointRadius:     0,
+        fill:            "+1",
+        backgroundColor: "rgba(99,132,255,0.15)",
+        borderColor:     "transparent",
+      },
+      {
+        label:           "95th percentile",
+        data:            p95s,
+        borderWidth:     0,
+        pointRadius:     0,
+        fill:            false,
+        backgroundColor: "rgba(99,132,255,0.15)",
+        borderColor:     "transparent",
+      },
+      {
+        label:           "Mean CA maternal (mg/L)",
+        data:            means,
+        borderWidth:     2,
+        pointRadius:     3,
+        tension:         0.2,
+        borderColor:     "rgb(54,96,210)",
+        backgroundColor: "rgb(54,96,210)",
+        fill:            false,
+      },
+    ];
+
+    THRESHOLDS.forEach(t => {
+      datasets.push({
+        label: `${t.chemical} threshold: ${t.value} ${t.units}`,
+        data: new Array(labels.length).fill(t.value),
+        borderColor: "#D00000",
+        backgroundColor: "transparent",
+        borderWidth: 1.5,
+        borderDash: [6, 4],
+        pointRadius: 0,
+      });
+    });
+
     if (_chart) _chart.destroy();
     _chart = new Chart(document.getElementById("sim-chart"), {
       type: "line",
-      data: {
-        labels,
-        datasets: [
-          {
-            label:           "5th percentile",
-            data:            p5s,
-            borderWidth:     0,
-            pointRadius:     0,
-            fill:            "+1",
-            backgroundColor: "rgba(99,132,255,0.15)",
-            borderColor:     "transparent",
-          },
-          {
-            label:           "95th percentile",
-            data:            p95s,
-            borderWidth:     0,
-            pointRadius:     0,
-            fill:            false,
-            backgroundColor: "rgba(99,132,255,0.15)",
-            borderColor:     "transparent",
-          },
-          {
-            label:           "Mean CA maternal (mg/L)",
-            data:            means,
-            borderWidth:     2,
-            pointRadius:     3,
-            tension:         0.2,
-            borderColor:     "rgb(54,96,210)",
-            backgroundColor: "rgb(54,96,210)",
-            fill:            false,
-          },
-        ],
-      },
+      data: { labels, datasets },
       options: {
         animation: false,
         plugins: {
