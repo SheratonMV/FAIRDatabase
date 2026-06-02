@@ -224,7 +224,7 @@ def fetch_run_provenance(run_id: int) -> dict | None:
         cur.execute(
             """
             SELECT r.id, r.param_set_id, r.study_slug, r.scenario,
-                   r.compound, r.engine, r.created_at, r.user_id,
+                   r.compound, r.engine, r.created_at, r.owner_id AS user_id,
                    ps.name AS param_set_name
             FROM _fd.pbpk_simulation_runs r
             LEFT JOIN _fd.pbpk_parameter_sets ps ON ps.id = r.param_set_id
