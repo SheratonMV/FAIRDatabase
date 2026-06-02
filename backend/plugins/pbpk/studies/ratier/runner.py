@@ -81,10 +81,10 @@ DEFAULT_INITIAL_Q: dict[str, float] = {
 
 # Pre-defined scenario labels and their breastfeeding durations (minutes).
 SCENARIOS: list[dict] = [
-    {"label": "no_bf",  "description": "No breastfeeding",  "StopBreastmilk_total": 0},
-    {"label": "bf_6mo", "description": "Breastfed 6 months","StopBreastmilk_total": 262_800},
-    {"label": "bf_1yr", "description": "Breastfed 1 year",  "StopBreastmilk_total": 525_600},
-    {"label": "bf_3yr", "description": "Breastfed 3 years", "StopBreastmilk_total": 1_576_800},
+    {"label": "no_bf",  "description": "No breastfeeding",   "StopBreastmilk_total": 0,          "LactationTotal_Duration_inWeek": 0},
+    {"label": "bf_6mo", "description": "Breastfed 6 months", "StopBreastmilk_total": 262_800,    "LactationTotal_Duration_inWeek": 26},
+    {"label": "bf_1yr", "description": "Breastfed 1 year",   "StopBreastmilk_total": 525_600,    "LactationTotal_Duration_inWeek": 52},
+    {"label": "bf_3yr", "description": "Breastfed 3 years",  "StopBreastmilk_total": 1_576_800,  "LactationTotal_Duration_inWeek": 156},
 ]
 
 OUTPUT_VARS = [
@@ -435,10 +435,11 @@ def execute(user_params: dict[str, Any]) -> dict:
     """
     mdl = _get_model()
 
-    # Resolve scenario label → StopBreastmilk_total
+    # Resolve scenario label → all scenario parameters
     scenario_label = user_params.get("scenario", "no_bf")
-    scenario_map   = {s["label"]: s["StopBreastmilk_total"] for s in SCENARIOS}
-    stop_bf = scenario_map.get(scenario_label, user_params.get("StopBreastmilk_total", 0))
+    scenario_entry = next((s for s in SCENARIOS if s["label"] == scenario_label), {})
+    scenario_overrides = {k: float(v) for k, v in scenario_entry.items()
+                          if k not in ("label", "description")}
 
     n_steps = int(user_params.get("n_steps", N_STEPS))
     t_eval  = np.linspace(T_START, T_END, n_steps)
@@ -449,8 +450,7 @@ def execute(user_params: dict[str, Any]) -> dict:
     user_chemical = {k: float(v) for k, v in user_params.items()
                      if k in override_keys}
 
-    params = mdl.make_params(DEFAULT_PARAMS, user_chemical,
-                             {"StopBreastmilk_total": float(stop_bf)})
+    params = mdl.make_params(DEFAULT_PARAMS, user_chemical, scenario_overrides)
     y0     = mdl.make_y0(DEFAULT_INITIAL_Q)
 
     df = mdl.simulate(params, y0, t_eval)

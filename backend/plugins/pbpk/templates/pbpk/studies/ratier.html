@@ -16,8 +16,9 @@
     <i class="bi bi-exclamation-triangle-fill me-2 mt-1 flex-shrink-0"></i>
     <div class="small">
       <strong>Applicability domain:</strong> Calibrated on the HELIX birth cohort;
-      PFOA/PFOS; birth year 1990–2020. Breast-milk intake pathway (<code>C_milk</code>)
-      is not yet activated — all 4 breastfeeding scenarios return identical infant C_ven.
+      PFOA/PFOS; birth year 1990–2020. Breastfeeding scenarios differ in lactation
+      duration (<code>LactationTotal_Duration_inWeek</code>), which gates PFAS
+      elimination through milk (<code>Q_lact = F_29 × C_milk</code>).
       <a href="/model/catalogue/ratier" class="alert-link">Full details →</a>
     </div>
   </div>
@@ -148,6 +149,12 @@
 <script>
 (function () {
   "use strict";
+
+  /* Pre-fill form from catalogue query params (?HalfLife=3&scenario=bf_6mo…) */
+  new URLSearchParams(window.location.search).forEach((val, key) => {
+    const el = document.getElementById(key) || document.querySelector(`[name="${key}"]`);
+    if (el) el.value = val;
+  });
 
   const THRESHOLDS = {{ thresholds | default([]) | tojson }};
 
