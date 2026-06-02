@@ -18,7 +18,7 @@ from flask import abort, g, jsonify, render_template, request, session
 from kernel.auth import login_required
 
 from . import studies as _studies
-from .catalogue import create_study_run, list_thresholds
+from .catalogue import canonical_hash, create_study_run, find_cached_run, list_thresholds
 from .helpers import fetch_run, update_run
 
 
@@ -98,6 +98,20 @@ def register(routes):
         created_by = session.get("email", "")
         owner_id = getattr(g, "user", None)
 
+        # Content-hash idempotency: return cached run if identical params were run before
+        c_hash = canonical_hash(slug, payload)
+        try:
+            cached_id = find_cached_run(c_hash)
+        except Exception:
+            cached_id = None
+
+        if cached_id is not None:
+            cached_run = fetch_run(cached_id)
+            if cached_run is not None:
+                cached_run["run_id"] = cached_id
+                cached_run["cache_hit"] = True
+                return jsonify(cached_run), 200
+
         # Persist run record before executing so run_id is always returned
         try:
             run_id = create_study_run(
@@ -106,6 +120,7 @@ def register(routes):
                 compound=compound or None,
                 created_by=created_by,
                 owner_id=owner_id,
+                content_hash=c_hash,
             )
         except Exception:
             # DB failure should not block the simulation — return result without run_id

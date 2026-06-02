@@ -1,4 +1,66 @@
+import hashlib
+import json
+
 import pytest
+
+
+class TestStudyRunIdempotency:
+    """Content-hash idempotency caching for bundled study runs."""
+
+    def test_content_hash_computed(self, curator_user, app):
+        """study_run returns run_id for /model/studies/ratier/run."""
+        client, _ = curator_user
+        payload = {"scenario": "no_bf", "HalfLife": 3.5, "RateInj": 0.451695, "BirthYear": 2007}
+        resp = client.post(
+            "/model/studies/ratier/run",
+            json=payload,
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "run_id" in data
+        assert isinstance(data["run_id"], int)
+
+        with app.app_context():
+            from app import get_db
+            db = get_db()
+            cur = db.cursor()
+            cur.execute("DELETE FROM _fd.pbpk_simulation_runs WHERE id = %s", (data["run_id"],))
+            db.commit()
+            cur.close()
+
+    def test_cache_hit_on_duplicate_payload(self, curator_user, app):
+        """Submitting the same payload twice returns cache_hit=True on second call."""
+        client, _ = curator_user
+        payload = {"scenario": "no_bf", "HalfLife": 3.5, "RateInj": 0.451695, "BirthYear": 2007}
+        resp1 = client.post(
+            "/model/studies/ratier/run",
+            json=payload,
+            content_type="application/json",
+        )
+        resp2 = client.post(
+            "/model/studies/ratier/run",
+            json=payload,
+            content_type="application/json",
+        )
+        assert resp1.status_code == 200
+        assert resp2.status_code == 200
+        data1 = resp1.get_json()
+        data2 = resp2.get_json()
+        assert data2.get("cache_hit") is True
+        # Cache hit should return the same run
+        assert data2.get("run_id") == data1.get("run_id")
+
+        with app.app_context():
+            from app import get_db
+            db = get_db()
+            cur = db.cursor()
+            cur.execute(
+                "DELETE FROM _fd.pbpk_simulation_runs WHERE id = %s",
+                (data1["run_id"],),
+            )
+            db.commit()
+            cur.close()
 
 
 class TestSimulationRunRoutes:
