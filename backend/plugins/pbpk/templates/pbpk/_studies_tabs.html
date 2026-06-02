@@ -1,20 +1,35 @@
 {# Sub-navigation rendered at the top of every pbpk page. Convention:
    the global sidebar carries one flat link per plugin; in-plugin switching
    happens here. Driven by `plugin_studies` injected by the pbpk routes — a
-   list of {slug, label, href} dicts plus a sentinel for the lifetime UI. The
-   currently rendered page is marked via `pbpk_active_tab` (slug or "lifetime").
+   list of {slug, label, href} dicts plus sentinels for the lifetime UI and
+   catalogue. The currently rendered page is marked via `pbpk_active_tab`
+   (slug, "lifetime", or "catalogue").
 #}
-<ul class="nav nav-pills mb-3 pbpk-studies-tabs">
+<ul class="nav nav-pills mb-3 pbpk-studies-tabs flex-wrap">
   <li class="nav-item">
-    <a class="nav-link{% if pbpk_active_tab == 'lifetime' %} active{% endif %}" href="/model/ui">
+    <a class="nav-link{% if pbpk_active_tab == 'catalogue' %} active{% endif %}"
+       href="/model/catalogue">
+      <i class="bi bi-grid-3x3-gap me-1"></i>Model Catalogue
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link{% if pbpk_active_tab == 'lifetime' %} active{% endif %}"
+       href="/model/ui">
       Lifetime simulation
     </a>
   </li>
   {% for s in plugin_studies %}
     <li class="nav-item">
-      <a class="nav-link{% if pbpk_active_tab == s.slug %} active{% endif %}" href="{{ s.href }}">
+      <a class="nav-link{% if pbpk_active_tab == s.slug %} active{% endif %}"
+         href="{{ s.href }}">
         {{ s.label }}
       </a>
     </li>
   {% endfor %}
+  <li class="nav-item">
+    <a class="nav-link{% if pbpk_active_tab == 'history' %} active{% endif %}"
+       href="/model/history">
+      <i class="bi bi-clock-history me-1"></i>Run History
+    </a>
+  </li>
 </ul>

@@ -47,6 +47,13 @@ from .helpers import (
     store_parameter_set,
     update_run,
 )
+from .catalogue import (
+    list_models,
+    fetch_model,
+    list_thresholds,
+    create_threshold,
+    list_run_history,
+)
 
 import logging
 _log = logging.getLogger(__name__)
@@ -364,6 +371,144 @@ def list_run_artifacts(run_id):
         r["url"] = signed_url(r["storage_path"], ARTIFACT_SIGNED_URL_TTL)
     return jsonify(rows), 200
 
+
+# ── Catalogue HTML pages ──────────────────────────────────────────────────────
+
+@routes.route("/catalogue", methods=["GET"])
+@login_required()
+def catalogue():
+    models = list_models()
+    return render_template(
+        "pbpk/catalogue.html",
+        models=models,
+        user_email=session.get("email"),
+        current_path=request.path,
+        pbpk_active_tab="catalogue",
+    )
+
+
+@routes.route("/catalogue/<slug>", methods=["GET"])
+@login_required()
+def model_detail(slug):
+    model = fetch_model(slug)
+    if model is None:
+        abort(404, description=f"Model '{slug}' not found")
+    thresholds = list_thresholds()
+    return render_template(
+        "pbpk/model_detail.html",
+        model=model,
+        thresholds=thresholds,
+        user_email=session.get("email"),
+        current_path=request.path,
+        pbpk_active_tab="catalogue",
+    )
+
+
+@routes.route("/results/<int:run_id>", methods=["GET"])
+@login_required("admin", "curator", "accessor")
+def results_page(run_id):
+    cur = g.db.cursor()
+    try:
+        assert_can_read_run(cur, run_id, g.user, g.role)
+    except FileNotFoundError:
+        abort(404)
+    except PermissionError:
+        abort(403)
+    finally:
+        cur.close()
+    run = fetch_run(run_id)
+    if run is None:
+        abort(404)
+    slug = run.get("study_slug") or ""
+    model = fetch_model(slug) if slug else None
+    thresholds = list_thresholds(chemical=run.get("compound") or None)
+    return render_template(
+        "pbpk/results.html",
+        run=run,
+        model=model,
+        thresholds=thresholds,
+        user_email=session.get("email"),
+        current_path=request.path,
+        pbpk_active_tab=slug or "lifetime",
+    )
+
+
+@routes.route("/history", methods=["GET"])
+@login_required()
+def run_history_page():
+    try:
+        limit = min(int(request.args.get("limit", 100)), 500)
+    except (TypeError, ValueError):
+        limit = 100
+    runs = list_run_history(user_id=g.user, role=g.role, limit=limit)
+    return render_template(
+        "pbpk/run_history.html",
+        runs=runs,
+        user_email=session.get("email"),
+        current_path=request.path,
+        pbpk_active_tab="history",
+    )
+
+
+# ── JSON API endpoints (/model/api/...) ───────────────────────────────────────
+
+@routes.route("/api/models", methods=["GET"])
+@login_required()
+def api_list_models():
+    return jsonify(list_models()), 200
+
+
+@routes.route("/api/models/<slug>", methods=["GET"])
+@login_required()
+def api_get_model(slug):
+    model = fetch_model(slug)
+    if model is None:
+        return jsonify({"error": "Model not found"}), 404
+    return jsonify(model), 200
+
+
+@routes.route("/api/thresholds", methods=["GET"])
+@login_required()
+def api_list_thresholds():
+    chemical = request.args.get("chemical")
+    return jsonify(list_thresholds(chemical=chemical)), 200
+
+
+@routes.route("/api/thresholds", methods=["POST"])
+@login_required("admin", "curator")
+def api_create_threshold():
+    payload = request.get_json(silent=True) or {}
+    required = ["chemical", "value", "units"]
+    missing = [f for f in required if not payload.get(f)]
+    if missing:
+        return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
+    try:
+        value = float(payload["value"])
+    except (TypeError, ValueError):
+        return jsonify({"error": "value must be a number"}), 400
+    new_id = create_threshold(
+        chemical=payload["chemical"].strip(),
+        endpoint=payload.get("endpoint", "plasma").strip(),
+        value=value,
+        units=payload["units"].strip(),
+        basis=payload.get("basis", "").strip(),
+        doi=payload.get("doi", "").strip(),
+    )
+    return jsonify({"id": new_id}), 201
+
+
+@routes.route("/api/runs", methods=["GET"])
+@login_required()
+def api_list_runs():
+    try:
+        limit = min(int(request.args.get("limit", 50)), 200)
+    except (TypeError, ValueError):
+        limit = 50
+    runs = list_run_history(user_id=g.user, role=g.role, limit=limit)
+    return jsonify(runs), 200
+
+
+# ── Artifact endpoints ────────────────────────────────────────────────────────
 
 @routes.route("/artifacts/<int:artifact_id>", methods=["DELETE"])
 @login_required("admin", "curator")

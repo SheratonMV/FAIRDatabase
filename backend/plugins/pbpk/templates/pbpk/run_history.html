@@ -1,0 +1,80 @@
+{% extends "dashboard/layout.html" %}
+{% block title %}Run History — PBKFAIRModel{% endblock %}
+{% block content %}
+{% include "pbpk/_studies_tabs.html" %}
+<div class="container mt-2">
+
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h2 class="mb-0">Run History</h2>
+      <p class="text-muted mb-0 small">
+        Simulation runs stored with full provenance — click any run to view results.
+      </p>
+    </div>
+    <a href="/model/catalogue" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-grid-3x3-gap me-1"></i>Model Catalogue
+    </a>
+  </div>
+
+  {% if runs %}
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle small">
+      <thead class="table-light">
+        <tr>
+          <th>Run ID</th>
+          <th>Study</th>
+          <th>Scenario</th>
+          <th>Compound</th>
+          <th>Engine</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in runs %}
+        <tr>
+          <td><code>{{ r.id }}</code></td>
+          <td>
+            {% if r.study_slug %}
+              <a href="/model/catalogue/{{ r.study_slug }}" class="text-decoration-none">
+                {{ r.study_slug }}
+              </a>
+            {% else %}
+              <span class="text-muted">lifetime</span>
+            {% endif %}
+          </td>
+          <td>{{ r.scenario or "—" }}</td>
+          <td>
+            {% if r.compound %}
+              <span class="badge bg-info text-dark">{{ r.compound }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td><code>{{ r.engine or "scipy_lsoda" }}</code></td>
+          <td>
+            <span class="badge {% if r.status == 'done' %}bg-success{% elif r.status == 'error' %}bg-danger{% elif r.status == 'running' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+              {{ r.status }}
+            </span>
+          </td>
+          <td class="text-muted">{{ r.created_at[:16] if r.created_at else "—" }}</td>
+          <td>
+            {% if r.status == "done" %}
+            <a href="/model/results/{{ r.id }}" class="btn btn-sm btn-outline-primary py-0 px-2">
+              <i class="bi bi-graph-up me-1"></i>Results
+            </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center text-muted py-5">
+    <i class="bi bi-clock-history display-4 mb-3 d-block"></i>
+    No simulation runs yet. <a href="/model/catalogue">Run a simulation</a> to get started.
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
