@@ -321,6 +321,50 @@ def fetch_run_provenance(run_id: int) -> dict | None:
     return doc
 
 
+def fetch_run_checked(run_id: int, user_id: str, role: str) -> dict:
+    """Fetch a simulation run and verify read access in a single DB query.
+
+    Replaces the ``assert_can_read_run`` + ``fetch_run`` two-query pattern
+    used in GET /runs/<id> and the results page. Returns the run dict
+    (owner_id is stripped). Raises FileNotFoundError when the run does not
+    exist, PermissionError when access is denied.
+    """
+    cur = g.db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        """
+        SELECT id, param_set_id, scenario, status, started_at, finished_at,
+               error_message, summary, timeseries, created_by, created_at, owner_id
+        FROM _fd.pbpk_simulation_runs
+        WHERE id = %s
+        """,
+        (run_id,),
+    )
+    row = cur.fetchone()
+    cur.close()
+
+    if row is None:
+        raise FileNotFoundError("run not found")
+
+    run_owner = row["owner_id"]
+    if role == "admin":
+        pass
+    elif role in ("curator", "accessor") and user_id:
+        if str(run_owner) != str(user_id):
+            raise PermissionError("forbidden")
+    else:
+        raise PermissionError("forbidden")
+
+    result = dict(row)
+    result.pop("owner_id", None)  # do not expose internal UUID to clients
+    for field in ("summary", "timeseries"):
+        if isinstance(result.get(field), str):
+            result[field] = json.loads(result[field])
+    for field in ("started_at", "finished_at", "created_at"):
+        if result.get(field) is not None:
+            result[field] = result[field].isoformat()
+    return result
+
+
 # ── RBAC: handler-level checks (load-bearing on the Flask path) ───────────────
 #
 # RLS on _fd.pbpk_* exists in pbpk_schema.sql but does NOT fire here because

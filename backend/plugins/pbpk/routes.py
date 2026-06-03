@@ -25,7 +25,7 @@ import os
 import tempfile
 import uuid as _uuid
 
-from flask import Blueprint, abort, g, jsonify, render_template, request, session
+from flask import Blueprint, abort, g, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.utils import secure_filename
 
 from kernel.auth import login_required
@@ -41,6 +41,7 @@ from .helpers import (
     fetch_artifact,
     fetch_parameter_set,
     fetch_run,
+    fetch_run_checked,
     fetch_run_provenance,
     insert_artifact,
     list_artifacts,
@@ -120,18 +121,7 @@ def _inject_pbpk_studies():
 @routes.route("/ui", methods=["GET"])
 @login_required()
 def model_ui():
-    role = getattr(g, "role", None)
-    return render_template(
-        "pbpk/pbkfair.html",
-        scenarios=available_scenarios(),
-        user_email=session.get("email"),
-        current_user_id=getattr(g, "user", None),
-        is_admin=(role == "admin"),
-        can_upload=role in ("admin", "curator"),
-        can_view_artifacts=role in ("admin", "curator", "accessor"),
-        current_path=request.path,
-        pbpk_active_tab="lifetime",
-    )
+    return redirect(url_for("pbpk_routes.catalogue"))
 
 
 @routes.route("/run", methods=["POST"])
@@ -239,18 +229,12 @@ def create_simulation_run():
 @routes.route("/runs/<int:run_id>", methods=["GET"])
 @login_required("admin", "curator", "accessor")
 def get_simulation_run(run_id):
-    cur = g.db.cursor()
     try:
-        assert_can_read_run(cur, run_id, g.user, g.role)
+        run = fetch_run_checked(run_id, g.user, g.role)
     except FileNotFoundError:
         return jsonify({"error": "Run not found"}), 404
     except PermissionError:
         abort(403)
-    finally:
-        cur.close()
-    run = fetch_run(run_id)
-    if run is None:
-        return jsonify({"error": "Run not found"}), 404
     return jsonify(run), 200
 
 
@@ -428,18 +412,12 @@ def model_detail(slug):
 @routes.route("/results/<int:run_id>", methods=["GET"])
 @login_required("admin", "curator", "accessor")
 def results_page(run_id):
-    cur = g.db.cursor()
     try:
-        assert_can_read_run(cur, run_id, g.user, g.role)
+        run = fetch_run_checked(run_id, g.user, g.role)
     except FileNotFoundError:
         abort(404)
     except PermissionError:
         abort(403)
-    finally:
-        cur.close()
-    run = fetch_run(run_id)
-    if run is None:
-        abort(404)
     slug = run.get("study_slug") or ""
     model = fetch_model(slug) if slug else None
     thresholds = list_thresholds(chemical=run.get("compound") or None)
