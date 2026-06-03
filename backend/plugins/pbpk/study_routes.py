@@ -13,7 +13,7 @@ the results page at /model/results/<run_id> can display full provenance.
 """
 from __future__ import annotations
 
-from flask import abort, g, jsonify, render_template, request, session
+from flask import abort, g, jsonify, redirect, render_template, request, session, url_for
 
 from kernel.auth import login_required
 
@@ -57,29 +57,8 @@ def register(routes):
     @routes.route("/studies/<slug>/ui", methods=["GET"])
     @login_required()
     def study_ui(slug):
-        meta = _meta(slug)
-        try:
-            mod = _studies.load(slug)
-        except ImportError as exc:
-            return (
-                f"Study '{slug}' is unavailable: missing dependency ({exc}).",
-                503,
-            )
-        ctx = {
-            "user_email": session.get("email"),
-            "current_path": request.path,
-            "slug": slug,
-            "pbpk_active_tab": slug,
-        }
-        if meta["has_scenarios"]:
-            ctx["scenarios"] = _scenarios(mod)
-        if meta["has_compounds"]:
-            ctx["compounds"] = _compounds(mod)
-        try:
-            ctx["thresholds"] = list_thresholds()
-        except Exception:
-            ctx["thresholds"] = []
-        return render_template(meta["template"], **ctx)
+        _meta(slug)  # validate slug exists (raises 404 if not)
+        return redirect(url_for("pbpk_routes.catalogue"))
 
     @routes.route("/studies/<slug>/run", methods=["POST"])
     @login_required()
@@ -125,9 +104,6 @@ def register(routes):
         except Exception:
             # DB failure should not block the simulation — return result without run_id
             run_id = None
-
-        if run_id is not None:
-            update_run(run_id, "running")
 
         try:
             result = mod.execute(payload)

@@ -152,6 +152,39 @@ class TestSimulationRunRoutes:
         resp = client.get("/model/runs/999999999")
         assert resp.status_code == 404
 
+    def test_study_run_status_is_done_not_running(self, curator_user, app):
+        """Study run should go pending → done without a visible 'running' state.
+
+        Removing the intermediate update_run('running') call means the run is
+        never observable as 'running' — it goes directly to 'done' or 'error'.
+        started_at must still be set (via COALESCE in update_run).
+        """
+        client, _ = curator_user
+        payload = {"scenario": "no_bf", "HalfLife": 3.5, "RateInj": 0.451695, "BirthYear": 2007}
+        resp = client.post(
+            "/model/studies/ratier/run",
+            json=payload,
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        run_id = data["run_id"]
+
+        with app.app_context():
+            from app import get_db
+            from plugins.pbpk.helpers import fetch_run
+            get_db()
+            run = fetch_run(run_id)
+            assert run["status"] == "done"
+            assert run["started_at"] is not None, "started_at must be set via COALESCE"
+            assert run["finished_at"] is not None
+
+            db = get_db()
+            cur = db.cursor()
+            cur.execute("DELETE FROM _fd.pbpk_simulation_runs WHERE id = %s", (run_id,))
+            db.commit()
+            cur.close()
+
     def test_invalid_scenario_sets_run_status_error(self, curator_user, app):
         client, _ = curator_user
         ps_resp = client.post(

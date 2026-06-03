@@ -160,8 +160,10 @@ def update_run(
     parts = ["status = %s"]
     values: list = [status]
 
-    if status == "running":
-        parts.append("started_at = %s")
+    if status in ("running", "done", "error"):
+        # COALESCE preserves started_at when an earlier "running" update already set it.
+        # For synchronous runs that skip the "running" update, this sets it on completion.
+        parts.append("started_at = COALESCE(started_at, %s)")
         values.append(now)
     if status in ("done", "error"):
         parts.append("finished_at = %s")

@@ -201,7 +201,6 @@ def create_simulation_run():
     created_by = session.get("email", "")
 
     run_id = create_run(int(param_set_id), scenario, created_by, owner_id=g.user)
-    update_run(run_id, "running")
 
     merged_params = {**DEFAULT_PARAMS, **ps["params"], "scenario": scenario}
 
