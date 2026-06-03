@@ -128,6 +128,12 @@
 (function () {
   "use strict";
 
+  /* Pre-fill form from catalogue query params (?compound=PFOS&n_iter=200…) */
+  new URLSearchParams(window.location.search).forEach((val, key) => {
+    const el = document.getElementById(key) || document.querySelector(`[name="${key}"]`);
+    if (el) el.value = val;
+  });
+
   const THRESHOLDS = {{ thresholds | default([]) | tojson }};
 
   const FONT    = "'Inter','Helvetica Neue',system-ui,-apple-system,sans-serif";
@@ -136,8 +142,9 @@
   function yMax(dataSeries) {
     const flat = [].concat(...dataSeries).filter(v => v != null && isFinite(v));
     if (!flat.length) return 1;
-    const mx = Math.max(...flat);
-    const tMax = Math.max(0, ...THRESHOLDS.map(t => t.value).filter(v => v <= mx * 2));
+    const mx = flat.reduce((a, b) => (b > a ? b : a), -Infinity);
+    const threshVals = THRESHOLDS.map(t => t.value).filter(v => v <= mx * 2);
+    const tMax = threshVals.reduce((a, b) => (b > a ? b : a), 0);
     return (Math.max(mx, tMax) * 1.18) || 1e-9;
   }
 

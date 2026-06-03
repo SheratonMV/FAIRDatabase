@@ -166,8 +166,9 @@
   function yMax(dataSeries) {
     const flat = [].concat(...dataSeries).filter(v => v != null && isFinite(v));
     if (!flat.length) return 1;
-    const mx = Math.max(...flat);
-    const tMax = Math.max(0, ...THRESHOLDS.map(t => t.value).filter(v => v <= mx * 2));
+    const mx = flat.reduce((a, b) => (b > a ? b : a), -Infinity);
+    const threshVals = THRESHOLDS.map(t => t.value).filter(v => v <= mx * 2);
+    const tMax = threshVals.reduce((a, b) => (b > a ? b : a), 0);
     return (Math.max(mx, tMax) * 1.18) || 1e-9;
   }
 

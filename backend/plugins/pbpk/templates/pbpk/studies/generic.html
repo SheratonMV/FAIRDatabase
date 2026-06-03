@@ -122,13 +122,20 @@
 (function () {
   "use strict";
 
+  /* Pre-fill form from catalogue query params (?compound=PFOS&scenario=bf_1yr…) */
+  new URLSearchParams(window.location.search).forEach((val, key) => {
+    const el = document.getElementById(key) || document.querySelector(`[name="${key}"]`);
+    if (el) el.value = val;
+  });
+
   const FONT    = "'Inter','Helvetica Neue',system-ui,-apple-system,sans-serif";
   const PALETTE = ["#0072B2","#D55E00","#009E73","#CC79A7"];
 
   function yMax(dataSeries) {
     const flat = [].concat(...dataSeries).filter(v => v != null && isFinite(v));
     if (!flat.length) return 1;
-    return (Math.max(...flat) * 1.18) || 1e-9;
+    const mx = flat.reduce((a, b) => (b > a ? b : a), -Infinity);
+    return (mx * 1.18) || 1e-9;
   }
 
   function baseOpts(xLabel, yLabel, yMaxVal) {
