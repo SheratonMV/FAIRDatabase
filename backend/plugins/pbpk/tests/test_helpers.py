@@ -101,3 +101,112 @@ class TestPBPKHelpers:
         with app.app_context():
             get_db()
             assert fetch_run(999999999) is None
+
+
+class TestEnsureSeeded:
+    def test_seed_models_not_called_when_already_populated(self, app, monkeypatch):
+        """ensure_seeded() must not call seed_models() when models already exist."""
+        from plugins.pbpk import catalogue as cat
+
+        # Force cold-worker state so ensure_seeded won't short-circuit on the flag.
+        cat._seeded = False
+
+        calls = []
+        original = cat.seed_models
+
+        def spy(*a, **kw):
+            calls.append(1)
+            return original(*a, **kw)
+
+        monkeypatch.setattr(cat, "seed_models", spy)
+
+        with app.app_context():
+            get_db()
+            cat.ensure_seeded()   # table already has rows from migrations
+            assert len(calls) == 0, "seed_models() should not run when catalogue is populated"
+
+        cat._seeded = False  # reset so other tests start clean
+
+    def test_seed_models_called_when_empty(self, app, monkeypatch):
+        """ensure_seeded() must call seed_models() when the table is empty."""
+        from plugins.pbpk import catalogue as cat
+
+        cat._seeded = False
+
+        calls = []
+        original = cat.seed_models
+
+        def spy(*a, **kw):
+            calls.append(1)
+            return original(*a, **kw)
+
+        monkeypatch.setattr(cat, "seed_models", spy)
+
+        with app.app_context():
+            db = get_db()
+            # Temporarily clear the table to simulate a fresh DB.
+            cur = db.cursor()
+            cur.execute("DELETE FROM _fd.pbpk_models")
+            db.commit()
+            cur.close()
+
+            try:
+                cat.ensure_seeded()
+                assert len(calls) == 1, "seed_models() must run when catalogue is empty"
+            finally:
+                # Restore: seed again so downstream tests see a populated catalogue.
+                cat._seeded = False
+                cat.seed_models()
+                db.commit()
+
+        cat._seeded = False
+
+
+class TestFetchRunChecked:
+    def test_returns_run_for_admin(self, app):
+        """Admin can fetch any run regardless of owner."""
+        from plugins.pbpk.helpers import (
+            store_parameter_set, create_run, fetch_run_checked,
+        )
+        with app.app_context():
+            db = get_db()
+            ps_id = store_parameter_set("Checked Test", "", {}, "u@test.com")
+            run_id = create_run(ps_id, "no_bf", "u@test.com")
+
+            run = fetch_run_checked(run_id, user_id="some-uuid", role="admin")
+            assert run is not None
+            assert run["id"] == run_id
+            assert "owner_id" not in run
+
+            cur = db.cursor()
+            cur.execute("DELETE FROM _fd.pbpk_simulation_runs WHERE id = %s", (run_id,))
+            cur.execute("DELETE FROM _fd.pbpk_parameter_sets WHERE id = %s", (ps_id,))
+            db.commit()
+            cur.close()
+
+    def test_raises_file_not_found_for_missing_run(self, app):
+        from plugins.pbpk.helpers import fetch_run_checked
+        with app.app_context():
+            get_db()
+            with pytest.raises(FileNotFoundError):
+                fetch_run_checked(999999999, user_id="x", role="admin")
+
+    def test_raises_permission_error_for_wrong_owner(self, app):
+        """Non-admin user cannot read a run they do not own."""
+        import uuid
+        from plugins.pbpk.helpers import (
+            store_parameter_set, create_run, fetch_run_checked,
+        )
+        with app.app_context():
+            db = get_db()
+            ps_id = store_parameter_set("Auth Test", "", {}, "u@test.com")
+            run_id = create_run(ps_id, "no_bf", "u@test.com", owner_id=None)
+
+            with pytest.raises(PermissionError):
+                fetch_run_checked(run_id, user_id=str(uuid.uuid4()), role="curator")
+
+            cur = db.cursor()
+            cur.execute("DELETE FROM _fd.pbpk_simulation_runs WHERE id = %s", (run_id,))
+            cur.execute("DELETE FROM _fd.pbpk_parameter_sets WHERE id = %s", (ps_id,))
+            db.commit()
+            cur.close()

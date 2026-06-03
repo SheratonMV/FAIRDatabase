@@ -168,11 +168,23 @@ _seeded = False
 
 
 def ensure_seeded() -> None:
-    """Upsert catalogue entries for all bundled studies (idempotent)."""
+    """Upsert catalogue entries only when the table is missing rows.
+
+    Uses a single SELECT instead of 4 blind UPSERTs on every cold-worker
+    start. The process-level ``_seeded`` flag still short-circuits the
+    SELECT on subsequent requests within the same worker lifetime.
+    """
     global _seeded
     if _seeded:
         return
-    seed_models()
+    cur = g.db.cursor()
+    try:
+        cur.execute("SELECT COUNT(*) FROM _fd.pbpk_models")
+        count = cur.fetchone()[0]
+    finally:
+        cur.close()
+    if count < len(_MODEL_SEEDS):
+        seed_models()
     _seeded = True
 
 
