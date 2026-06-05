@@ -47,21 +47,30 @@ DEFAULT_PARAMS: dict[str, float] = {
     "PC_10": 0.10, "PC_11": 0.58, "PC_12": 0.38, "PC_13": 0.58, "PC_14": 0.58,
     "PC_15": 0.63, "PC_16": 0.58, "PC_17": 0.58, "PC_18": 0.52, "PC_22": 1.0,
     "PC_26": 1.0,  "PC_27": 1.0,  "PC_29": 0.02,
-    "PC_foetus_0":  0.23, "PC_foetus_1":  0.58, "PC_foetus_2":  0.58,
-    "PC_foetus_3":  0.08, "PC_foetus_4":  0.10, "PC_foetus_5":  0.58,
-    "PC_foetus_6":  0.58, "PC_foetus_7":  0.10, "PC_foetus_8":  0.58,
-    "PC_foetus_9":  0.22, "PC_foetus_10": 0.10, "PC_foetus_11": 0.58,
-    "PC_foetus_12": 0.38, "PC_foetus_13": 0.58, "PC_foetus_14": 0.58,
-    "PC_foetus_15": 0.63, "PC_foetus_16": 0.58, "PC_foetus_17": 0.58,
-    "PC_foetus_18": 0.52, "PC_foetus_22": 1.0,
+    # Foetal plasma:tissue PCs — PFOA, Ratier 2024 SI Table S3 (Mamsen 2019; adrenal/
+    # bone/marrow/sex-organ/spleen/urinary/kidney/gut/stomach from Brochot 2019).
+    "PC_foetus_0":  0.48, "PC_foetus_1":  0.55, "PC_foetus_2":  0.55,
+    "PC_foetus_3":  0.24, "PC_foetus_4":  0.09, "PC_foetus_5":  0.40,
+    "PC_foetus_6":  0.55, "PC_foetus_7":  0.09, "PC_foetus_8":  0.55,
+    "PC_foetus_9":  0.30, "PC_foetus_10": 0.09, "PC_foetus_11": 0.55,
+    "PC_foetus_12": 0.26, "PC_foetus_13": 0.55, "PC_foetus_14": 0.55,
+    "PC_foetus_15": 0.81, "PC_foetus_16": 0.55, "PC_foetus_17": 0.55,
+    "PC_foetus_18": 0.74, "PC_foetus_22": 1.0,
     "K_PerMin": 0.0, "K_LPerMin": 0.0, "Km": 1.0, "Vmax_mp": 0.0,
     "Ka_stomach": 0.0, "Ka_gut": 0.0,
     "Ke_bile": 0.0, "Ke_renal_input": 0.0, "F_gut2faeces_input": 0.0,
-    "Kd_pla2amniot": 0.0, "Kd_uter2pla_frac": 0.0,
+    # Kd_uter2pla_frac gates maternal->placenta->fetus transfer (forward pregnancy).
+    # Individually calibrated (Bayesian MCMC) in Ratier 2024; posterior values NOT public
+    # (only R-hat diagnostics). Left 0 = forward pregnancy out of scope; the child phase is
+    # seeded via the published cord:maternal ratio. See FAIR_PBK_Ratier_pregnancy_scope.md.
+    "Kd_pla2amniot": 0.0, "Kd_uter2pla_frac": 0.0,  # UNKNOWN_SOURCE (calibrated, not public)
     "Ka_amniot": 0.0, "Ke_gut_foetus": 0.0, "Ke_bile_foetus": 0.0,
     "mainCYP": 0.0, "Intake_var": 1.0,
-    "Frac_Intake_Infant": 3.65, "Frac_Intake_Toddler": 3.80,
-    "Frac_Intake_Children": 2.75, "Frac_Intake_Ado": 1.41,
+    # PFOA dietary intake fractions by life stage (Ratier 2024 §2.5.2 / EFSA 2020).
+    # NOTE: these were previously set to the PFOS values (3.65/3.80/2.75) — fixed to
+    # PFOA. DEFAULT_PARAMS is the PFOA baseline; use PFOS_PARAMS for PFOS.
+    "Frac_Intake_Infant": 3.99, "Frac_Intake_Toddler": 4.21,
+    "Frac_Intake_Children": 2.47, "Frac_Intake_Ado": 1.41,
     "DecreaseIntake_1": 0.20, "DecreaseIntake_2": 0.04,
     "BirthYear": 2007.0, "RateInj": 0.451695,
     "Gestation_StartAge_inYear": 0.0, "Gestation_Duration_inWeek": 0.0,
@@ -77,6 +86,46 @@ DEFAULT_INITIAL_Q: dict[str, float] = {
     "Q_16": 0.53153, "Q_17": 0.06937, "Q_18": 0.83328,
     "Q_19": 0.0,     "Q_20": 0.0,
     "Q_art": 0.3309, "Q_ven": 0.99083,
+}
+
+# PFOS variant: half-life 4.1 yr, own dietary intake fractions (Ratier 2024 §2.5.2 /
+# EFSA 2020), and its own foetal plasma:tissue PCs from Ratier 2024 SI Table S3
+# (Mamsen 2019; differ from PFOA). Use with make_params(PFOS_PARAMS).
+PFOS_PARAMS: dict[str, float] = {
+    **DEFAULT_PARAMS, "HalfLife": 4.1,
+    "Frac_Intake_Infant": 3.65, "Frac_Intake_Toddler": 3.80,
+    "Frac_Intake_Children": 2.75, "Frac_Intake_Ado": 1.41,
+    "PC_foetus_0":  0.44, "PC_foetus_1":  0.58, "PC_foetus_2":  0.58,  # Table S3 PFOS
+    "PC_foetus_3":  0.21, "PC_foetus_4":  0.10, "PC_foetus_5":  0.44,
+    "PC_foetus_6":  0.58, "PC_foetus_7":  0.10, "PC_foetus_8":  0.58,
+    "PC_foetus_9":  0.22, "PC_foetus_10": 0.10, "PC_foetus_11": 0.58,
+    "PC_foetus_12": 0.38, "PC_foetus_13": 0.58, "PC_foetus_14": 0.58,
+    "PC_foetus_15": 0.41, "PC_foetus_16": 0.58, "PC_foetus_17": 0.58,
+    "PC_foetus_18": 0.54,
+}
+# Alias for clarity at call sites.
+PFOA_PARAMS: dict[str, float] = DEFAULT_PARAMS
+
+# ── HELIX population calibration (no-MCMC forward dosimetry) ───────────────────
+# Sourced from Ratier 2024 (see Ratier2024/runner.py). Reproduces the published
+# child plasma trajectory; this is the study's own calibration, not new tuning.
+HELIX_MATERNAL  = {"PFOA": 2.50, "PFOS": 7.94}    # μg/L, Ratier 2024 Table 1 weighted mean
+CORD_RATIO      = {"PFOA": 0.60, "PFOS": 0.70}    # cord:maternal (Rovira 2019)
+C_VEN_BIRTH_REF = 10.931                          # μg/L, McSIM reference C_ven at birth
+RATEINJ_REF     = 0.451695                        # ng/kg/min, McSIM reference dietary rate
+C_MILK_REF      = 0.284                           # μg/L, breast milk in BF scenarios
+_C_MAT_REF      = {c: C_VEN_BIRTH_REF / CORD_RATIO[c] for c in ("PFOA", "PFOS")}
+HELIX_SCALE     = {c: HELIX_MATERNAL[c] / _C_MAT_REF[c] for c in ("PFOA", "PFOS")}
+# PFOA 0.137 | PFOS 0.508 ; also equals HELIX_MATERNAL*CORD_RATIO/C_VEN_BIRTH_REF
+C_MILK_HELIX    = {"PFOA": 0.076, "PFOS": 0.072}  # μg/L, HELIX cohort medians (BF runs)
+
+# Body-weight growth variability (from McSIM .in file; same as working runner).
+BDW_VARS: dict[str, float] = {
+    "BDW_Var": 0.900308438844513,
+    "BDW_Var2": 0.860834986909385,
+    "BDW_Var3": -1.05664919997588,
+    "BDW_foetus_Var": 1.0,
+    "WeightGainPregnancy_Var": 1.0,
 }
 
 # Pre-defined scenario labels and their breastfeeding durations (minutes).
@@ -317,7 +366,12 @@ class PBPKModel:
         assigned_vars = self._assign_var_set
         for pid, val in self._nonconst_defaults.items():
             if pid not in assigned_vars:
-                lines.append(f"{I}{pid} = {repr(val)}")
+                # Honor caller overrides for non-constant params (e.g. RateInj,
+                # C_milk_input). Previously these were frozen to the zeroed SBML
+                # defaults, so dietary intake + breastfeeding dosing were dropped
+                # (the SBML routes them via events, which this Python runner does not
+                # execute). Matches Rovira/Verner Fork runners and the working Ratier.
+                lines.append(f"{I}{pid} = _p.get('{pid}', {repr(val)})")
         lines.append(f"{I}# assignment rules")
         for var, expr in self.assign_rules:
             lines.append(f"{I}{var} = {expr}")
