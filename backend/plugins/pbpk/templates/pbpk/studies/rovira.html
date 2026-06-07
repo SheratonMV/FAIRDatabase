@@ -127,7 +127,17 @@
 
     <!-- ── Chart ──────────────────────────────────────────────────────────── -->
     <div class="card mb-4">
-      <div class="card-header">Maternal plasma concentration at key time points</div>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Maternal plasma concentration at key time points</span>
+        <div class="d-flex gap-2">
+          <button id="scale-toggle-btn" class="btn btn-outline-secondary btn-sm"
+                  title="Toggle log/linear Y axis">Linear</button>
+          <button id="export-png-btn" class="btn btn-outline-secondary btn-sm"
+                  title="Export chart as PNG">
+            <i class="bi bi-download me-1"></i>PNG
+          </button>
+        </div>
+      </div>
       <div class="card-body">
         <div style="position:relative;height:300px">
           <canvas id="sim-chart"></canvas>
@@ -308,6 +318,31 @@
       options: baseOpts("Gestational week", "Plasma conc. (mg/L)", yMax([mat, fet])),
     });
   }
+
+  // ── Log / linear scale toggle ─────────────────────────────────────────────
+  let _logScale = false;
+  document.getElementById("scale-toggle-btn").addEventListener("click", () => {
+    if (!_chart) return;
+    _logScale = !_logScale;
+    document.getElementById("scale-toggle-btn").textContent = _logScale ? "Log" : "Linear";
+    if (_logScale) {
+      _chart.options.scales.y.type = "logarithmic";
+      delete _chart.options.scales.y.min;
+    } else {
+      _chart.options.scales.y.type = "linear";
+      _chart.options.scales.y.min = 0;
+    }
+    _chart.update();
+  });
+
+  // ── PNG export ────────────────────────────────────────────────────────────
+  document.getElementById("export-png-btn").addEventListener("click", () => {
+    if (!_chart) return;
+    const a = document.createElement("a");
+    a.href = _chart.toBase64Image("image/png", 1);
+    a.download = `rovira_${(_lastResult && _lastResult.compound) || "pbpk"}_chart.png`;
+    a.click();
+  });
 
   document.getElementById("download-btn").addEventListener("click", () => {
     if (!_lastResult) return;

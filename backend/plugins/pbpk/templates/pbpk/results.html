@@ -1,0 +1,324 @@
+{% extends "dashboard/layout.html" %}
+
+{% block title %}Simulation Results — Run #{{ run.id }}{% endblock %}
+
+{% block content %}
+{% include "pbpk/_studies_tabs.html" %}
+
+<div class="container mt-2">
+
+  <!-- Breadcrumb -->
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb small">
+      <li class="breadcrumb-item"><a href="/model/catalogue">Model Catalogue</a></li>
+      {% if model %}
+      <li class="breadcrumb-item">
+        <a href="/model/catalogue/{{ model.slug }}">{{ model.slug }}</a>
+      </li>
+      <li class="breadcrumb-item">
+        <a href="/model/studies/{{ model.slug }}/ui">Simulate</a>
+      </li>
+      {% endif %}
+      <li class="breadcrumb-item active">Run #{{ run.id }}</li>
+    </ol>
+  </nav>
+
+  <!-- ── Applicability domain disclaimer (above results per OECD GMP) ── -->
+  {% if model %}
+  <div class="alert alert-warning d-flex align-items-start mb-4" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2 mt-1 flex-shrink-0"></i>
+    <div>
+      <strong>Applicability domain notice.</strong>
+      This simulation used the <strong>{{ model.label }}</strong> model.
+      Regulatory status: <em>{{ model.applicability.get("regulatory_status", "—") }}</em>.
+      Predictions should be interpreted within the documented applicability domain
+      ({{ model.applicability.get("calibration_range", "see model detail") }}).
+      Results are not validated for regulatory decision-making outside this domain.
+      <a href="/model/catalogue/{{ model.slug }}" class="alert-link ms-1">Full details →</a>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Provenance panel ─────────────────────────────────────────────── -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="fw-semibold"><i class="bi bi-diagram-3 me-1"></i>Run provenance</span>
+      <span class="badge {% if run.status == 'done' %}bg-success{% elif run.status == 'error' %}bg-danger{% else %}bg-secondary{% endif %}">
+        {{ run.status }}
+      </span>
+    </div>
+    <div class="card-body">
+      <dl class="row mb-0 small">
+        <dt class="col-sm-3">Run ID</dt>
+        <dd class="col-sm-9"><code>{{ run.id }}</code></dd>
+        <dt class="col-sm-3">Study</dt>
+        <dd class="col-sm-9">{{ run.get("study_slug") or "—" }}</dd>
+        <dt class="col-sm-3">Scenario</dt>
+        <dd class="col-sm-9">{{ run.get("scenario") or "—" }}</dd>
+        <dt class="col-sm-3">Compound</dt>
+        <dd class="col-sm-9">{{ run.get("compound") or "—" }}</dd>
+        <dt class="col-sm-3">Engine</dt>
+        <dd class="col-sm-9"><code>{{ run.get("engine") or "scipy_lsoda" }}</code></dd>
+        <dt class="col-sm-3">Created by</dt>
+        <dd class="col-sm-9">{{ run.get("created_by") or "—" }}</dd>
+        <dt class="col-sm-3">Started</dt>
+        <dd class="col-sm-9">{{ run.get("started_at") or "—" }}</dd>
+        <dt class="col-sm-3">Finished</dt>
+        <dd class="col-sm-9">{{ run.get("finished_at") or "—" }}</dd>
+        {% if model %}
+        <dt class="col-sm-3">SBML model</dt>
+        <dd class="col-sm-9"><code>{{ model.sbml_file }}</code></dd>
+        {% endif %}
+      </dl>
+    </div>
+  </div>
+
+  {% if run.status == "error" %}
+  <div class="alert alert-danger">
+    <strong>Simulation error:</strong> {{ run.get("error_message") or "Unknown error" }}
+  </div>
+  {% endif %}
+
+  {% if run.summary %}
+  <!-- ── KPI cards ──────────────────────────────────────────────────────── -->
+  <div class="row row-cols-2 row-cols-md-4 g-3 mb-4">
+    {% set s = run.summary %}
+
+    {% if s.get("peak_C_ven") is not none %}
+    <div class="col">
+      <div class="card text-center h-100 border-primary">
+        <div class="card-body py-3">
+          <div class="text-muted small">Peak venous conc.</div>
+          <div class="fs-4 fw-bold text-primary">{{ "%.3g" | format(s.peak_C_ven) }}</div>
+          <div class="text-muted small">mg/L</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if s.get("peak_Age_yr") is not none %}
+    <div class="col">
+      <div class="card text-center h-100">
+        <div class="card-body py-3">
+          <div class="text-muted small">Age at peak</div>
+          <div class="fs-4 fw-bold">{{ "%.2f" | format(s.peak_Age_yr) }}</div>
+          <div class="text-muted small">years</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if s.get("final_C_ven") is not none %}
+    <div class="col">
+      <div class="card text-center h-100">
+        <div class="card-body py-3">
+          <div class="text-muted small">Final venous conc.</div>
+          <div class="fs-4 fw-bold">{{ "%.3g" | format(s.final_C_ven) }}</div>
+          <div class="text-muted small">mg/L</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if s.get("final_Age_yr") is not none %}
+    <div class="col">
+      <div class="card text-center h-100">
+        <div class="card-body py-3">
+          <div class="text-muted small">Final age</div>
+          <div class="fs-4 fw-bold">{{ "%.2f" | format(s.final_Age_yr) }}</div>
+          <div class="text-muted small">years</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if s.get("peak_CA_maternal_mgL") is not none %}
+    <div class="col">
+      <div class="card text-center h-100 border-primary">
+        <div class="card-body py-3">
+          <div class="text-muted small">Peak maternal conc.</div>
+          <div class="fs-4 fw-bold text-primary">{{ "%.3g" | format(s.peak_CA_maternal_mgL) }}</div>
+          <div class="text-muted small">mg/L</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if s.get("CA_cord_mgL") is not none %}
+    <div class="col">
+      <div class="card text-center h-100">
+        <div class="card-body py-3">
+          <div class="text-muted small">Cord blood conc.</div>
+          <div class="fs-4 fw-bold">{{ "%.3g" | format(s.CA_cord_mgL) }}</div>
+          <div class="text-muted small">mg/L</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if s.get("transfer_ratio") is not none %}
+    <div class="col">
+      <div class="card text-center h-100">
+        <div class="card-body py-3">
+          <div class="text-muted small">Fetal/maternal ratio</div>
+          <div class="fs-4 fw-bold">{{ "%.3f" | format(s.transfer_ratio) }}</div>
+          <div class="text-muted small">dimensionless</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if s.get("n_iter") is not none %}
+    <div class="col">
+      <div class="card text-center h-100">
+        <div class="card-body py-3">
+          <div class="text-muted small">MC iterations</div>
+          <div class="fs-4 fw-bold">{{ s.n_iter }}</div>
+          <div class="text-muted small">samples</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div><!-- /kpi cards -->
+  {% endif %}
+
+  <!-- ── Regulatory threshold reference ─────────────────────────────────── -->
+  {% if thresholds %}
+  <div class="alert alert-info small mb-4">
+    <strong><i class="bi bi-bar-chart-line me-1"></i>Regulatory context:</strong>
+    {% for t in thresholds %}
+      <strong>{{ t.chemical }}</strong> {{ t.endpoint }} threshold: {{ t.value }} {{ t.units }}
+      ({{ t.basis | truncate(60) }}){% if not loop.last %}; {% endif %}
+    {% endfor %}
+    — Compare concentrations above against these values to assess regulatory relevance.
+  </div>
+  {% endif %}
+
+  <!-- ── Timeseries chart ───────────────────────────────────────────────── -->
+  {% if run.timeseries %}
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="fw-semibold"><i class="bi bi-graph-up me-1"></i>Concentration–time profile</span>
+      <button id="download-btn" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-download me-1"></i>Download CSV
+      </button>
+    </div>
+    <div class="card-body">
+      <canvas id="sim-chart" height="90"></canvas>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Actions ──────────────────────────────────────────────────────────── -->
+  <div class="d-flex gap-2 mb-4">
+    {% if model %}
+    <a href="/model/studies/{{ model.slug }}/ui" class="btn btn-primary">
+      <i class="bi bi-arrow-repeat me-1"></i>Run again
+    </a>
+    <a href="/model/catalogue/{{ model.slug }}" class="btn btn-outline-secondary">
+      <i class="bi bi-info-circle me-1"></i>Model details
+    </a>
+    {% endif %}
+    <a href="/model/catalogue" class="btn btn-outline-secondary">
+      <i class="bi bi-grid-3x3-gap me-1"></i>Catalogue
+    </a>
+    <a href="/model/runs/{{ run.id }}" class="btn btn-outline-secondary" target="_blank">
+      <i class="bi bi-braces me-1"></i>Raw JSON
+    </a>
+  </div>
+
+</div><!-- /container -->
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  const ts = {{ run.timeseries | tojson }};
+  if (!ts || !ts.length) return;
+
+  // Detect x-axis key (Age, time_h, month, etc.) and y-axis keys
+  const firstRow = ts[0];
+  const xKey = ["Age", "time_h", "month", "GW"].find(k => k in firstRow) ||
+               Object.keys(firstRow)[0];
+
+  const yKeys = Object.keys(firstRow).filter(k => k !== xKey);
+
+  // Colour palette (Okabe-Ito, colourblind-safe)
+  const palette = [
+    "#0072B2", "#D55E00", "#009E73", "#CC79A7",
+    "#56B4E9", "#E69F00", "#F0E442", "#000000"
+  ];
+
+  const labels = ts.map(r => {
+    const v = r[xKey];
+    return typeof v === "number" ? v.toFixed(2) : v;
+  });
+
+  const datasets = yKeys.map((key, i) => ({
+    label: key,
+    data: ts.map(r => r[key]),
+    borderColor: palette[i % palette.length],
+    backgroundColor: "transparent",
+    borderWidth: 1.8,
+    pointRadius: ts.length <= 20 ? 3 : 0,
+    tension: 0.2,
+  }));
+
+  // Add regulatory threshold line(s) if chemical matches
+  {% if thresholds %}
+  {% for t in thresholds %}
+  datasets.push({
+    label: "{{ t.chemical }} threshold ({{ t.value }} {{ t.units }})",
+    data: new Array(labels.length).fill({{ t.value }}),
+    borderColor: "#d00000",
+    borderWidth: 1.5,
+    borderDash: [6, 4],
+    pointRadius: 0,
+    fill: false,
+  });
+  {% endfor %}
+  {% endif %}
+
+  const chart = new Chart(document.getElementById("sim-chart"), {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      animation: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: true, position: "bottom" },
+        tooltip: { callbacks: {
+          label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toExponential(3) : "—"}`,
+        }},
+      },
+      scales: {
+        x: {
+          title: { display: true, text: xKey },
+          ticks: { maxTicksLimit: 12 },
+        },
+        y: {
+          title: { display: true, text: "Concentration (mg/L)" },
+          beginAtZero: true,
+        },
+      },
+    },
+  });
+
+  document.getElementById("download-btn")?.addEventListener("click", () => {
+    const cols = [xKey, ...yKeys];
+    const header = cols.join(",");
+    const body = ts.map(r => cols.map(c => r[c] ?? "").join(",")).join("\n");
+    const blob = new Blob([header + "\n" + body], { type: "text/csv" });
+    const a = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(blob),
+      download: `pbkfair_run_{{ run.id }}.csv`,
+    });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+})();
+</script>
+{% endblock %}

@@ -12,6 +12,17 @@
     across four breastfeeding exposure scenarios.
   </p>
 
+  <!-- ── Applicability domain notice ──────────────────────────────────────── -->
+  <div class="alert alert-warning alert-sm d-flex align-items-start mb-3 py-2" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2 mt-1 flex-shrink-0"></i>
+    <div class="small">
+      <strong>Applicability domain:</strong> Generic parameterisation not validated against a
+      specific cohort. Suitable for exploratory scenario analysis only; not for regulatory
+      submissions without re-parameterisation.
+      <a href="/model/catalogue/generic" class="alert-link">Full details →</a>
+    </div>
+  </div>
+
   <!-- ── Parameter form ─────────────────────────────────────────────────── -->
   <div class="card mb-4">
     <div class="card-header">Simulation parameters</div>
@@ -48,6 +59,12 @@
           </button>
         </div>
       </form>
+      <div id="domain-warning" class="alert alert-warning d-none mt-3 py-2 small" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-1" aria-hidden="true"></i>
+        <strong>Outside applicability domain:</strong>
+        <span id="domain-warning-text"></span>
+        Predictions are extrapolations — interpret with caution.
+      </div>
     </div>
   </div>
 
@@ -100,7 +117,17 @@
 
     <!-- ── Chart ──────────────────────────────────────────────────────────── -->
     <div class="card mb-4">
-      <div class="card-header">Maternal &amp; fetal PFAS concentration over time</div>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Maternal &amp; fetal PFAS concentration over time</span>
+        <div class="d-flex gap-2">
+          <button id="scale-toggle-btn" class="btn btn-outline-secondary btn-sm"
+                  title="Toggle log/linear Y axis">Linear</button>
+          <button id="export-png-btn" class="btn btn-outline-secondary btn-sm"
+                  title="Export chart as PNG">
+            <i class="bi bi-download me-1"></i>PNG
+          </button>
+        </div>
+      </div>
       <div class="card-body">
         <div style="position:relative;height:320px">
           <canvas id="sim-chart"></canvas>
@@ -108,10 +135,15 @@
       </div>
     </div>
 
-    <!-- ── Download ───────────────────────────────────────────────────────── -->
-    <button id="download-btn" class="btn btn-outline-secondary mb-4">
-      Download timeseries (CSV)
-    </button>
+    <!-- ── Download + results link ───────────────────────────────────────── -->
+    <div class="d-flex gap-2 mb-4">
+      <button id="download-btn" class="btn btn-outline-secondary">
+        Download timeseries (CSV)
+      </button>
+      <a id="results-link" href="#" class="btn btn-outline-primary d-none">
+        <i class="bi bi-graph-up me-1"></i>View full results &amp; provenance
+      </a>
+    </div>
   </div>
 </div>
 
@@ -128,14 +160,19 @@
     if (el) el.value = val;
   });
 
+  const THRESHOLDS = {{ thresholds | default([]) | tojson }};
+
   const FONT    = "'Inter','Helvetica Neue',system-ui,-apple-system,sans-serif";
   const PALETTE = ["#0072B2","#D55E00","#009E73","#CC79A7"];
 
+  /** Include threshold values when computing Y-axis ceiling. */
   function yMax(dataSeries) {
     const flat = [].concat(...dataSeries).filter(v => v != null && isFinite(v));
     if (!flat.length) return 1;
     const mx = flat.reduce((a, b) => (b > a ? b : a), -Infinity);
-    return (mx * 1.18) || 1e-9;
+    const threshVals = THRESHOLDS.map(t => t.value).filter(v => v <= mx * 2);
+    const tMax = threshVals.reduce((a, b) => (b > a ? b : a), 0);
+    return (Math.max(mx, tMax) * 1.18) || 1e-9;
   }
 
   function baseOpts(xLabel, yLabel, yMaxVal) {
@@ -164,7 +201,7 @@
           title: { display: true, text: xLabel, font: ttf, color: "#374151", padding: { top: 6 } },
         },
         y: {
-          min: 0, max: yMaxVal,
+          type: "linear", min: 0, max: yMaxVal,
           grid: { color: "rgba(0,0,0,0.06)", lineWidth: 1 }, border: { color: "rgba(0,0,0,0.2)" },
           ticks: { font: tf, color: "#6B7280", maxTicksLimit: 8,
                    callback: v => v === 0 ? "0" : (Math.abs(v) >= 0.1 ? +v.toPrecision(3) : v.toExponential(1)) },
@@ -174,8 +211,19 @@
     };
   }
 
+  /** Regulatory threshold reference-line datasets. */
+  function thresholdDatasets(len) {
+    return THRESHOLDS.map(t => ({
+      label: `${t.chemical} ${t.endpoint} (${t.value} ${t.units})`,
+      data: Array(len).fill(t.value),
+      borderColor: "#C0392B", backgroundColor: "transparent",
+      borderWidth: 1.2, borderDash: [5, 4], pointRadius: 0, clip: false,
+    }));
+  }
+
   let _lastResult = null;
   let _chart      = null;
+  let _logScale   = false;
 
   document.getElementById("sim-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -207,6 +255,10 @@
       renderSummary(data);
       renderChart(data);
       summary.classList.remove("d-none");
+      if (data.run_id) {
+        const link = document.getElementById("results-link");
+        if (link) { link.href = `/model/results/${data.run_id}`; link.classList.remove("d-none"); }
+      }
     } catch (err) {
       errBox.textContent = "Error: " + err.message;
       errBox.classList.remove("d-none");
@@ -238,16 +290,71 @@
       { label: "Fetal plasma (mg/L)", data: cFet,
         borderColor: PALETTE[1], backgroundColor: "transparent",
         borderWidth: 1.75, pointRadius: 0, tension: 0.3, borderDash: [5, 3] },
+      ...thresholdDatasets(ages.length),
     ];
 
     if (_chart) _chart.destroy();
+    const opts = baseOpts("Age (years)", "Concentration (mg/L)", yMax([cMat, cFet]));
+    if (_logScale) {
+      opts.scales.y.type = "logarithmic";
+      delete opts.scales.y.min;
+    }
     _chart = new Chart(document.getElementById("sim-chart"), {
       type: "line",
       data: { labels: ages, datasets },
-      options: baseOpts("Age (years)", "Concentration (mg/L)", yMax([cMat, cFet])),
+      options: opts,
     });
   }
 
+  // ── Applicability domain check ────────────────────────────────────────────
+  const DOMAIN = {
+    Ratio_GFR: { min: 0.5, max: 2.0, label: "GFR scaling factor" },
+  };
+
+  function checkDomain() {
+    const form = document.getElementById("sim-form");
+    const warnings = [];
+    for (const [id, rule] of Object.entries(DOMAIN)) {
+      const el = form.elements[id];
+      if (!el) continue;
+      const v = parseFloat(el.value);
+      if (!isNaN(v) && (v < rule.min || v > rule.max))
+        warnings.push(`${rule.label} (${v}) outside [${rule.min}–${rule.max}]`);
+    }
+    const box = document.getElementById("domain-warning");
+    document.getElementById("domain-warning-text").textContent =
+      warnings.length ? warnings.join("; ") + ". " : "";
+    box.classList.toggle("d-none", warnings.length === 0);
+  }
+
+  document.getElementById("Ratio_GFR").addEventListener("input", checkDomain);
+  checkDomain();
+
+  // ── Log / linear scale toggle ─────────────────────────────────────────────
+  document.getElementById("scale-toggle-btn").addEventListener("click", () => {
+    if (!_chart) return;
+    _logScale = !_logScale;
+    document.getElementById("scale-toggle-btn").textContent = _logScale ? "Log" : "Linear";
+    if (_logScale) {
+      _chart.options.scales.y.type = "logarithmic";
+      delete _chart.options.scales.y.min;
+    } else {
+      _chart.options.scales.y.type = "linear";
+      _chart.options.scales.y.min = 0;
+    }
+    _chart.update();
+  });
+
+  // ── PNG export ────────────────────────────────────────────────────────────
+  document.getElementById("export-png-btn").addEventListener("click", () => {
+    if (!_chart) return;
+    const a = document.createElement("a");
+    a.href = _chart.toBase64Image("image/png", 1);
+    a.download = `generic_${(_lastResult && _lastResult.compound) || "pbpk"}_chart.png`;
+    a.click();
+  });
+
+  // ── CSV download ──────────────────────────────────────────────────────────
   document.getElementById("download-btn").addEventListener("click", () => {
     if (!_lastResult) return;
     const ts   = _lastResult.timeseries;
