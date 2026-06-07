@@ -14,6 +14,7 @@
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
       <link href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.6.0/mdb.min.css" rel="stylesheet" />
       <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
       <!-- Anti-forgery token (src/csrf.py): attach it to every same-origin
            fetch/XHR that changes something, so page scripts need no edits. -->
       <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -49,6 +50,7 @@
           };
         })();
       </script>
+      {% block head %}{% endblock %}
    </head>
    <body class="d-flex flex-column" id="body">
       <!-- Sidebar -->
@@ -176,7 +178,7 @@
          </nav>
          
          <!-- Extended HTML goes here -->
-         <div class="container mt-4">{% block content %} {% endblock %}</div>
+         {% block content %}{% endblock %}
       </div>
       <!-- Footer -->
       <footer class="footer custom-footer mt-auto">
