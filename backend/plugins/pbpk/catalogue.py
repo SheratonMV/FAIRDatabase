@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib as _hashlib
 import json
+import pathlib
 from typing import Any
 
 import psycopg2.extras
@@ -20,6 +21,8 @@ from flask import g
 _MODEL_SEEDS: list[dict[str, Any]] = [
     {
         "slug": "ratier",
+        "readiness": "ready",
+        "capabilities": ["timecourse", "breastfeeding_scenarios", "validation_data"],
         "label": "Ratier et al. (2024) — Lifetime PFAS PBPK",
         "description": (
             "Whole-body lifetime PFAS pharmacokinetic model for mother–child pairs, "
@@ -30,7 +33,7 @@ _MODEL_SEEDS: list[dict[str, Any]] = [
         "chemicals": ["PFOA", "PFOS"],
         "population": "Pregnant women and infants (HELIX cohort)",
         "life_stage": "Pregnancy → lactation → childhood (0–6.77 yr)",
-        "reference_doi": "10.1016/j.envint.2024.108556",
+        "reference_doi": "10.1016/j.envint.2024.108621",
         "sbml_file": "Ratier2024FAIR.xml",
         "applicability": {
             "domain": "Maternal dietary PFAS exposure; transplacental transfer; infant accumulation",
@@ -44,18 +47,24 @@ _MODEL_SEEDS: list[dict[str, Any]] = [
         },
         "fair_badges": {
             "F1_uuid_runs": True,
-            "F1_zenodo_doi": False,
+            "F1_zenodo_doi": True,
+            "F1_zenodo_doi_value": "10.5281/zenodo.20447876",
             "F2_run_metadata": True,
             "A1_rest_api": True,
             "I1_sbml_l3v2": True,
+            "I3_uses_fair_vocabularies": True,
+            "I3_ontologies": ["PBPKO", "UBERON", "CHEBI", "NCBITaxon"],
             "R1_params_in_db": True,
-            "R1_1_open_license": False,
+            "R1_1_open_license": True,
+            "R1_1_license_spdx": "CC-BY-4.0",
             "R1_2_provenance": True,
             "R1_3_sbml_standard": True,
         },
     },
     {
         "slug": "rovira",
+        "readiness": "review",
+        "capabilities": ["timecourse", "pregnancy", "validation_data"],
         "label": "Rovira et al. (2019) — PFAS Pregnancy PBPK",
         "description": (
             "Multi-route exposure PFAS PBPK model for the Spanish INMA pregnancy cohort. "
@@ -66,7 +75,7 @@ _MODEL_SEEDS: list[dict[str, Any]] = [
         "chemicals": ["PFOA", "PFOS"],
         "population": "Pregnant women (INMA cohort, Spain)",
         "life_stage": "Pregnancy (GW0–GW38); output at GW12 and GW38",
-        "reference_doi": "10.1016/j.envint.2019.105155",
+        "reference_doi": "10.1016/j.envres.2019.05.040",
         "sbml_file": "Rovira2019FAIR.xml",
         "applicability": {
             "domain": "Maternal multi-route PFAS exposure during pregnancy; cord-blood at delivery",
@@ -80,18 +89,24 @@ _MODEL_SEEDS: list[dict[str, Any]] = [
         },
         "fair_badges": {
             "F1_uuid_runs": True,
-            "F1_zenodo_doi": False,
+            "F1_zenodo_doi": True,
+            "F1_zenodo_doi_value": "10.5281/zenodo.20447876",
             "F2_run_metadata": True,
             "A1_rest_api": True,
             "I1_sbml_l3v2": True,
+            "I3_uses_fair_vocabularies": True,
+            "I3_ontologies": ["PBPKO", "UBERON", "CHEBI", "NCBITaxon"],
             "R1_params_in_db": True,
-            "R1_1_open_license": False,
+            "R1_1_open_license": True,
+            "R1_1_license_spdx": "CC-BY-4.0",
             "R1_2_provenance": True,
             "R1_3_sbml_standard": True,
         },
     },
     {
         "slug": "verner",
+        "readiness": "ready",
+        "capabilities": ["timecourse", "montecarlo", "breastfeeding_scenarios", "validation_data"],
         "label": "Verner 2015 / Ouidir et al. (2025) — PFOS Monte Carlo PBPK",
         "description": (
             "Population-level Monte Carlo PBPK model for PFOS maternal and fetal exposure during "
@@ -99,10 +114,10 @@ _MODEL_SEEDS: list[dict[str, Any]] = [
             "cohort by Ouidir et al. (2025). Propagates parameter uncertainty across n iterations "
             "to produce mean trajectories and percentile bands for gestational months 1–9."
         ),
-        "chemicals": ["PFOS"],
+        "chemicals": ["PFOA", "PFOS"],
         "population": "Pregnant women (NICHD Nuage cohort, USA)",
         "life_stage": "Pregnancy (gestational months 1–9)",
-        "reference_doi": "10.1021/acs.est.4c08870",
+        "reference_doi": "10.1016/j.envres.2025.121814",
         "sbml_file": "Ouidir2025FAIR.xml",
         "applicability": {
             "domain": "Population-level maternal and fetal PFOS exposure during pregnancy",
@@ -116,18 +131,24 @@ _MODEL_SEEDS: list[dict[str, Any]] = [
         },
         "fair_badges": {
             "F1_uuid_runs": True,
-            "F1_zenodo_doi": False,
+            "F1_zenodo_doi": True,
+            "F1_zenodo_doi_value": "10.5281/zenodo.20447876",
             "F2_run_metadata": True,
             "A1_rest_api": True,
             "I1_sbml_l3v2": True,
+            "I3_uses_fair_vocabularies": True,
+            "I3_ontologies": ["PBPKO", "UBERON", "CHEBI", "NCBITaxon"],
             "R1_params_in_db": True,
-            "R1_1_open_license": False,
+            "R1_1_open_license": True,
+            "R1_1_license_spdx": "CC-BY-4.0",
             "R1_2_provenance": True,
             "R1_3_sbml_standard": True,
         },
     },
     {
         "slug": "generic",
+        "readiness": "experimental",
+        "capabilities": ["timecourse", "breastfeeding_scenarios", "pregnancy", "child"],
         "label": "Generic PFAS PBPK",
         "description": (
             "General-purpose PFAS PBPK model covering the full pregnancy and early-childhood "
@@ -138,7 +159,7 @@ _MODEL_SEEDS: list[dict[str, Any]] = [
         "chemicals": ["PFOA", "PFOS"],
         "population": "General adult/child population (not cohort-specific)",
         "life_stage": "Pregnancy (GW0–GW40) → childhood (0–12 yr)",
-        "reference_doi": "",
+        "reference_doi": "10.5281/zenodo.20447876",
         "sbml_file": "GenericPBKFAIR.xml",
         "applicability": {
             "domain": "Exploratory PFAS pharmacokinetics across the full life span",
@@ -151,12 +172,16 @@ _MODEL_SEEDS: list[dict[str, Any]] = [
         },
         "fair_badges": {
             "F1_uuid_runs": True,
-            "F1_zenodo_doi": False,
+            "F1_zenodo_doi": True,
+            "F1_zenodo_doi_value": "10.5281/zenodo.20447876",
             "F2_run_metadata": True,
             "A1_rest_api": True,
             "I1_sbml_l3v2": True,
+            "I3_uses_fair_vocabularies": True,
+            "I3_ontologies": ["PBPKO", "UBERON", "CHEBI", "NCBITaxon"],
             "R1_params_in_db": True,
-            "R1_1_open_license": False,
+            "R1_1_open_license": True,
+            "R1_1_license_spdx": "CC-BY-4.0",
             "R1_2_provenance": True,
             "R1_3_sbml_standard": True,
         },
@@ -168,7 +193,7 @@ _seeded = False
 
 
 def ensure_seeded() -> None:
-    """Upsert catalogue entries only when the table is missing rows.
+    """Upsert catalogue entries and ontology terms on first request per worker.
 
     Uses a single SELECT instead of 4 blind UPSERTs on every cold-worker
     start. The process-level ``_seeded`` flag still short-circuits the
@@ -185,7 +210,31 @@ def ensure_seeded() -> None:
         cur.close()
     if count < len(_MODEL_SEEDS):
         seed_models()
+    _seed_ontology_terms()
     _seeded = True
+
+
+def _seed_ontology_terms() -> None:
+    """Seed CV terms for all models that have no rows yet in _fd.pbpk_cv_terms."""
+    from .ontology import seed_ontology_terms  # local import avoids circular
+
+    _plugin_dir = pathlib.Path(__file__).parent
+    for m in _MODEL_SEEDS:
+        slug = m["slug"]
+        sbml_path = _plugin_dir / "studies" / slug / m["sbml_file"]
+        if not sbml_path.exists():
+            continue
+        cur = g.db.cursor()
+        try:
+            cur.execute(
+                "SELECT COUNT(*) FROM _fd.pbpk_cv_terms WHERE study_slug = %s",
+                (slug,),
+            )
+            already = cur.fetchone()[0]
+        finally:
+            cur.close()
+        if already == 0:
+            seed_ontology_terms(slug, str(sbml_path), g.db)
 
 
 def seed_models() -> None:
@@ -197,8 +246,9 @@ def seed_models() -> None:
                 """
                 INSERT INTO _fd.pbpk_models
                     (slug, label, description, chemicals, population,
-                     life_stage, reference_doi, sbml_file, applicability, fair_badges)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb)
+                     life_stage, reference_doi, sbml_file, applicability, fair_badges,
+                     readiness, capabilities)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s)
                 ON CONFLICT (slug) DO UPDATE SET
                     label         = EXCLUDED.label,
                     description   = EXCLUDED.description,
@@ -208,7 +258,9 @@ def seed_models() -> None:
                     reference_doi = EXCLUDED.reference_doi,
                     sbml_file     = EXCLUDED.sbml_file,
                     applicability = EXCLUDED.applicability,
-                    fair_badges   = EXCLUDED.fair_badges
+                    fair_badges   = EXCLUDED.fair_badges,
+                    readiness     = EXCLUDED.readiness,
+                    capabilities  = EXCLUDED.capabilities
                 """,
                 (
                     m["slug"], m["label"], m["description"],
@@ -216,6 +268,8 @@ def seed_models() -> None:
                     m["reference_doi"], m["sbml_file"],
                     json.dumps(m["applicability"]),
                     json.dumps(m["fair_badges"]),
+                    m.get("readiness", "experimental"),
+                    m.get("capabilities", []),
                 ),
             )
         g.db.commit()
@@ -232,7 +286,8 @@ def list_models() -> list[dict]:
     cur.execute(
         """
         SELECT slug, label, description, chemicals, population, life_stage,
-               reference_doi, sbml_file, applicability, fair_badges
+               reference_doi, sbml_file, applicability, fair_badges,
+               readiness, capabilities
         FROM _fd.pbpk_models
         ORDER BY slug
         """
@@ -248,7 +303,8 @@ def fetch_model(slug: str) -> dict | None:
     cur.execute(
         """
         SELECT slug, label, description, chemicals, population, life_stage,
-               reference_doi, sbml_file, applicability, fair_badges
+               reference_doi, sbml_file, applicability, fair_badges,
+               readiness, capabilities
         FROM _fd.pbpk_models
         WHERE slug = %s
         """,
@@ -372,6 +428,55 @@ def find_cached_run(content_hash: str) -> int | None:
     row = cur.fetchone()
     cur.close()
     return row[0] if row else None
+
+
+def fetch_runs_for_compare(run_ids: list[int], user_id: str, role: str) -> list[dict]:
+    """Fetch multiple completed runs for side-by-side comparison.
+
+    Only returns runs with status='done'. Admins see any run; other roles are
+    restricted to their own runs (owner_id match). Returns runs ordered by
+    creation date so overlay datasets have a deterministic order.
+    """
+    if not run_ids:
+        return []
+    placeholders = ",".join(["%s"] * len(run_ids))
+    cur = g.db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    if role == "admin":
+        cur.execute(
+            f"""
+            SELECT id, study_slug, scenario, compound, engine, status,
+                   summary, timeseries, created_by, created_at
+            FROM _fd.pbpk_simulation_runs
+            WHERE id IN ({placeholders}) AND status = 'done'
+            ORDER BY created_at
+            """,
+            run_ids,
+        )
+    else:
+        cur.execute(
+            f"""
+            SELECT id, study_slug, scenario, compound, engine, status,
+                   summary, timeseries, created_by, created_at
+            FROM _fd.pbpk_simulation_runs
+            WHERE id IN ({placeholders}) AND status = 'done'
+              AND owner_id = %s
+            ORDER BY created_at
+            """,
+            [*run_ids, user_id],
+        )
+    rows = cur.fetchall()
+    cur.close()
+    out = []
+    for row in rows:
+        r = dict(row)
+        if isinstance(r.get("summary"), str):
+            r["summary"] = json.loads(r["summary"])
+        if isinstance(r.get("timeseries"), str):
+            r["timeseries"] = json.loads(r["timeseries"])
+        if r.get("created_at") is not None:
+            r["created_at"] = r["created_at"].isoformat()
+        out.append(r)
+    return out
 
 
 def list_run_history(user_id: str, role: str, limit: int = 50) -> list[dict]:
