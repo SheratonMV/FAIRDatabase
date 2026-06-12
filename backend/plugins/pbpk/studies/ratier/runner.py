@@ -79,6 +79,20 @@ DEFAULT_INITIAL_Q: dict[str, float] = {
     "Q_art": 0.3309, "Q_ven": 0.99083,
 }
 
+# Non-constant SBML parameters that the runner is allowed to override from the
+# request payload. Everything else stays bound to its validated SBML default
+# (see PBPKModel._gen_prelude). C_milk_input is the infant's ingested breast-milk
+# PFAS concentration and is the lever that makes breastfeeding scenarios differ.
+_OVERRIDABLE_NONCONST = {"C_milk_input"}
+
+# Breast-milk PFOA concentration ingested by the infant, in the model's native
+# concentration unit (ng/mL ≈ µg/L). Derived as maternal serum × milk:plasma
+# partition ratio: ~2.5 ng/mL (HELIX/Ratier 2024 maternal PFOA) × 0.020
+# (Haug et al. 2011, Mondal et al. 2014) ≈ 0.05 ng/mL. Applied only while
+# breastfeeding is active; the milk-volume intake is gated separately by
+# StopBreastmilk_total, so scenario duration controls cumulative infant dose.
+MILK_INPUT_NGML: float = 0.05
+
 # Pre-defined scenario labels and their breastfeeding durations (minutes).
 SCENARIOS: list[dict] = [
     {"label": "no_bf",  "description": "No breastfeeding",   "StopBreastmilk_total": 0,          "LactationTotal_Duration_inWeek": 0},
@@ -98,7 +112,9 @@ OUTPUT_VARS = [
 # ─────────────────────────────────────────────────────────────────────────────
 # Unit conversion
 # ─────────────────────────────────────────────────────────────────────────────
-_MW: dict[str, float] = {"PFOA": 414.07, "PFOS": 538.22}
+# PFOS MW: free acid C₈F₁₇SO₃H = 500.13 g/mol (not the potassium salt 538.22 g/mol).
+# Biomonitoring data (NHANES, HBM4EU) report PFOS as the free-acid form.
+_MW: dict[str, float] = {"PFOA": 414.07, "PFOS": 500.13}
 SUPPORTED_UNITS = ("mg_L", "ug_L", "ng_mL", "nmol_L")
 
 
@@ -317,7 +333,15 @@ class PBPKModel:
         assigned_vars = self._assign_var_set
         for pid, val in self._nonconst_defaults.items():
             if pid not in assigned_vars:
-                lines.append(f"{I}{pid} = {repr(val)}")
+                # Non-constant SBML parameters are bound to their SBML default to
+                # preserve the validated Ratier baseline. The breast-milk
+                # concentration C_milk_input is the one exception: it is a true
+                # scenario input (the infant's ingested-milk PFAS level) and must
+                # be overridable so breastfeeding scenarios differentiate.
+                if pid in _OVERRIDABLE_NONCONST:
+                    lines.append(f"{I}{pid} = _p.get('{pid}', {repr(val)})")
+                else:
+                    lines.append(f"{I}{pid} = {repr(val)}")
         lines.append(f"{I}# assignment rules")
         for var, expr in self.assign_rules:
             lines.append(f"{I}{var} = {expr}")
@@ -418,7 +442,13 @@ def execute(user_params: dict[str, Any]) -> dict:
                                OR a numeric StopBreastmilk_total (minutes)
         StopBreastmilk_total (float) — override directly
         HalfLife     (float) — chemical half-life in years (default 2.5)
-        RateInj      (float) — dietary intake rate ng/kg/min (default 0.451695)
+        RateInj      (float) — dietary background dose parameter calibrated to the
+                               SEPAGES birth cohort (Ratier 2024).  Applied in the SBML
+                               as (Frac_Intake × RateInj × PercentVar / 1e6) × BW [µg/min],
+                               yielding ~2–8 ng/kg/day at birth depending on age-specific
+                               intake scaling.  The SBML unit annotation 'mg_per_min' is
+                               incorrect; the effective unit is approximately ng/kg/day.
+                               Default 0.451695 (Ratier 2024 SI Table 1).
         BirthYear    (float) — birth year (default 2007)
         n_steps      (int)   — output resolution (default 3562)
 
@@ -449,6 +479,13 @@ def execute(user_params: dict[str, Any]) -> dict:
                      "Frac_Intake_Infant", "Frac_Intake_Toddler"}
     user_chemical = {k: float(v) for k, v in user_params.items()
                      if k in override_keys}
+
+    # Breast-milk input concentration: zero when not breastfeeding, otherwise the
+    # literature-derived maternal-milk PFOA level (MILK_INPUT_NGML). An explicit
+    # C_milk_input in the request payload always wins.
+    if "C_milk_input" not in user_chemical:
+        is_breastfeeding = scenario_label != "no_bf"
+        user_chemical["C_milk_input"] = MILK_INPUT_NGML if is_breastfeeding else 0.0
 
     params = mdl.make_params(DEFAULT_PARAMS, user_chemical, scenario_overrides)
     y0     = mdl.make_y0(DEFAULT_INITIAL_Q)

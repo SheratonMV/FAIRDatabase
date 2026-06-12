@@ -39,7 +39,9 @@ EXECUTE_COLS = [
 # ─────────────────────────────────────────────────────────────────────────────
 # Unit conversion
 # ─────────────────────────────────────────────────────────────────────────────
-_MW: dict[str, float] = {"PFOA": 414.07, "PFOS": 538.22}
+# PFOS MW: free acid C₈F₁₇SO₃H = 500.13 g/mol (not the potassium salt 538.22 g/mol).
+# Biomonitoring data (NHANES, HBM4EU) report PFOS as the free-acid form.
+_MW: dict[str, float] = {"PFOA": 414.07, "PFOS": 500.13}
 SUPPORTED_UNITS = ("mg_L", "ug_L", "ng_mL", "nmol_L")
 
 
@@ -69,6 +71,12 @@ def convert_concentration(value, to_unit: str, compound: str | None = None):
     raise ValueError(f"Unknown unit '{to_unit}'. Supported: {SUPPORTED_UNITS}")
 
 
+# Background concentration arithmetic means from Verner 2015 (pre-2010 North
+# American / European cohort data): PFOA 2.53 µg/L, PFOS 13.02 µg/L.
+# These are ~7–10× higher than the post-phase-out defaults used in the Generic
+# and Rovira models (PFOA 0.34 µg/L, PFOS 3.14 µg/L).  The difference reflects
+# different exposure eras, not a parameterisation error.
+from plugins.pbpk.params import VERNER_MC as _VMC
 _PFOA_AM_V, _PFOA_CV_V = 0.00253, 0.446   # mg/L, coefficient of variation
 _PFOS_AM_V, _PFOS_CV_V = 0.01302, 0.368
 
@@ -382,28 +390,28 @@ def execute(user_params: dict) -> dict:
     ca_f_samples: list[list[float]] = [[] for _ in range(9)]
 
     for _ in range(n_iter):
-        BWINIT    = _tnorm(rng, 70.3,  14.3,  37.0,   134.0)
-        VLC       = _tnorm(rng, 0.026, 0.004, 0.018,  0.034)
-        RATIO_GFR = _tnorm(rng, 1.0,   0.246, 0.508,  1.492)
-        RESIDUAL  = _tnorm(rng, 0.0,   441.0, -882.0, 882.0)
+        # Sampling bounds from params.py::VERNER_MC — edit there to change ranges.
+        def _v(k): return _VMC[k]
+        BWINIT    = _tnorm(rng, *_v("BWINIT"))
+        VLC       = _tnorm(rng, *_v("VLC"))
+        RATIO_GFR = _tnorm(rng, *_v("RATIO_GFR"))
+        RESIDUAL  = _tnorm(rng, *_v("RESIDUAL"))
         BW_g      = _BW_INTERCEPT + _BW_BETA * RATIO_GFR + RESIDUAL
 
-        PFOS_PL    = _tnorm(rng, 3.720, 0.558, 2.604, 4.836)
-        PFOA_PL    = _tnorm(rng, 2.200, 0.330, 1.540, 2.860)
-        PFOS_PR    = _tnorm(rng, 0.200, 0.030, 0.140, 0.260)
-        PFOA_PR    = _tnorm(rng, 0.120, 0.018, 0.084, 0.156)
-        PFOS_Free  = _tnorm(rng, 0.025, 0.004, 0.017, 0.033)
-        PFOA_Free  = _tnorm(rng, 0.020, 0.003, 0.014, 0.026)
-        PFOS_FreeF = _tnorm(rng, 0.025, 0.004, 0.017, 0.033)
-        PFOA_FreeF = _tnorm(rng, 0.020, 0.003, 0.014, 0.026)
-        PFOS_TMC   = _tnorm(rng, 3.500, 0.525, 2.450, 4.550)
-        PFOA_TMC   = _tnorm(rng, 10.00, 1.500, 7.000, 13.00)
-        PFOS_KT    = _tnorm(rng, 0.023, 0.003, 0.017, 0.029)
-        PFOA_KT    = _tnorm(rng, 0.055, 0.008, 0.039, 0.071)
+        PFOS_PL    = _tnorm(rng, *_v("PFOS_PL"))
+        PFOA_PL    = _tnorm(rng, *_v("PFOA_PL"))
+        PFOS_PR    = _tnorm(rng, *_v("PFOS_PR"))
+        PFOA_PR    = _tnorm(rng, *_v("PFOA_PR"))
+        PFOS_Free  = _tnorm(rng, *_v("PFOS_Free"))
+        PFOA_Free  = _tnorm(rng, *_v("PFOA_Free"))
+        PFOS_FreeF = _tnorm(rng, *_v("PFOS_FreeF"))
+        PFOA_FreeF = _tnorm(rng, *_v("PFOA_FreeF"))
+        PFOS_TMC   = _tnorm(rng, *_v("PFOS_TMC"))
+        PFOA_TMC   = _tnorm(rng, *_v("PFOA_TMC"))
+        PFOS_KT    = _tnorm(rng, *_v("PFOS_KT"))
+        PFOA_KT    = _tnorm(rng, *_v("PFOA_KT"))
 
-        # Verner 2015 Table 1 footnote: "All distributions were assumed to be normal."
-        # Values are arithmetic means and SDs. Truncated-normal is correct.
-        CVINIT = _tnorm(rng, am, am * cv, 1e-5, 1.0)
+        CVINIT = _tnorm(rng, am, am * cv, _VMC["CVINIT"][2], _VMC["CVINIT"][3])
 
         params = mdl.const_params.copy()
         params.update(mdl._nonconst_defaults)

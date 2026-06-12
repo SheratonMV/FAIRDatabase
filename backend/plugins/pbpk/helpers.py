@@ -1,25 +1,20 @@
 """
-helpers.py — thin bridge between the Flask routes and PBKFAIRModel,
+helpers.py — thin bridge between the Flask routes and the Ratier study runner,
 plus DB helpers for persisting parameter sets and simulation runs.
 """
 from __future__ import annotations
 
 import json
 import os
-import sys
 from datetime import datetime, timezone
 
 import psycopg2.extras
 from flask import g
 
-# PBKFAIRModel/ lives at the repository root (three levels up from
-# backend/plugins/pbpk/). It is normally already importable via PYTHONPATH;
-# this insert keeps the plugin runnable when it is not.
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-if _REPO_ROOT not in sys.path:
-    sys.path.insert(0, _REPO_ROOT)
-
-from PBKFAIRModel import execute, SCENARIOS, DEFAULT_PARAMS  # noqa: E402
+# Use the per-study Ratier runner so the active /model/run endpoint loads the
+# FAIRified SBML file (Ratier2024FAIR.xml, CC BY 4.0, Zenodo DOI
+# 10.5281/zenodo.20447876) rather than the legacy lifetime_pbpk.xml.
+from .studies.ratier.runner import execute, SCENARIOS, DEFAULT_PARAMS
 
 
 # ── Simulation helpers ────────────────────────────────────────────────────────
@@ -32,9 +27,10 @@ def run_scenario(user_params: dict) -> dict:
         raise ValueError(
             f"Unknown scenario '{label}'. Valid options: {sorted(valid_labels)}"
         )
+    from plugins.pbpk.params import RATIER as _RATIER_SPECS
     half_life = user_params.get("HalfLife")
-    if half_life is not None and float(half_life) <= 0:
-        raise ValueError("HalfLife must be positive.")
+    if half_life is not None and float(half_life) < _RATIER_SPECS["HalfLife"]["min"]:
+        raise ValueError(f"HalfLife must be >= {_RATIER_SPECS['HalfLife']['min']}.")
     return execute(user_params)
 
 
@@ -268,6 +264,10 @@ def fetch_run_provenance(run_id: int) -> dict | None:
                 "fairdatabase:scenario": row["scenario"],
                 "fairdatabase:compound": row["compound"],
                 "fairdatabase:engine": row["engine"],
+                "fairdatabase:ontology_annotations": {
+                    "endpoint": f"/model/api/models/{row['study_slug']}/ontology",
+                    "ontologies": ["PBPKO", "UBERON", "CHEBI", "NCBITaxon"],
+                },
             },
         },
         "activity": {
