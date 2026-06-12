@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pytest
 
-from PBKFAIRModel import execute, DEFAULT_PARAMS
+from plugins.pbpk.studies.ratier.runner import execute, DEFAULT_PARAMS
 
 
 # ── Layer 1: Data Integrity ────────────────────────────────────────────────────
