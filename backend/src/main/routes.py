@@ -7,9 +7,28 @@ from flask import Blueprint, redirect, render_template, request, session
 routes = Blueprint("main_routes", __name__)
 
 
+# Maps a section key (passed by the info button, derived from the page the user
+# was on) to the documentation block rendered. Unknown / missing keys fall back
+# to the full module overview.
+_DOC_SECTIONS = {
+    "pbk", "dashboard", "data", "privacy", "admin",
+    "fl", "visualization", "overview",
+}
+
+
 @routes.route("/documentation")
 def documentation():
-    return render_template("/documentation/documentation.html", current_path=request.path), 200
+    section = request.args.get("section", "overview")
+    if section not in _DOC_SECTIONS:
+        section = "overview"
+    return (
+        render_template(
+            "/documentation/documentation.html",
+            current_path=request.path,
+            section=section,
+        ),
+        200,
+    )
 
 
 # ── Legacy FL redirects ───────────────────────────────────────────────────────

@@ -1,14 +1,298 @@
 {% extends "dashboard/layout.html" %}
 {% block title %}FAIRMicrobiome | documentation{% endblock %}
 {% block content %}
-<div class="container mt-4">
-<div class="row justify-content-center">
-   <br>
-   <h1>Documentation</h1>
-   <div class="bd-callout bd-callout-default">
-      <h4>Coming soon</h4>
-      The contents of this page are coming soon. 
-    </div>
-</div>
+{% set section = section or 'overview' %}
+<div class="container mt-4 mb-5">
+
+   <div class="d-flex align-items-center justify-content-between flex-wrap">
+      <h1 class="mb-1">Documentation</h1>
+      {% if section != 'overview' %}
+      <a href="/documentation?section=overview" class="btn btn-sm btn-outline-secondary">
+         <i class="fa fa-th-large"></i> Full module reference
+      </a>
+      {% endif %}
+   </div>
+
+   {# ════════════════════════════ OVERVIEW ════════════════════════════ #}
+   {% if section == 'overview' %}
+   <p class="text-muted">
+      Module reference for FAIRDatabase — a Flask application backed by a
+      self-hosted Supabase stack, split into a <strong>core</strong>
+      (<code>backend/src</code> + <code>backend/kernel</code>) and a set of
+      <strong>plugins</strong> (<code>backend/plugins/*</code>). Plugins talk to the
+      core <em>only</em> through the <code>kernel.*</code> façade.
+   </p>
+   <p class="small text-muted">
+      Tip: the <i class="fa fa-info-circle"></i> button on any page opens the
+      documentation for <em>that</em> page's module.
+   </p>
+
+   <h2 class="border-bottom pb-2 mt-4">Modules at a glance</h2>
+   <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle">
+         <thead class="table-light"><tr><th>Module</th><th>Mounted at</th><th>Docs</th></tr></thead>
+         <tbody>
+            <tr><td><strong>PBK module</strong> (PBPK simulation)</td><td><code>/model</code></td><td><a href="/documentation?section=pbk">Open →</a></td></tr>
+            <tr><td>Dashboard &amp; datasets</td><td><code>/dashboard</code>, <code>/search</code>, <code>/upload</code></td><td><a href="/documentation?section=dashboard">Open →</a></td></tr>
+            <tr><td>Data generalization</td><td><code>/data_generalization</code>, <code>/p29score</code></td><td><a href="/documentation?section=data">Open →</a></td></tr>
+            <tr><td>Privacy processing</td><td><code>/privacy_processing</code>, <code>/differential_privacy</code></td><td><a href="/documentation?section=privacy">Open →</a></td></tr>
+            <tr><td>Admin &amp; RBAC</td><td><code>/admin</code></td><td><a href="/documentation?section=admin">Open →</a></td></tr>
+            <tr><td>Visualization</td><td><code>/visualization</code></td><td><a href="/documentation?section=visualization">Open →</a></td></tr>
+            <tr><td>Federated learning</td><td><code>/fl</code></td><td><a href="/documentation?section=fl">Open →</a></td></tr>
+         </tbody>
+      </table>
+   </div>
+
+   <h2 class="border-bottom pb-2 mt-4">Kernel — the plugin API surface</h2>
+   <p>The <strong>only</strong> module tree a plugin may import from. Each file is a thin façade over a core internal.</p>
+   <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle">
+         <thead class="table-light"><tr><th>Module</th><th>Provides</th></tr></thead>
+         <tbody>
+            <tr><td><code>kernel.plugin</code></td><td><code>Plugin</code> manifest dataclass (name, url_prefix, SQL, buckets, roles, nav).</td></tr>
+            <tr><td><code>kernel.loader</code></td><td>Discovery + mount pipeline: discover → register → schema → buckets.</td></tr>
+            <tr><td><code>kernel.auth</code></td><td><code>login_required(*roles)</code>; sets <code>g.user</code>, <code>g.role</code>.</td></tr>
+            <tr><td><code>kernel.rbac</code></td><td>Dataset + row ownership guards, table filters, <code>assert_owns</code>.</td></tr>
+            <tr><td><code>kernel.db</code></td><td><code>metadata_table_id</code>, <code>read_dataset</code>, safe identifier quoting.</td></tr>
+            <tr><td><code>kernel.storage</code></td><td><code>upload_stream</code>/<code>signed_url</code>/<code>delete_object</code>; bucket-prefix ownership + MIME whitelist.</td></tr>
+            <tr><td><code>kernel.env</code></td><td>Allow-listed env access; refuses core secrets.</td></tr>
+            <tr><td><code>kernel.audit</code></td><td>Mutation audit log → <code>_fd.plugin_audit</code>.</td></tr>
+            <tr><td><code>kernel.privacy</code></td><td>Disclosure metrics + local DP mechanisms + RDP accounting.</td></tr>
+            <tr><td><code>kernel.crypto</code> / <code>kernel.dp_budget</code></td><td>AES-256-GCM FL crypto; per-dataset ε-budget ledger.</td></tr>
+         </tbody>
+      </table>
+   </div>
+
+   <p class="text-muted small mt-3">
+      Full Markdown references live in the repository at
+      <code>docs/MODULES.md</code> and <code>docs/PBK_MODEL.md</code>.
+   </p>
+   {% endif %}
+
+   {# ════════════════════════════ PBK MODULE ════════════════════════════ #}
+   {% if section == 'pbk' %}
+   <h2 class="border-bottom pb-2 mt-3">
+      PBK module (PBPK) <span class="badge bg-primary align-middle">/model</span>
+   </h2>
+   <p>
+      The <strong>PBK (physiologically-based kinetic)</strong> module is the
+      <code>pbpk</code> plugin: the in-app catalogue, runner, and provenance surface
+      for four FAIR PBPK models of PFAS exposure across pregnancy, lactation, and
+      childhood.
+   </p>
+
+   <h5 class="mt-4">What it delivers</h5>
+   <ul>
+      <li><strong>A catalogue</strong> of FAIR PBPK models with readiness status, applicability domain, calibration ranges, limitations, and FAIR badges.</li>
+      <li><strong>A simulation runner</strong> that integrates each model's ODE system and returns a concentration–time series plus scalar KPIs.</li>
+      <li><strong>Four bundled, citable study models</strong> packaged as SBML + parameters + an interactive page.</li>
+      <li><strong>Run persistence</strong> with content-hash caching, <strong>W3C PROV-JSON provenance</strong>, and side-by-side comparison.</li>
+      <li><strong>Ontology enrichment</strong> — SBML CV-terms resolved to labels via the EBI OLS4 API.</li>
+      <li><strong>Binary run artifacts</strong> (jpg/png/mp4/vtk) in a private Supabase Storage bucket with short-lived signed URLs.</li>
+   </ul>
+
+   <h5 class="mt-4">The bundled study models</h5>
+   <div class="table-responsive">
+      <table class="table table-sm table-striped table-bordered align-middle">
+         <thead class="table-light"><tr><th>Slug</th><th>Source</th><th>Readiness</th><th>Compounds</th><th>Capabilities</th></tr></thead>
+         <tbody>
+            <tr><td><code>ratier</code></td><td>Ratier et al. 2024 — lifetime PFAS (HELIX cohort)</td><td><span class="badge bg-success">ready</span></td><td>PFOA, PFOS</td><td>timecourse, breastfeeding scenarios, validation data</td></tr>
+            <tr><td><code>rovira</code></td><td>Rovira et al. 2019 — pregnancy multi-route (INMA cohort)</td><td><span class="badge bg-warning text-dark">review</span></td><td>PFOA, PFOS</td><td>timecourse, pregnancy, validation data</td></tr>
+            <tr><td><code>verner</code></td><td>Verner 2015 / Ouidir 2025 — PFOS Monte Carlo (NICHD Nuage)</td><td><span class="badge bg-success">ready</span></td><td>PFOA, PFOS</td><td>timecourse, Monte Carlo, breastfeeding scenarios</td></tr>
+            <tr><td><code>generic</code></td><td>Generic PFAS PBPK (GW0 → 12&nbsp;yr)</td><td><span class="badge bg-secondary">experimental</span></td><td>PFOA, PFOS</td><td>timecourse, pregnancy, child</td></tr>
+         </tbody>
+      </table>
+   </div>
+
+   <h5 class="mt-4">How the simulation engine works</h5>
+   <p>
+      The heart of the module is a small SBML interpreter that compiles an SBML model
+      into two Python functions — a right-hand-side <code>_rhs(t, y, p)</code> for the
+      ODE solver and a <code>_state(t, y, p)</code> that reconstructs all observable
+      variables — then integrates with scipy.
+   </p>
+   <ul>
+      <li><strong>SBML → Python:</strong> <code>_ast_to_py()</code> walks the libsbml AST and emits an equivalent Python expression (arithmetic, <code>exp/ln/log/abs/min/max/root</code>, relational/logical ops, and <em>piecewise</em> as nested ternaries). Unhandled nodes raise <code>ValueError</code>.</li>
+      <li><strong>Parse:</strong> constant vs. non-constant params separated; assignment rules <strong>topologically sorted</strong> by dependency; rate rules become the ODEs.</li>
+      <li><strong>Compile:</strong> generated source is <code>compile()</code>d once and <code>exec</code>'d, so each step is a plain function call — not a per-step AST walk.</li>
+      <li><strong>Integrate:</strong> <code>solve_ivp</code> with the stiff-system <strong>LSODA</strong> method (<code>rtol=1e-6, atol=1e-9</code>). A singleton parses/compiles the SBML <strong>once per worker</strong>.</li>
+   </ul>
+
+   <h5 class="mt-4">The <code>execute(params)</code> contract</h5>
+   <div class="row">
+      <div class="col-md-6">
+         <p class="mb-1 fw-bold">Inputs (Ratier/lifetime runner)</p>
+         <table class="table table-sm table-bordered">
+            <tbody>
+               <tr><td><code>scenario</code></td><td>no_bf / bf_6mo / bf_1yr / bf_3yr</td></tr>
+               <tr><td><code>HalfLife</code></td><td>elimination half-life (yr), default 2.5</td></tr>
+               <tr><td><code>RateInj</code></td><td>dietary intake (ng/kg/min), default 0.451695</td></tr>
+               <tr><td><code>BirthYear</code></td><td>child birth year, default 2007</td></tr>
+               <tr><td><code>C_milk_input</code></td><td>breast-milk PFAS conc (ng/mL)</td></tr>
+               <tr><td><code>n_steps</code></td><td>output resolution, default 3562</td></tr>
+            </tbody>
+         </table>
+      </div>
+      <div class="col-md-6">
+         <p class="mb-1 fw-bold">Returns</p>
+<pre class="bg-light p-2 border rounded"><code>{
+  "scenario": "bf_6mo",
+  "n_rows": 3562,
+  "t_end_min": 3561120.0,
+  "peak_C_ven": 0.0123,   // mg/L
+  "peak_Age_yr": 1.4,
+  "final_C_ven": 0.0041,
+  "final_Age_yr": 6.77,
+  "timeseries": [ ... ]   // ≤500 rows
+}</code></pre>
+      </div>
+   </div>
+
+   <h5 class="mt-4">Files</h5>
+   <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle">
+         <thead class="table-light"><tr><th>File</th><th>Responsibility</th></tr></thead>
+         <tbody>
+            <tr><td><code>plugin.py</code></td><td>Manifest: url_prefix, 3 SQL migrations, required packages, artifacts bucket, roles, sidebar entry.</td></tr>
+            <tr><td><code>routes.py</code></td><td>HTTP endpoints: runs, parameter sets, provenance, artifacts, catalogue pages, <code>/model/api/*</code>.</td></tr>
+            <tr><td><code>study_routes.py</code></td><td><code>/model/studies/&lt;slug&gt;/…</code> — persists every study run (content-hash idempotent) before executing.</td></tr>
+            <tr><td><code>helpers.py</code></td><td>DB CRUD, handler-level RBAC guards, <code>update_run</code>, PROV-JSON generation.</td></tr>
+            <tr><td><code>catalogue.py</code></td><td>Model seed data, thresholds, run history, content-hash caching, run comparison.</td></tr>
+            <tr><td><code>ontology.py</code></td><td>SBML CV-term extraction → IRI normalisation → OLS4 labels → DB cache.</td></tr>
+            <tr><td><code>params.py</code></td><td><strong>Single source of truth</strong> for parameter defaults, bounds, units, applicability domains.</td></tr>
+            <tr><td><code>studies/&lt;slug&gt;/runner.py</code></td><td>Per-study <code>execute()</code> + SCENARIOS/COMPOUNDS, each loading its FAIRified SBML.</td></tr>
+         </tbody>
+      </table>
+   </div>
+
+   <h5 class="mt-4">HTTP API (selection)</h5>
+   <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle">
+         <thead class="table-light"><tr><th>Method</th><th>Path</th><th>Roles</th><th>Purpose</th></tr></thead>
+         <tbody>
+            <tr><td>GET</td><td><code>/model/catalogue</code></td><td>any</td><td>Model catalogue grid.</td></tr>
+            <tr><td>POST</td><td><code>/model/run</code></td><td>any</td><td>Run one scenario; returns timeseries + summary.</td></tr>
+            <tr><td>POST</td><td><code>/model/studies/&lt;slug&gt;/run</code></td><td>any</td><td>Execute a study run; persisted; 503 if optional deps missing.</td></tr>
+            <tr><td>POST</td><td><code>/model/runs</code></td><td>admin, curator</td><td>Create + execute a run against a parameter set.</td></tr>
+            <tr><td>GET</td><td><code>/model/runs/&lt;id&gt;/provenance</code></td><td>admin, curator, accessor</td><td>W3C PROV-JSON document.</td></tr>
+            <tr><td>GET</td><td><code>/model/api/models/&lt;slug&gt;/ontology</code></td><td>any</td><td>Resolved CV-term inventory.</td></tr>
+            <tr><td>POST</td><td><code>/model/api/runs/compare</code></td><td>any</td><td>Compare 2–6 runs side-by-side.</td></tr>
+         </tbody>
+      </table>
+   </div>
+
+   <div class="bd-callout bd-callout-default mt-3">
+      <h6 class="mb-1">RBAC</h6>
+      <p class="mb-0 small">
+         <strong>admin</strong> sees all; <strong>curator</strong> owns its sets/runs/artifacts;
+         <strong>accessor</strong> reads its own runs only; <strong>visualizer</strong> reaches
+         open routes only. Ownership is enforced in <code>helpers.py</code> — load-bearing
+         because the Flask DB user is a superuser and bypasses RLS.
+      </p>
+   </div>
+   {% endif %}
+
+   {# ════════════════════════════ DASHBOARD ════════════════════════════ #}
+   {% if section == 'dashboard' %}
+   <h2 class="border-bottom pb-2 mt-3">Dashboard &amp; datasets <span class="badge bg-secondary align-middle">/dashboard</span></h2>
+   <p>Upload, search, preview, download, and update microbiome datasets. Curators see only datasets they own; accessors see only those they've been granted.</p>
+   <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle">
+         <thead class="table-light"><tr><th>Route</th><th>Roles</th><th>Purpose</th></tr></thead>
+         <tbody>
+            <tr><td><code>/upload</code></td><td>admin, curator</td><td>Upload a CSV; chunked into PostgreSQL tables under the <code>_fd</code> schema.</td></tr>
+            <tr><td><code>/search</code></td><td>admin, curator, accessor</td><td>Search/list table names (filtered to what you may read).</td></tr>
+            <tr><td><code>/display</code></td><td>admin, curator, accessor</td><td>Download authorized tables as zipped CSVs.</td></tr>
+            <tr><td><code>/table_preview</code></td><td>admin, curator, accessor</td><td>Preview first rows + metadata statistics.</td></tr>
+            <tr><td><code>/update</code></td><td>admin, curator (owns)</td><td>Update a single cell in an owned dataset.</td></tr>
+            <tr><td><code>/upload_metadata/&lt;table&gt;</code></td><td>admin, curator (owns)</td><td>Attach sample metadata (taxonomy, units) to a dataset.</td></tr>
+         </tbody>
+      </table>
+   </div>
+   <p class="small text-muted">Implemented in <code>src/dashboard</code>; ownership/grant checks live in <code>dashboard/helpers.py</code> (<code>assert_can_read_table</code> / <code>assert_can_modify_table</code>). Unauthorized access returns <code>404</code> to avoid leaking dataset existence.</p>
+   {% endif %}
+
+   {# ════════════════════════════ DATA GENERALIZATION ════════════════════════════ #}
+   {% if section == 'data' %}
+   <h2 class="border-bottom pb-2 mt-3">Data generalization <span class="badge bg-secondary align-middle">/data_generalization</span></h2>
+   <p>A guided workflow (admin, curator) to prepare a dataset for safe sharing: upload a CSV, review and drop columns, address missing values, select quasi-identifiers, and apply mappings.</p>
+   <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle">
+         <thead class="table-light"><tr><th>Route</th><th>Roles</th><th>Purpose</th></tr></thead>
+         <tbody>
+            <tr><td><code>/data_generalization</code></td><td>admin, curator</td><td>The multi-step generalization form.</td></tr>
+            <tr><td><code>/consolidated_return</code></td><td>admin, curator</td><td>Step transitions (states 1–4) updating session state.</td></tr>
+            <tr><td><code>/p29score</code></td><td>admin, curator, accessor</td><td>Compute the <strong>P(29)</strong> re-identification risk score from quasi-identifiers + sensitive attributes.</td></tr>
+         </tbody>
+      </table>
+   </div>
+   <p class="small text-muted">Implemented in <code>src/data</code>; scoring delegates to the <code>AnonyBiome</code> privacy library.</p>
+   {% endif %}
+
+   {# ════════════════════════════ PRIVACY ════════════════════════════ #}
+   {% if section == 'privacy' %}
+   <h2 class="border-bottom pb-2 mt-3">Privacy processing <span class="badge bg-secondary align-middle">/privacy_processing</span></h2>
+   <p>Compute disclosure-risk metrics and apply differential privacy to uploaded data.</p>
+   <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle">
+         <thead class="table-light"><tr><th>Route</th><th>Roles</th><th>Purpose</th></tr></thead>
+         <tbody>
+            <tr><td><code>/privacy_processing</code></td><td>admin, curator, accessor</td><td>P(29), <strong>k-anonymity</strong>, <strong>l-diversity</strong>, <strong>t-closeness</strong> — with the top-10 problem groups and reasons.</td></tr>
+            <tr><td><code>/differential_privacy</code></td><td>admin, curator</td><td>Add calibrated noise to selected columns.</td></tr>
+         </tbody>
+      </table>
+   </div>
+   <p class="small text-muted">Implemented in <code>src/privacy</code>; metrics come from the <code>AnonyBiome</code> library (<code>k_anonymity</code>, <code>t_closeness</code>, <code>normalized_entropy</code>, <code>p_29</code>). DP accounting is available to plugins via <code>kernel.privacy</code> / <code>kernel.dp_budget</code>.</p>
+   {% endif %}
+
+   {# ════════════════════════════ ADMIN ════════════════════════════ #}
+   {% if section == 'admin' %}
+   <h2 class="border-bottom pb-2 mt-3">Admin &amp; RBAC <span class="badge bg-secondary align-middle">/admin</span></h2>
+   <p>The admin console manages user roles and per-dataset access grants. Every privileged action is recorded in an append-only audit table.</p>
+   <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle">
+         <thead class="table-light"><tr><th>Route</th><th>Roles</th><th>Purpose</th></tr></thead>
+         <tbody>
+            <tr><td><code>/admin/users</code></td><td>admin</td><td>List users and change roles. Writes <code>_fd.role_audit</code>.</td></tr>
+            <tr><td><code>/admin/datasets/&lt;id&gt;/grants</code></td><td>admin, curator (owns)</td><td>Grant / revoke dataset read access. Writes <code>_fd.grant_audit</code>.</td></tr>
+         </tbody>
+      </table>
+   </div>
+   <p class="mb-1"><strong>Roles:</strong></p>
+   <ul class="small">
+      <li><strong>admin</strong> — upload, read/modify any dataset, manage roles &amp; grants.</li>
+      <li><strong>curator</strong> — upload + own datasets; modify/grant only what they own.</li>
+      <li><strong>accessor</strong> — read only datasets explicitly granted to them.</li>
+      <li><strong>visualizer</strong> — sign-up default; catalogue + aggregate stats only.</li>
+   </ul>
+   <p class="small text-muted">RBAC is layered: the <code>login_required(*roles)</code> decorator, handler-side ownership checks, and Postgres RLS. Implemented in <code>src/admin</code>.</p>
+   {% endif %}
+
+   {# ════════════════════════════ VISUALIZATION ════════════════════════════ #}
+   {% if section == 'visualization' %}
+   <h2 class="border-bottom pb-2 mt-3">Visualization <span class="badge bg-secondary align-middle">/visualization</span></h2>
+   <p>Render charts and aggregate views for datasets the current user is authorized to read. Implemented in <code>src/visualization</code>.</p>
+   <p class="small text-muted">Aggregate statistics are also exposed via the Supabase edge function <code>get-dataset-visualization</code>, which re-checks ownership/grants independently of Flask (defense in depth).</p>
+   {% endif %}
+
+   {# ════════════════════════════ FEDERATED LEARNING ════════════════════════════ #}
+   {% if section == 'fl' %}
+   <h2 class="border-bottom pb-2 mt-3">Federated learning <span class="badge bg-primary align-middle">/fl</span></h2>
+   <p>The <code>horizontal_fl</code> plugin: DP-FedProx / FedAvg horizontal federated learning. Task creation, encrypted gradient submission, in-process simulation, and differential-privacy ε accounting.</p>
+   <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle">
+         <thead class="table-light"><tr><th>Area</th><th>Detail</th></tr></thead>
+         <tbody>
+            <tr><td>UI</td><td><code>/fl/ui</code> (legacy <code>/federated/*</code> URLs 301-redirect here).</td></tr>
+            <tr><td>Tables</td><td><code>_fd.fl_*</code>: tasks, rounds, clients, round submissions.</td></tr>
+            <tr><td>Crypto</td><td>Gradients are AES-256-GCM encrypted via <code>kernel.crypto</code>; raw values never persisted.</td></tr>
+            <tr><td>Privacy</td><td>RDP-based ε composition (<code>kernel.rdp_accountant</code>) + per-dataset budget (<code>kernel.dp_budget</code>).</td></tr>
+            <tr><td>Dependencies</td><td><code>torch</code> is optional — only <code>POST /fl/tasks/&lt;id&gt;/simulate</code> needs it, and it's imported lazily.</td></tr>
+         </tbody>
+      </table>
+   </div>
+   {% endif %}
+
 </div>
 {% endblock %}
+</content>
