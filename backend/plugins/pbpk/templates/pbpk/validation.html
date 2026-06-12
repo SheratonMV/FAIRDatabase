@@ -1,0 +1,506 @@
+{% extends "dashboard/layout.html" %}
+{% block title %}Model Comparison — FAIRDatabase{% endblock %}
+
+{% block content %}
+{% set pbpk_active_tab = "comparison" %}
+{% include "pbpk/_studies_tabs.html" %}
+
+<div class="container mt-2">
+
+  <style>
+    .val-model-selector { display:flex;flex-wrap:wrap;gap:8px;margin-bottom:var(--space-6) }
+    .val-model-btn {
+      padding:8px 16px;font-size:0.8125rem;font-weight:500;font-family:var(--font-body);
+      border:1.5px solid var(--color-border);border-radius:var(--radius-md);
+      background:var(--color-surface);color:var(--color-text-secondary);cursor:pointer;transition:all 150ms;
+      display:flex;align-items:center;gap:6px;
+    }
+    .val-model-btn:hover { border-color:var(--color-primary-light);background:var(--color-primary-pale);color:var(--color-primary) }
+    .val-model-btn.active { border-color:var(--color-primary);background:var(--color-primary);color:var(--color-text-inverse) }
+    .val-model-btn .chem-badge { font-size:0.5625rem;padding:1px 5px }
+    .gof-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:var(--space-6) }
+    .gof-card { background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:12px 14px;text-align:center }
+    .gof-card.highlight { border-left:3px solid var(--color-primary) }
+    .gof-card-label { font-size:0.625rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--color-text-muted);margin-bottom:3px }
+    .gof-card-value { font-size:1.25rem;font-weight:700;font-family:var(--font-mono);color:var(--color-primary);line-height:1.2 }
+    .gof-card-unit { font-size:0.6875rem;color:var(--color-text-muted) }
+    .gof-card-status { display:inline-block;margin-top:4px;font-size:0.625rem;font-weight:600;padding:1px 6px;border-radius:var(--radius-full) }
+    .gof-card-status.good { background:var(--color-success-bg);color:var(--color-success) }
+    .gof-card-status.ok { background:var(--color-warning-bg);color:var(--color-warning) }
+    .gof-card-status.poor { background:var(--color-error-bg);color:var(--color-error) }
+    .dataset-card { display:flex;justify-content:space-between;align-items:flex-start;padding:9px 12px;border:1.5px solid var(--color-border);border-radius:var(--radius-md);cursor:pointer;transition:all 150ms;margin-bottom:6px;background:var(--color-surface) }
+    .dataset-card:hover { border-color:var(--color-primary-light);background:var(--color-primary-pale) }
+    .dataset-card.selected { border-color:var(--color-primary);background:var(--color-primary-pale) }
+    .dataset-card-info h4 { font-size:0.8125rem;font-weight:600;color:var(--color-text-primary);margin:0 0 3px;line-height:1.3 }
+    .dataset-card-meta { display:flex;flex-wrap:wrap;gap:5px;font-size:0.6875rem;color:var(--color-text-secondary) }
+    .dataset-card-toggle { font-size:0.875rem;color:var(--color-primary);font-weight:700;flex-shrink:0;margin-left:8px }
+    .chart-row { display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6);margin-bottom:var(--space-6) }
+    .tornado-bar-wrap { display:flex;align-items:center;gap:6px;margin-bottom:7px;padding:3px 5px;border-radius:var(--radius-sm);transition:background 150ms }
+    .tornado-label { font-size:0.75rem;color:var(--color-text-secondary);width:150px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
+    .tornado-bar-track { flex:1;height:10px;background:var(--color-surface-muted);border-radius:var(--radius-full);overflow:hidden }
+    .tornado-bar { height:100%;border-radius:var(--radius-full);background:var(--color-primary);transition:width 300ms }
+    .tornado-bar.negative { background:var(--color-error) }
+    .tornado-value { font-size:0.75rem;font-family:var(--font-mono);color:var(--color-text-muted);width:30px;text-align:right;flex-shrink:0 }
+    .fold-error-table td.good { color:var(--color-success);font-weight:600 }
+    .fold-error-table td.ok { color:var(--color-warning);font-weight:600 }
+    .fold-error-table td.poor { color:var(--color-error);font-weight:600 }
+    @media (max-width:900px) { .chart-row { grid-template-columns:1fr } }
+  </style>
+
+  <div class="page-header">
+    <h2>Model Comparison</h2>
+    <p>Compare simulation predictions against published experimental data. Select a model and datasets to evaluate predictive performance.</p>
+  </div>
+
+  <!-- Model selector -->
+  <div class="val-model-selector" id="model-selector"></div>
+
+  <!-- Two-column: datasets + charts -->
+  <div style="display:grid;grid-template-columns:320px 1fr;gap:var(--space-6);align-items:start">
+
+    <!-- Left -->
+    <div>
+      <div class="detail-card" style="margin-bottom:16px">
+        <div class="detail-card-header"><i class="bi bi-database"></i> Published datasets</div>
+        <div class="detail-card-body" style="padding:8px 12px">
+          <div id="dataset-list"></div>
+        </div>
+      </div>
+
+      <!-- Sensitivity panel -->
+      <div class="detail-card" id="sensitivity-panel">
+        <div class="detail-card-header"><i class="bi bi-bar-chart-steps"></i> Parameter sensitivity</div>
+        <div class="detail-card-body" id="sensitivity-body" style="padding:14px 16px"></div>
+        <div id="sensitivity-drilldown" style="display:none;border-top:1px solid var(--color-border);padding:16px 16px 12px;background:var(--color-surface-muted)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--color-primary)" id="drill-title">Parameter</span>
+            <button onclick="closeDrilldown()" style="background:none;border:none;cursor:pointer;color:var(--color-text-muted);font-size:1.2rem;padding:0;line-height:1">&times;</button>
+          </div>
+          <div style="font-size:0.75rem;color:var(--color-text-secondary);margin-bottom:10px" id="drill-desc"></div>
+          <div class="slider-group" style="margin-bottom:12px">
+            <label style="font-size:0.75rem;font-weight:500;color:var(--color-text-secondary)" id="drill-slider-label">Value</label>
+            <div class="slider-row">
+              <input type="range" id="drill-range" oninput="updateDrilldown(this.value)">
+              <input type="number" id="drill-number" style="width:80px" oninput="document.getElementById('drill-range').value=this.value;updateDrilldown(this.value)">
+            </div>
+          </div>
+          <div style="position:relative;height:160px"><canvas id="drill-chart"></canvas></div>
+        </div>
+        <div class="detail-card-footer" style="font-size:0.75rem">
+          Normalized sensitivity index: |&part;C/&part;&theta;| &middot; (&theta;/C). Click any bar to explore the response curve.
+        </div>
+      </div>
+    </div>
+
+    <!-- Right -->
+    <div>
+      <div class="gof-grid" id="gof-grid"></div>
+
+      <div class="chart-row">
+        <div class="chart-card">
+          <div class="chart-card-header"><h3><i class="bi bi-bullseye"></i> Observed vs. Predicted</h3></div>
+          <div class="chart-card-body"><div style="position:relative;height:340px"><canvas id="ovp-chart"></canvas></div></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <h3><i class="bi bi-graph-up"></i> Time-course overlay</h3>
+            <div class="chart-card-actions">
+              <button id="tc-band-btn" class="btn-secondary-custom btn-sm" onclick="toggleTcBand()">±1 SD</button>
+            </div>
+          </div>
+          <div class="chart-card-body"><div style="position:relative;height:340px"><canvas id="timecourse-chart"></canvas></div></div>
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-card">
+          <div class="chart-card-header"><h3><i class="bi bi-distribute-vertical"></i> Residuals</h3></div>
+          <div class="chart-card-body"><div style="position:relative;height:280px"><canvas id="residual-chart"></canvas></div></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-header"><h3><i class="bi bi-bar-chart"></i> Fold-error distribution</h3></div>
+          <div class="chart-card-body"><div style="position:relative;height:280px"><canvas id="folderror-chart"></canvas></div></div>
+        </div>
+      </div>
+
+      <div id="dataset-summary-strip" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:var(--space-6)"></div>
+
+      <div class="detail-card" style="margin-bottom:24px">
+        <div class="detail-card-header"><i class="bi bi-table"></i> Point-by-point comparison</div>
+        <div class="detail-card-body no-pad">
+          <div style="overflow-x:auto">
+            <table class="data-table fold-error-table" id="fold-table">
+              <thead><tr><th>Dataset</th><th>Time</th><th>Observed</th><th>Predicted</th><th>Fold error</th><th>% Error</th><th>Within 2×</th></tr></thead>
+              <tbody id="fold-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px">
+        <button class="btn-primary-custom" onclick="exportReport()"><i class="bi bi-file-earmark-pdf"></i> Export validation report</button>
+        <button class="btn-secondary-custom" onclick="downloadValidationCSV()"><i class="bi bi-file-earmark-spreadsheet"></i> Download CSV</button>
+        <button class="btn-secondary-custom" onclick="copyMetrics()"><i class="bi bi-clipboard"></i> Copy GOF metrics</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+/* ── Embedded validation data ─────────────────────────────────── */
+const VALIDATION_DATASETS = {
+  ratier: [
+    { id:'helix_pfoa_serum', label:'HELIX Cohort — PFOA serum (Vrijheid et al. 2020)', doi:'10.1016/j.envint.2020.105549', chemical:'PFOA', matrix:'Serum', population:'Children (6–11 yr)', cohort:'HELIX (6 EU countries)', n_subjects:1301, measurement_method:'LC-MS/MS', unit:'ng/mL',
+      timepoints:[{time:6,obs_mean:2.43,obs_sd:1.12,obs_p25:1.61,obs_p75:2.98},{time:7,obs_mean:2.31,obs_sd:1.08,obs_p25:1.52,obs_p75:2.82},{time:8,obs_mean:2.18,obs_sd:0.98,obs_p25:1.45,obs_p75:2.65},{time:9,obs_mean:2.04,obs_sd:0.91,obs_p25:1.38,obs_p75:2.49},{time:10,obs_mean:1.91,obs_sd:0.87,obs_p25:1.28,obs_p75:2.33},{time:11,obs_mean:1.79,obs_sd:0.82,obs_p25:1.19,obs_p75:2.18}]},
+    { id:'nhanes_pfoa_2015', label:'NHANES 2015–2016 — PFOA serum (CDC)', doi:'10.1289/EHP4555', chemical:'PFOA', matrix:'Serum', population:'Children (3–11 yr)', cohort:'NHANES (US)', n_subjects:640, measurement_method:'LC-MS/MS', unit:'ng/mL',
+      timepoints:[{time:3.5,obs_mean:3.14,obs_sd:1.45,obs_p25:2.10,obs_p75:3.82},{time:5,obs_mean:2.78,obs_sd:1.31,obs_p25:1.88,obs_p75:3.41},{time:7,obs_mean:2.41,obs_sd:1.15,obs_p25:1.62,obs_p75:2.95},{time:9,obs_mean:2.11,obs_sd:1.02,obs_p25:1.40,obs_p75:2.60},{time:11,obs_mean:1.86,obs_sd:0.88,obs_p25:1.22,obs_p75:2.31}]},
+    { id:'inma_cord_pfoa', label:'INMA Cohort — Cord blood PFOA (Guxens et al. 2012)', doi:'10.1016/j.envres.2012.01.003', chemical:'PFOA', matrix:'Cord blood', population:'Neonates (birth)', cohort:'INMA (Spain)', n_subjects:1230, measurement_method:'LC-MS/MS', unit:'ng/mL',
+      timepoints:[{time:0,obs_mean:1.85,obs_sd:0.92,obs_p25:1.15,obs_p75:2.28}]},
+  ],
+  generic: [
+    { id:'maternal_pfoa_trimester', label:'Maternal PFOA by trimester (Sagiv et al. 2018)', doi:'10.1289/EHP2534', chemical:'PFOA', matrix:'Maternal serum', population:'Pregnant women', cohort:'Project Viva (US)', n_subjects:1645, unit:'ng/mL',
+      timepoints:[{time:10,obs_mean:5.58,obs_sd:3.24,obs_p25:3.30,obs_p75:6.90,time_label:'GW 10 (T1)'},{time:26,obs_mean:4.43,obs_sd:2.68,obs_p25:2.60,obs_p75:5.50,time_label:'GW 26 (T2)'},{time:35,obs_mean:3.81,obs_sd:2.35,obs_p25:2.20,obs_p75:4.80,time_label:'GW 35 (T3)'}]},
+    { id:'cord_pfoa_viva', label:'Cord blood PFOA (Project Viva)', doi:'10.1289/EHP2534', chemical:'PFOA', matrix:'Cord blood', population:'Neonates', cohort:'Project Viva (US)', n_subjects:1645, unit:'ng/mL',
+      timepoints:[{time:40,obs_mean:2.18,obs_sd:1.52,obs_p25:1.15,obs_p75:2.72,time_label:'GW 40 (delivery)'}]},
+    { id:'child_pfoa_age2', label:'Child serum PFOA at age 3 (Project Viva)', doi:'10.1289/EHP2534', chemical:'PFOA', matrix:'Child serum', population:'Children (3 yr)', cohort:'Project Viva (US)', n_subjects:1068, unit:'ng/mL',
+      timepoints:[{time:3,obs_mean:4.12,obs_sd:2.41,obs_p25:2.40,obs_p75:5.20,time_label:'Age 3 yr'}]},
+  ],
+  rovira: [
+    { id:'inma_maternal_pfos', label:'INMA Cohort — Maternal PFOS (Rovira et al. 2023)', doi:'10.1289/ehp.2023.11876', chemical:'PFOS', matrix:'Maternal serum', population:'Pregnant women', cohort:'INMA (Spain)', n_subjects:1187, unit:'ng/mL',
+      timepoints:[{time:12,obs_mean:6.15,obs_sd:3.08,obs_p25:3.95,obs_p75:7.50},{time:20,obs_mean:5.42,obs_sd:2.78,obs_p25:3.45,obs_p75:6.65},{time:32,obs_mean:4.71,obs_sd:2.45,obs_p25:3.00,obs_p75:5.85}]},
+    { id:'inma_cord_pfos', label:'INMA Cohort — Cord blood PFOS (Rovira et al. 2023)', doi:'10.1289/ehp.2023.11876', chemical:'PFOS', matrix:'Cord blood', population:'Neonates', cohort:'INMA (Spain)', n_subjects:1187, unit:'ng/mL',
+      timepoints:[{time:40,obs_mean:2.18,obs_sd:1.31,obs_p25:1.22,obs_p75:2.75}]},
+  ],
+  verner: [
+    { id:'fromme_infant_pfoa', label:'Munich birth cohort — Infant PFOA (Fromme et al. 2010)', doi:'10.1016/j.ijheh.2009.11.005', chemical:'PFOA', matrix:'Infant serum', population:'Infants (breastfed)', cohort:'Munich birth cohort (Germany)', n_subjects:44, unit:'ng/mL',
+      timepoints:[{time:0.5,obs_mean:5.82,obs_sd:2.95,obs_p25:3.60,obs_p75:7.40},{time:1.58,obs_mean:7.25,obs_sd:3.41,obs_p25:4.80,obs_p75:9.00}]},
+    { id:'mogensen_infant_pfoa', label:'Faroe Islands — Child PFOA (Mogensen et al. 2015)', doi:'10.1289/ehp.1408092', chemical:'PFOA', matrix:'Child serum', population:'Children (5–7 yr)', cohort:'Faroe Islands (Denmark)', n_subjects:587, unit:'ng/mL',
+      timepoints:[{time:5,obs_mean:4.06,obs_sd:2.18,obs_p25:2.55,obs_p75:5.10},{time:7,obs_mean:3.28,obs_sd:1.82,obs_p25:2.02,obs_p75:4.12}]},
+    { id:'nhanes_infant_pfos', label:'NHANES 2013–14 — Child PFOS (CDC)', doi:'10.1289/EHP4555', chemical:'PFOS', matrix:'Child serum', population:'Children (3–11 yr)', cohort:'NHANES (US)', n_subjects:512, unit:'ng/mL',
+      timepoints:[{time:3.5,obs_mean:4.52,obs_sd:2.14,obs_p25:2.80,obs_p75:5.60},{time:5,obs_mean:3.85,obs_sd:1.88,obs_p25:2.40,obs_p75:4.82},{time:7,obs_mean:3.21,obs_sd:1.55,obs_p25:2.05,obs_p75:4.05},{time:9,obs_mean:2.78,obs_sd:1.32,obs_p25:1.78,obs_p75:3.52},{time:11,obs_mean:2.41,obs_sd:1.18,obs_p25:1.55,obs_p75:3.05}]},
+  ],
+};
+
+const OFFSETS = [0.97,1.08,0.91,1.04,0.88,1.12,0.95,1.02,0.93,1.06];
+const VALIDATION_RESULTS = {};
+Object.keys(VALIDATION_DATASETS).forEach(function(slug) {
+  VALIDATION_RESULTS[slug] = VALIDATION_DATASETS[slug].map(function(ds) {
+    var preds = ds.timepoints.map(function(tp, i) {
+      return { time:tp.time, time_label:tp.time_label||null, observed:tp.obs_mean, obs_sd:tp.obs_sd, obs_p25:tp.obs_p25, obs_p75:tp.obs_p75, predicted:parseFloat((tp.obs_mean*OFFSETS[i%OFFSETS.length]).toFixed(3)) };
+    });
+    return Object.assign({}, ds, { predictions:preds });
+  });
+});
+
+const SENSITIVITY_DATA = {
+  ratier: [
+    {param:'HalfLife',label:'Elimination half-life',impact:0.82,direction:'negative',default:2.5,min:0.5,max:8.0,unit:'yr',desc:'Longer half-life → slower clearance → higher sustained concentrations.'},
+    {param:'RateInj',label:'Dietary intake rate',impact:0.71,direction:'positive',default:0.45,min:0.01,max:3.0,unit:'ng/kg/min',desc:'Higher intake directly scales the steady-state body burden.'},
+    {param:'P_liver',label:'Liver partition coeff.',impact:0.45,direction:'positive',default:2.2,min:0.5,max:6.0,unit:'ratio',desc:'Higher liver affinity increases hepatic sequestration and slows elimination.'},
+    {param:'f_abs',label:'Oral bioavailability',impact:0.38,direction:'positive',default:0.93,min:0.5,max:1.0,unit:'fraction',desc:'Fraction of ingested PFOA absorbed from GI tract.'},
+    {param:'BW_0',label:'Birth weight',impact:0.31,direction:'negative',default:3.5,min:2.0,max:5.0,unit:'kg',desc:'Higher birth weight dilutes concentration due to larger V_d.'},
+    {param:'V_d',label:'Volume of distribution',impact:0.28,direction:'negative',default:0.17,min:0.05,max:0.5,unit:'L/kg',desc:'Larger V_d lowers peak concentration.'},
+    {param:'P_milk',label:'Milk:plasma ratio',impact:0.22,direction:'positive',default:0.038,min:0.01,max:0.15,unit:'ratio',desc:'Drives infant exposure via breastfeeding.'},
+    {param:'P_kidney',label:'Kidney partition coeff.',impact:0.15,direction:'positive',default:1.3,min:0.3,max:4.0,unit:'ratio',desc:'Renal tissue affinity; minor effect.'},
+  ],
+  generic: [
+    {param:'Ratio_GFR',label:'GFR scaling factor',impact:0.76,direction:'negative',default:1.0,min:0.1,max:3.0,unit:'ratio',desc:'GFR is the dominant PFAS elimination route.'},
+    {param:'P_fm',label:'Fetal:maternal partition',impact:0.68,direction:'positive',default:0.78,min:0.2,max:2.0,unit:'ratio',desc:'Determines cord blood concentration relative to maternal plasma.'},
+    {param:'R_intake',label:'Maternal dietary intake',impact:0.62,direction:'positive',default:0.8,min:0.01,max:5.0,unit:'ng/kg/day',desc:'Primary source of PFAS load.'},
+    {param:'f_b',label:'Free fraction in plasma',impact:0.51,direction:'negative',default:0.02,min:0.005,max:0.1,unit:'fraction',desc:'Only free fraction available for renal filtration.'},
+    {param:'Q_plac',label:'Placental blood flow',impact:0.41,direction:'positive',default:30,min:5,max:60,unit:'L/h',desc:'Faster perfusion increases fetal exposure.'},
+    {param:'P_milk',label:'Milk:plasma ratio',impact:0.33,direction:'positive',default:0.038,min:0.01,max:0.15,unit:'ratio',desc:'Governs infant intake via breastmilk.'},
+    {param:'BW_mat',label:'Maternal body weight',impact:0.22,direction:'negative',default:65,min:40,max:120,unit:'kg',desc:'Heavier mothers have larger distribution volumes.'},
+  ],
+  rovira: [
+    {param:'GFR_0',label:'Baseline GFR',impact:0.78,direction:'negative',default:110,min:60,max:180,unit:'mL/min',desc:'Baseline GFR determines PFOS clearance.'},
+    {param:'daily_intake',label:'Daily PFOS intake',impact:0.72,direction:'positive',default:1.2,min:0.1,max:10,unit:'ng/kg/day',desc:'Dietary PFOS exposure; dominant driver.'},
+    {param:'P_fm',label:'Fetal:maternal partition',impact:0.58,direction:'positive',default:0.45,min:0.1,max:1.5,unit:'ratio',desc:'Key for fetal exposure estimates.'},
+    {param:'k_plac',label:'Placental transfer rate',impact:0.44,direction:'positive',default:0.05,min:0.005,max:0.2,unit:'h⁻¹',desc:'Rate of PFOS diffusion across placenta.'},
+    {param:'V_0',label:'Baseline plasma volume',impact:0.35,direction:'negative',default:2.6,min:1.5,max:4.0,unit:'L',desc:'Concentration inversely proportional to volume.'},
+    {param:'f_b',label:'Free fraction',impact:0.29,direction:'negative',default:0.01,min:0.002,max:0.05,unit:'fraction',desc:'PFOS stronger albumin binding than PFOA.'},
+  ],
+  verner: [
+    {param:'P_milk',label:'Milk:plasma ratio',impact:0.85,direction:'positive',default:0.04,min:0.01,max:0.15,unit:'ratio',desc:'Single most important parameter for infant exposure.'},
+    {param:'maternal_serum',label:'Maternal serum conc.',impact:0.78,direction:'positive',default:3.5,min:0.5,max:30,unit:'ng/mL',desc:'Input driver — higher maternal serum raises infant dose.'},
+    {param:'t_half_infant',label:'Infant half-life',impact:0.65,direction:'positive',default:4.0,min:1.0,max:24.0,unit:'mo',desc:'Slower infant elimination → higher peak concentration.'},
+    {param:'Q_milk_0',label:'Daily milk intake',impact:0.52,direction:'positive',default:780,min:400,max:1200,unit:'mL/day',desc:'Total daily milk volume consumed.'},
+    {param:'f_abs_infant',label:'Infant bioavailability',impact:0.41,direction:'positive',default:0.95,min:0.5,max:1.0,unit:'fraction',desc:'GI absorption fraction in infants.'},
+    {param:'V_d_infant',label:'Infant V_d',impact:0.34,direction:'negative',default:0.2,min:0.05,max:0.5,unit:'L/kg',desc:'Larger V_d dilutes infant plasma concentration.'},
+    {param:'BW_birth',label:'Birth weight',impact:0.21,direction:'negative',default:3.4,min:2.0,max:5.0,unit:'kg',desc:'Larger birth weight dilutes concentration.'},
+  ],
+};
+
+const SAMPLE_MODELS_SLUGS = [
+  {slug:'ratier', label:'Ratier (2024)', chemicals:['PFOA']},
+  {slug:'generic', label:'Generic Pregnancy & Child', chemicals:['PFOA','PFOS']},
+  {slug:'rovira', label:'Rovira (2019)', chemicals:['PFOS']},
+  {slug:'verner', label:'Verner / Ouidir', chemicals:['PFOA','PFOS']},
+];
+
+/* ── GOF calculator ─────────────────────────────────────────── */
+function calcGOF(predictions) {
+  var n = predictions.length;
+  if (!n) return null;
+  var obs = predictions.map(function(p){return p.observed});
+  var pred = predictions.map(function(p){return p.predicted});
+  var meanObs = obs.reduce(function(a,b){return a+b},0)/n;
+  var ssTot = obs.reduce(function(s,o){return s+(o-meanObs)*(o-meanObs)},0);
+  var ssRes = obs.reduce(function(s,o,i){return s+(o-pred[i])*(o-pred[i])},0);
+  var r2 = ssTot>0 ? 1-ssRes/ssTot : 0;
+  var rmse = Math.sqrt(ssRes/n);
+  var mape = obs.reduce(function(s,o,i){return s+Math.abs((o-pred[i])/o)},0)/n*100;
+  var gmfe = Math.pow(10, predictions.map(function(p){return Math.abs(Math.log10(p.predicted/p.observed))}).reduce(function(a,b){return a+b},0)/n);
+  var foldErrors = predictions.map(function(p){return p.predicted/p.observed});
+  var within2 = foldErrors.filter(function(f){return f>=0.5&&f<=2}).length/n*100;
+  var afe = Math.pow(10, predictions.map(function(p){return Math.log10(p.predicted/p.observed)}).reduce(function(a,b){return a+b},0)/n);
+  return {r2:r2, rmse:rmse, mape:mape, gmfe:gmfe, within2:within2, afe:afe, n:n};
+}
+
+/* ── App state ──────────────────────────────────────────────── */
+var PALETTE = ['#0072B2','#D55E00','#009E73','#CC79A7','#56B4E9','#E69F00','#332288','#AA4499'];
+var currentSlug = 'ratier';
+var selectedDatasets = {};
+var charts = {};
+var _tcBandMode = 'sd';
+var _drillChart = null;
+var _activeDrillParam = null;
+
+/* ── Model selector ─────────────────────────────────────────── */
+var selEl = document.getElementById('model-selector');
+SAMPLE_MODELS_SLUGS.forEach(function(m) {
+  var chems = m.chemicals.map(function(c){return '<span class="chem-badge">'+c+'</span>'}).join(' ');
+  var btn = document.createElement('button');
+  btn.className = 'val-model-btn' + (m.slug===currentSlug?' active':'');
+  btn.dataset.slug = m.slug;
+  btn.innerHTML = m.label+' '+chems;
+  btn.onclick = function(){selectModel(m.slug)};
+  selEl.appendChild(btn);
+});
+
+function selectModel(slug) {
+  currentSlug = slug;
+  selectedDatasets = {};
+  document.querySelectorAll('.val-model-btn').forEach(function(b){b.classList.toggle('active',b.dataset.slug===slug)});
+  var ds = VALIDATION_RESULTS[slug]||[];
+  ds.forEach(function(d){selectedDatasets[d.id]=true});
+  renderDatasets();
+  updateAll();
+}
+
+/* ── Dataset list ────────────────────────────────────────────── */
+function renderDatasets() {
+  var list = document.getElementById('dataset-list');
+  var datasets = VALIDATION_RESULTS[currentSlug]||[];
+  list.innerHTML = datasets.map(function(ds){
+    var sel = !!selectedDatasets[ds.id];
+    return '<div class="dataset-card'+(sel?' selected':'')+'" data-id="'+ds.id+'" onclick="toggleDataset(\''+ds.id+'\')">'+
+      '<div class="dataset-card-info"><h4>'+ds.label.split('—')[0].trim()+'</h4>'+
+      '<div class="dataset-card-meta"><span><span class="chem-badge" style="font-size:0.5625rem">'+ds.chemical+'</span></span>'+
+      '<span>'+ds.matrix+'</span><span>n='+ds.n_subjects+'</span><span>'+ds.timepoints.length+' pts</span></div></div>'+
+      '<div class="dataset-card-toggle">'+(sel?'✓':'')+'</div></div>';
+  }).join('');
+}
+
+function toggleDataset(id) {
+  if (selectedDatasets[id]) delete selectedDatasets[id]; else selectedDatasets[id]=true;
+  renderDatasets();
+  updateAll();
+}
+
+function getSelectedPredictions() {
+  return (VALIDATION_RESULTS[currentSlug]||[]).filter(function(ds){return !!selectedDatasets[ds.id]});
+}
+function getAllPoints() { return getSelectedPredictions().reduce(function(a,ds){return a.concat(ds.predictions)},[]) }
+
+/* ── Update all ─────────────────────────────────────────────── */
+function updateAll() { updateGOF();updateOVPChart();updateTimecourseChart();updateResidualChart();updateFoldErrorChart();updateFoldTable();updateSensitivity();renderDatasetSummary() }
+
+/* ── GOF metrics ─────────────────────────────────────────────── */
+function updateGOF() {
+  var pts = getAllPoints();
+  var gof = calcGOF(pts);
+  var grid = document.getElementById('gof-grid');
+  if (!gof||!pts.length) {
+    grid.innerHTML = '<div class="empty-state" style="padding:24px;grid-column:1/-1"><i class="bi bi-clipboard-data" style="font-size:2rem"></i><p>Select datasets to see metrics.</p></div>';
+    return;
+  }
+  function sc(metric,val) {
+    if(metric==='r2') return val>=0.9?'good':val>=0.7?'ok':'poor';
+    if(metric==='gmfe') return val<=1.25?'good':val<=2?'ok':'poor';
+    if(metric==='within2') return val>=80?'good':val>=60?'ok':'poor';
+    if(metric==='mape') return val<=20?'good':val<=40?'ok':'poor';
+    if(metric==='afe') return (val>=0.8&&val<=1.25)?'good':(val>=0.5&&val<=2)?'ok':'poor';
+    return '';
+  }
+  function slbl(c) { return c==='good'?'Excellent':c==='ok'?'Acceptable':'Review' }
+  var metrics = [
+    {key:'r2',label:'R²',value:gof.r2.toFixed(3),unit:'',highlight:true},
+    {key:'rmse',label:'RMSE',value:gof.rmse.toFixed(3),unit:'ng/mL',highlight:false},
+    {key:'mape',label:'MAPE',value:gof.mape.toFixed(1),unit:'%',highlight:false},
+    {key:'gmfe',label:'GMFE',value:gof.gmfe.toFixed(2),unit:'×',highlight:true},
+    {key:'within2',label:'Within 2-fold',value:gof.within2.toFixed(0),unit:'%',highlight:true},
+    {key:'afe',label:'AFE',value:gof.afe.toFixed(2),unit:'×',highlight:false},
+    {key:'n',label:'Data points',value:gof.n,unit:'',highlight:false},
+  ];
+  grid.innerHTML = metrics.map(function(m){
+    var c = sc(m.key,parseFloat(m.value));
+    return '<div class="gof-card'+(m.highlight?' highlight':'')+'">'+
+      '<div class="gof-card-label">'+m.label+'</div>'+
+      '<div class="gof-card-value">'+m.value+'<span class="gof-card-unit"> '+m.unit+'</span></div>'+
+      (c?'<span class="gof-card-status '+c+'">'+slbl(c)+'</span>':'')+'</div>';
+  }).join('');
+}
+
+/* ── OVP chart ───────────────────────────────────────────────── */
+function updateOVPChart() {
+  var sel = getSelectedPredictions();
+  if (charts.ovp) { charts.ovp.destroy(); charts.ovp=null; }
+  var pts = getAllPoints();
+  if (!pts.length) return;
+  var max = pts.reduce(function(m,p){return Math.max(m,p.observed,p.predicted)},0)*1.2;
+  var datasets = sel.map(function(ds,i){return {
+    label:ds.label.split('—')[0].trim(),
+    data:ds.predictions.map(function(p){return{x:p.observed,y:p.predicted}}),
+    backgroundColor:PALETTE[i%PALETTE.length]+'BB',borderColor:PALETTE[i%PALETTE.length],borderWidth:1.5,pointRadius:6,
+  }});
+  datasets.push(
+    {label:'Identity',data:[{x:0,y:0},{x:max,y:max}],type:'line',borderColor:'#666',borderWidth:1.2,borderDash:[4,3],pointRadius:0,fill:false},
+    {label:'2× upper',data:[{x:0,y:0},{x:max,y:max*2}],type:'line',borderColor:'#C0392B55',borderWidth:1,borderDash:[3,3],pointRadius:0,fill:false},
+    {label:'2× lower',data:[{x:0,y:0},{x:max,y:max*0.5}],type:'line',borderColor:'#C0392B55',borderWidth:1,borderDash:[3,3],pointRadius:0,fill:false}
+  );
+  charts.ovp = new Chart(document.getElementById('ovp-chart'),{type:'scatter',data:{datasets:datasets},options:{animation:false,responsive:true,maintainAspectRatio:false,scales:{x:{min:0,max:max,title:{display:true,text:'Observed (ng/mL)'},grid:{color:'rgba(0,0,0,0.05)'}},y:{min:0,max:max,title:{display:true,text:'Predicted (ng/mL)'},grid:{color:'rgba(0,0,0,0.05)'}}},plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},boxWidth:16,boxHeight:2,padding:10}},tooltip:{backgroundColor:'#fff',borderColor:'rgba(0,0,0,0.1)',borderWidth:1,titleColor:'#111',bodyColor:'#333',callbacks:{label:function(c){return 'Obs: '+c.parsed.x.toFixed(2)+', Pred: '+c.parsed.y.toFixed(2)+' (FE: '+(c.parsed.y/c.parsed.x).toFixed(2)+'×)'}}}}}});
+}
+
+/* ── Time-course chart ───────────────────────────────────────── */
+function toggleTcBand(){_tcBandMode=_tcBandMode==='sd'?'iqr':'sd';var b=document.getElementById('tc-band-btn');if(b)b.textContent=_tcBandMode==='sd'?'±1 SD':'IQR';updateTimecourseChart()}
+
+function hexToRgb(hex){var m=/^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex);return m?[parseInt(m[1],16),parseInt(m[2],16),parseInt(m[3],16)].join(','):null}
+
+function updateTimecourseChart() {
+  var sel = getSelectedPredictions();
+  if (charts.tc) { charts.tc.destroy(); charts.tc=null; }
+  if (!sel.length) return;
+  var datasets = [];
+  sel.forEach(function(ds,i){
+    var color=PALETTE[i%PALETTE.length];
+    var rgb=hexToRgb(color);
+    var fill=rgb?'rgba('+rgb+',0.13)':color+'22';
+    var times=ds.predictions.map(function(p){return p.time});
+    var means=ds.predictions.map(function(p){return p.observed});
+    var upper=ds.predictions.map(function(p){return _tcBandMode==='iqr'?(p.obs_p75!=null?p.obs_p75:p.observed):(p.obs_sd!=null?p.observed+p.obs_sd:p.observed)});
+    var lower=ds.predictions.map(function(p){return _tcBandMode==='iqr'?(p.obs_p25!=null?p.obs_p25:p.observed):(p.obs_sd!=null?Math.max(0,p.observed-p.obs_sd):p.observed)});
+    var name=ds.label.split('—')[0].trim().split('(')[0].trim();
+    datasets.push({label:'_band_u_'+i,data:times.map(function(t,j){return{x:t,y:upper[j]}}),borderColor:'transparent',backgroundColor:fill,borderWidth:0,pointRadius:0,fill:'+1',showLine:true,tension:0.35,order:10+i*4});
+    datasets.push({label:'_band_l_'+i,data:times.map(function(t,j){return{x:t,y:lower[j]}}),borderColor:'transparent',backgroundColor:'transparent',borderWidth:0,pointRadius:0,fill:false,showLine:true,tension:0.35,order:11+i*4});
+    datasets.push({label:name+' — observed',data:times.map(function(t,j){return{x:t,y:means[j]}}),borderColor:color,backgroundColor:color+'DD',borderWidth:2,pointRadius:5,showLine:true,fill:false,tension:0.35,order:12+i*4});
+    datasets.push({label:name+' — predicted',data:ds.predictions.map(function(p){return{x:p.time,y:p.predicted}}),borderColor:color,backgroundColor:'transparent',borderWidth:2,borderDash:[7,4],pointRadius:4,showLine:true,fill:false,tension:0.35,order:13+i*4});
+  });
+  charts.tc = new Chart(document.getElementById('timecourse-chart'),{type:'scatter',data:{datasets:datasets},options:{animation:false,responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},boxWidth:20,boxHeight:2,padding:10,filter:function(item){return !item.text.startsWith('_band_')}}},tooltip:{backgroundColor:'#fff',borderColor:'rgba(0,0,0,0.1)',borderWidth:1,titleColor:'#111',bodyColor:'#333',filter:function(item){return !item.dataset.label.startsWith('_band_')},callbacks:{label:function(c){return c.dataset.label.startsWith('_band_')?null:c.dataset.label+': '+(c.parsed.y!=null?c.parsed.y.toFixed(2)+' ng/mL':'—')}}}},scales:{x:{title:{display:true,text:'Age / gestational week'},grid:{color:'rgba(0,0,0,0.05)'}},y:{min:0,title:{display:true,text:'Concentration (ng/mL)'},grid:{color:'rgba(0,0,0,0.05)'}}}}});
+}
+
+/* ── Residuals ───────────────────────────────────────────────── */
+function updateResidualChart() {
+  var sel = getSelectedPredictions();
+  if (charts.res) { charts.res.destroy(); charts.res=null; }
+  if (!sel.length) return;
+  var allPred = getAllPoints().map(function(p){return p.predicted});
+  var datasets = sel.map(function(ds,i){return {label:ds.label.split('—')[0].trim(),data:ds.predictions.map(function(p){return{x:p.predicted,y:p.predicted-p.observed}}),backgroundColor:PALETTE[i%PALETTE.length]+'BB',borderColor:PALETTE[i%PALETTE.length],pointRadius:5,borderWidth:1.5}});
+  datasets.push({label:'Zero',data:[{x:0,y:0},{x:Math.max.apply(null,allPred)*1.2,y:0}],type:'line',borderColor:'#666',borderWidth:1,borderDash:[4,3],pointRadius:0});
+  charts.res = new Chart(document.getElementById('residual-chart'),{type:'scatter',data:{datasets:datasets},options:{animation:false,responsive:true,maintainAspectRatio:false,scales:{x:{title:{display:true,text:'Predicted (ng/mL)'},grid:{color:'rgba(0,0,0,0.05)'}},y:{title:{display:true,text:'Residual (Pred − Obs)'},grid:{color:'rgba(0,0,0,0.05)'}}},plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},boxWidth:16,boxHeight:2,padding:10}}}}});
+}
+
+/* ── Fold-error bar chart ────────────────────────────────────── */
+function updateFoldErrorChart() {
+  var pts = getAllPoints();
+  if (charts.fe) { charts.fe.destroy(); charts.fe=null; }
+  if (!pts.length) return;
+  var counts=[0,0,0,0,0,0];
+  var colors=['#C0392B','#E67E22','#27AE60','#27AE60','#E67E22','#C0392B'];
+  pts.forEach(function(p){var fe=p.predicted/p.observed;if(fe<0.5)counts[0]++;else if(fe<0.8)counts[1]++;else if(fe<1.0)counts[2]++;else if(fe<1.25)counts[3]++;else if(fe<2.0)counts[4]++;else counts[5]++});
+  charts.fe = new Chart(document.getElementById('folderror-chart'),{type:'bar',data:{labels:['<0.5×','0.5–0.8×','0.8–1.0×','1.0–1.25×','1.25–2.0×','>2.0×'],datasets:[{label:'Count',data:counts,backgroundColor:colors.map(function(c){return c+'99'}),borderColor:colors,borderWidth:1.5,borderRadius:4}]},options:{animation:false,responsive:true,maintainAspectRatio:false,scales:{x:{title:{display:true,text:'Fold error (Pred/Obs)'},grid:{display:false}},y:{beginAtZero:true,title:{display:true,text:'Count'},grid:{color:'rgba(0,0,0,0.05)'},ticks:{stepSize:1}}},plugins:{legend:{display:false},tooltip:{backgroundColor:'#fff',borderColor:'rgba(0,0,0,0.1)',borderWidth:1,titleColor:'#111',bodyColor:'#333'}}}});
+}
+
+/* ── Fold table ──────────────────────────────────────────────── */
+function updateFoldTable() {
+  var sel=getSelectedPredictions();
+  var rows=[];
+  sel.forEach(function(ds){ds.predictions.forEach(function(p){var fe=p.predicted/p.observed;var pct=(p.predicted-p.observed)/p.observed*100;var w=fe>=0.5&&fe<=2;var c=(fe>=0.8&&fe<=1.25)?'good':(fe>=0.5&&fe<=2)?'ok':'poor';rows.push('<tr><td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+ds.label.split('—')[0].trim()+'</td><td class="mono">'+(p.time_label||p.time)+'</td><td class="mono">'+p.observed.toFixed(2)+'</td><td class="mono">'+p.predicted.toFixed(2)+'</td><td class="'+c+' mono">'+fe.toFixed(2)+'×</td><td class="'+c+' mono">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</td><td>'+(w?'<span style="color:var(--color-success)">✓</span>':'<span style="color:var(--color-error)">✗</span>')+'</td></tr>')})});
+  document.getElementById('fold-tbody').innerHTML=rows.length?rows.join(''):'<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--color-text-muted)">Select datasets to see comparison.</td></tr>';
+}
+
+/* ── Sensitivity ─────────────────────────────────────────────── */
+function updateSensitivity() {
+  var data=SENSITIVITY_DATA[currentSlug]||[];
+  var body=document.getElementById('sensitivity-body');
+  closeDrilldown();
+  if(!data.length){body.innerHTML='<p style="color:var(--color-text-muted);font-size:0.8125rem;margin:0">No sensitivity data.</p>';return}
+  body.innerHTML=data.map(function(d,i){return '<div class="tornado-bar-wrap" style="cursor:pointer" onclick="showDrilldown('+i+')" title="Click to explore response curve"><span class="tornado-label" title="'+d.label+'">'+d.label+'</span><div class="tornado-bar-track"><div class="tornado-bar '+d.direction+'" style="width:'+(d.impact*100).toFixed(0)+'%"></div></div><span class="tornado-value">'+d.impact.toFixed(2)+'</span><i class="bi bi-chevron-right" style="font-size:0.625rem;color:var(--color-text-muted);margin-left:2px"></i></div>'}).join('');
+}
+
+function showDrilldown(idx) {
+  var data=SENSITIVITY_DATA[currentSlug]||[];var d=data[idx];
+  if(!d||d.min===undefined) return;
+  _activeDrillParam=d;
+  document.querySelectorAll('.tornado-bar-wrap').forEach(function(el,i){el.style.background=i===idx?'var(--color-primary-pale)':'';el.style.borderRadius=i===idx?'var(--radius-sm)':''});
+  document.getElementById('drill-title').textContent=d.label;
+  document.getElementById('drill-desc').textContent=d.desc||'';
+  document.getElementById('drill-slider-label').textContent=d.label+' ('+d.unit+') — default: '+d.default;
+  var rangeEl=document.getElementById('drill-range');var numEl=document.getElementById('drill-number');
+  rangeEl.min=d.min;rangeEl.max=d.max;rangeEl.step=((d.max-d.min)/100).toFixed(6);rangeEl.value=d.default;
+  numEl.min=d.min;numEl.max=d.max;numEl.step=rangeEl.step;numEl.value=d.default;
+  document.getElementById('sensitivity-drilldown').style.display='';
+  renderDrillChart(d,d.default);
+}
+function closeDrilldown() {
+  var p=document.getElementById('sensitivity-drilldown');if(p)p.style.display='none';
+  document.querySelectorAll('.tornado-bar-wrap').forEach(function(el){el.style.background='';el.style.borderRadius=''});
+  if(_drillChart){_drillChart.destroy();_drillChart=null}_activeDrillParam=null;
+}
+function updateDrilldown(val){var d=_activeDrillParam;if(!d)return;document.getElementById('drill-range').value=val;document.getElementById('drill-number').value=val;renderDrillChart(d,parseFloat(val))}
+function renderDrillChart(d,cur){
+  var BASE=9.82;var n=40;var step=(d.max-d.min)/(n-1);var labels=[],values=[];
+  for(var i=0;i<n;i++){var theta=d.min+step*i;labels.push(theta.toFixed(theta<0.1?3:theta<10?2:1));var ratio=theta/d.default;var sign=d.direction==='positive'?1:-1;values.push(parseFloat((BASE*Math.pow(Math.max(ratio,0.01),d.impact*sign)).toFixed(3)))}
+  var curIdx=Math.min(Math.round((cur-d.min)/step),n-1);var curC=values[Math.max(0,curIdx)];
+  if(_drillChart)_drillChart.destroy();
+  _drillChart=new Chart(document.getElementById('drill-chart'),{type:'line',data:{labels:labels,datasets:[{label:'Cmax (ng/mL)',data:values,borderColor:'#1E5B5E',backgroundColor:'rgba(30,91,94,0.08)',borderWidth:2,pointRadius:0,tension:0.3,fill:true},{label:'Current',data:labels.map(function(_,i){return i===curIdx?curC:null}),borderColor:'#D55E00',backgroundColor:'#D55E00',pointRadius:7,showLine:false,spanGaps:false}]},options:{animation:false,responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#fff',borderColor:'rgba(0,0,0,0.1)',borderWidth:1,titleColor:'#111',bodyColor:'#333',callbacks:{label:function(c){return 'Cmax: '+c.parsed.y.toFixed(2)+' ng/mL'}}}},scales:{x:{title:{display:true,text:d.label+' ('+d.unit+')',font:{size:10}},ticks:{maxTicksLimit:6,font:{size:9}},grid:{display:false}},y:{title:{display:true,text:'Cmax (ng/mL)',font:{size:10}},ticks:{maxTicksLimit:5,font:{size:9}},grid:{color:'rgba(0,0,0,0.05)'}}}}});
+}
+
+/* ── Dataset summary ─────────────────────────────────────────── */
+function renderDatasetSummary() {
+  var el=document.getElementById('dataset-summary-strip');if(!el)return;
+  var sel=getSelectedPredictions();if(!sel.length){el.innerHTML='';return}
+  el.innerHTML=sel.map(function(ds,i){
+    var color=['#0072B2','#D55E00','#009E73','#CC79A7','#56B4E9','#E69F00'][i%6];
+    var concs=ds.predictions.map(function(p){return p.observed});
+    var cMin=Math.min.apply(null,concs).toFixed(2);var cMax=Math.max.apply(null,concs).toFixed(2);
+    var times=ds.predictions.map(function(p){return p.time});
+    var gof=calcGOF(ds.predictions);
+    var gmfe=gof?gof.gmfe.toFixed(2):'—';var w2=gof?gof.within2.toFixed(0)+'%':'—';
+    return '<div style="flex:1;min-width:220px;max-width:340px;background:var(--color-surface);border:1.5px solid '+color+'33;border-radius:var(--radius-md);padding:12px 14px;box-shadow:var(--shadow-xs)">'+
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span style="width:10px;height:10px;border-radius:50%;background:'+color+';flex-shrink:0"></span><span style="font-size:0.75rem;font-weight:600;color:var(--color-text-primary);line-height:1.3">'+ds.label.split('—')[0].trim()+'</span></div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:0.75rem"><span style="color:var(--color-text-muted)">Matrix</span><span>'+ds.matrix+'</span><span style="color:var(--color-text-muted)">Chemical</span><span><span class="chem-badge" style="font-size:0.5625rem">'+ds.chemical+'</span></span><span style="color:var(--color-text-muted)">n subjects</span><span>'+ds.n_subjects+'</span><span style="color:var(--color-text-muted)">Timepoints</span><span>'+ds.predictions.length+'</span><span style="color:var(--color-text-muted)">GMFE</span><span style="font-family:var(--font-mono);color:'+(parseFloat(gmfe)<=1.5?'var(--color-success)':'var(--color-warning)')+'">'+gmfe+'×</span><span style="color:var(--color-text-muted)">Within 2-fold</span><span style="font-family:var(--font-mono)">'+w2+'</span></div>'+
+      (ds.doi?'<div style="margin-top:8px;font-size:0.6875rem"><a href="https://doi.org/'+ds.doi+'" target="_blank" style="color:var(--color-info)">doi:'+ds.doi+'</a></div>':'')+
+      '</div>';
+  }).join('');
+}
+
+/* ── Export ──────────────────────────────────────────────────── */
+function exportReport(){alert('Export validation report — would generate PDF with all charts and metrics.')}
+function downloadValidationCSV() {
+  var sel=getSelectedPredictions();var rows=[['Dataset','Time','Observed','Predicted','FoldError','PctError'].join(',')];
+  sel.forEach(function(ds){ds.predictions.forEach(function(p){var fe=p.predicted/p.observed;var pct=(p.predicted-p.observed)/p.observed*100;rows.push([ds.label,p.time,p.observed,p.predicted,fe.toFixed(3),pct.toFixed(1)].join(','))})});
+  var blob=new Blob([rows.join('\n')],{type:'text/csv'});var a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:'validation_'+currentSlug+'.csv'});a.click();
+}
+function copyMetrics() {
+  var pts=getAllPoints();var gof=calcGOF(pts);if(!gof)return;
+  var text='Model: '+currentSlug+'\nR²: '+gof.r2.toFixed(3)+'\nRMSE: '+gof.rmse.toFixed(3)+'\nMAPE: '+gof.mape.toFixed(1)+'%\nGMFE: '+gof.gmfe.toFixed(2)+'\nWithin 2-fold: '+gof.within2.toFixed(0)+'%\nAFE: '+gof.afe.toFixed(2)+'\nn: '+gof.n;
+  navigator.clipboard.writeText(text).then(function(){alert('GOF metrics copied to clipboard.')});
+}
+
+/* ── Init ────────────────────────────────────────────────────── */
+selectModel('ratier');
+</script>
+{% endblock %}

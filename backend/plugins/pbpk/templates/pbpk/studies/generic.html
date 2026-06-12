@@ -50,7 +50,7 @@
         <div class="col-md-3">
           <label for="Ratio_GFR" class="form-label">GFR scaling factor</label>
           <input type="number" id="Ratio_GFR" name="Ratio_GFR"
-                 class="form-control" value="1.0" min="0.01" step="any">
+                 class="form-control" value="{{ param_specs.Ratio_GFR.default }}" min="{{ param_specs.Ratio_GFR.min }}" step="{{ param_specs.Ratio_GFR.step }}">
         </div>
 
         <div class="col-12">
@@ -307,9 +307,7 @@
   }
 
   // ── Applicability domain check ────────────────────────────────────────────
-  const DOMAIN = {
-    Ratio_GFR: { min: 0.5, max: 2.0, label: "GFR scaling factor" },
-  };
+  const DOMAIN = {{ domain_js | safe }};
 
   function checkDomain() {
     const form = document.getElementById("sim-form");

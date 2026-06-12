@@ -1,35 +1,61 @@
-{# Sub-navigation rendered at the top of every pbpk page. Convention:
-   the global sidebar carries one flat link per plugin; in-plugin switching
-   happens here. Driven by `plugin_studies` injected by the pbpk routes — a
-   list of {slug, label, href} dicts plus sentinels for the lifetime UI and
-   catalogue. The currently rendered page is marked via `pbpk_active_tab`
-   (slug, "lifetime", or "catalogue").
+{# PBPK in-plugin navigation bar.
+   Rendered at the top of every pbpk page. Styles come from static/pbpk.css.
+   Active tab is driven by pbpk_active_tab (slug | "catalogue" | "history" | "comparison").
 #}
-<ul class="nav nav-pills mb-3 pbpk-studies-tabs flex-wrap">
-  <li class="nav-item">
-    <a class="nav-link{% if pbpk_active_tab == 'catalogue' %} active{% endif %}"
-       href="/model/catalogue">
-      <i class="bi bi-grid-3x3-gap me-1"></i>Model Catalogue
+<link rel="stylesheet" href="{{ url_for('static', filename='pbpk.css') }}">
+<nav class="pbpk-nav" aria-label="PBK module navigation">
+
+  <a class="pbpk-nav-link{% if pbpk_active_tab == 'catalogue' %} active{% endif %}"
+     href="/model/catalogue">
+    <i class="bi bi-grid-3x3-gap"></i>
+    <span class="pbpk-nav-label">Catalogue</span>
+  </a>
+
+  {% set _study_slugs = ["ratier", "generic", "rovira", "verner"] %}
+  {% set _simulate_active = pbpk_active_tab in _study_slugs %}
+  <div class="pbpk-nav-dropdown{% if _simulate_active %} active{% endif %}">
+    <a class="pbpk-nav-link pbpk-nav-dropdown-toggle{% if _simulate_active %} active{% endif %}"
+       href="#" role="button" aria-expanded="false">
+      <i class="bi bi-activity"></i>
+      <span class="pbpk-nav-label">Simulate</span>
     </a>
-  </li>
-  <li class="nav-item">
-    <a class="nav-link{% if pbpk_active_tab == 'lifetime' %} active{% endif %}"
-       href="/model/ui">
-      Lifetime simulation
-    </a>
-  </li>
-  {% for s in plugin_studies %}
-    <li class="nav-item">
-      <a class="nav-link{% if pbpk_active_tab == s.slug %} active{% endif %}"
-         href="{{ s.href }}">
-        {{ s.label }}
-      </a>
-    </li>
-  {% endfor %}
-  <li class="nav-item">
-    <a class="nav-link{% if pbpk_active_tab == 'history' %} active{% endif %}"
-       href="/model/history">
-      <i class="bi bi-clock-history me-1"></i>Run History
-    </a>
-  </li>
-</ul>
+    <div class="pbpk-nav-dropdown-menu">
+      {% for s in plugin_studies %}
+        <a href="{{ s.href }}"
+           class="{% if pbpk_active_tab == s.slug %}active{% endif %}">
+          <i class="bi bi-play-circle"></i>{{ s.label | replace(" — ", " · ") }}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <a class="pbpk-nav-link{% if pbpk_active_tab == 'comparison' %} active{% endif %}"
+     href="/model/validation">
+    <i class="bi bi-check2-square"></i>
+    <span class="pbpk-nav-label">Model Comparison</span>
+  </a>
+
+  <a class="pbpk-nav-link pbpk-nav-history{% if pbpk_active_tab == 'history' %} active{% endif %}"
+     href="/model/history">
+    <i class="bi bi-clock-history"></i>
+    <span class="pbpk-nav-label">History</span>
+  </a>
+
+</nav>
+
+<script>
+(function () {
+  var toggle = document.querySelector('.pbpk-nav-dropdown-toggle');
+  if (!toggle) return;
+  toggle.addEventListener('click', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    toggle.closest('.pbpk-nav-dropdown').classList.toggle('open');
+  });
+  document.addEventListener('click', function () {
+    document.querySelectorAll('.pbpk-nav-dropdown').forEach(function (d) {
+      d.classList.remove('open');
+    });
+  });
+})();
+</script>

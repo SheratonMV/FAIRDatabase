@@ -3,230 +3,312 @@
 {% block title %}Simulation Results — Run #{{ run.id }}{% endblock %}
 
 {% block content %}
+{% set pbpk_active_tab = model.slug if model else "catalogue" %}
 {% include "pbpk/_studies_tabs.html" %}
 
 <div class="container mt-2">
 
   <!-- Breadcrumb -->
-  <nav aria-label="breadcrumb" class="mb-3">
-    <ol class="breadcrumb small">
-      <li class="breadcrumb-item"><a href="/model/catalogue">Model Catalogue</a></li>
-      {% if model %}
-      <li class="breadcrumb-item">
-        <a href="/model/catalogue/{{ model.slug }}">{{ model.slug }}</a>
-      </li>
-      <li class="breadcrumb-item">
-        <a href="/model/studies/{{ model.slug }}/ui">Simulate</a>
-      </li>
-      {% endif %}
-      <li class="breadcrumb-item active">Run #{{ run.id }}</li>
-    </ol>
-  </nav>
+  <div class="breadcrumb-bar">
+    <a href="/model/catalogue">Model Catalogue</a>
+    <span class="sep">/</span>
+    {% if model %}
+    <a href="/model/catalogue/{{ model.slug }}">{{ model.slug }}</a>
+    <span class="sep">/</span>
+    <a href="/model/studies/{{ model.slug }}/ui">Simulate</a>
+    <span class="sep">/</span>
+    {% endif %}
+    <span>Run #{{ run.id }}</span>
+  </div>
 
-  <!-- ── Applicability domain disclaimer (above results per OECD GMP) ── -->
+  <!-- Applicability domain notice -->
   {% if model %}
-  <div class="alert alert-warning d-flex align-items-start mb-4" role="alert">
-    <i class="bi bi-exclamation-triangle-fill me-2 mt-1 flex-shrink-0"></i>
+  <div class="alert-banner warning">
+    <i class="bi bi-exclamation-triangle-fill"></i>
     <div>
       <strong>Applicability domain notice.</strong>
       This simulation used the <strong>{{ model.label }}</strong> model.
       Regulatory status: <em>{{ model.applicability.get("regulatory_status", "—") }}</em>.
-      Predictions should be interpreted within the documented applicability domain
-      ({{ model.applicability.get("calibration_range", "see model detail") }}).
-      Results are not validated for regulatory decision-making outside this domain.
-      <a href="/model/catalogue/{{ model.slug }}" class="alert-link ms-1">Full details →</a>
+      Results should be interpreted within the documented applicability domain.
+      <a href="/model/catalogue/{{ model.slug }}"
+         style="color:var(--color-warning);font-weight:600;margin-left:4px">Full details →</a>
     </div>
   </div>
   {% endif %}
-
-  <!-- ── Provenance panel ─────────────────────────────────────────────── -->
-  <div class="card mb-4 shadow-sm">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span class="fw-semibold"><i class="bi bi-diagram-3 me-1"></i>Run provenance</span>
-      <span class="badge {% if run.status == 'done' %}bg-success{% elif run.status == 'error' %}bg-danger{% else %}bg-secondary{% endif %}">
-        {{ run.status }}
-      </span>
-    </div>
-    <div class="card-body">
-      <dl class="row mb-0 small">
-        <dt class="col-sm-3">Run ID</dt>
-        <dd class="col-sm-9"><code>{{ run.id }}</code></dd>
-        <dt class="col-sm-3">Study</dt>
-        <dd class="col-sm-9">{{ run.get("study_slug") or "—" }}</dd>
-        <dt class="col-sm-3">Scenario</dt>
-        <dd class="col-sm-9">{{ run.get("scenario") or "—" }}</dd>
-        <dt class="col-sm-3">Compound</dt>
-        <dd class="col-sm-9">{{ run.get("compound") or "—" }}</dd>
-        <dt class="col-sm-3">Engine</dt>
-        <dd class="col-sm-9"><code>{{ run.get("engine") or "scipy_lsoda" }}</code></dd>
-        <dt class="col-sm-3">Created by</dt>
-        <dd class="col-sm-9">{{ run.get("created_by") or "—" }}</dd>
-        <dt class="col-sm-3">Started</dt>
-        <dd class="col-sm-9">{{ run.get("started_at") or "—" }}</dd>
-        <dt class="col-sm-3">Finished</dt>
-        <dd class="col-sm-9">{{ run.get("finished_at") or "—" }}</dd>
-        {% if model %}
-        <dt class="col-sm-3">SBML model</dt>
-        <dd class="col-sm-9"><code>{{ model.sbml_file }}</code></dd>
-        {% endif %}
-      </dl>
-    </div>
-  </div>
 
   {% if run.status == "error" %}
-  <div class="alert alert-danger">
-    <strong>Simulation error:</strong> {{ run.get("error_message") or "Unknown error" }}
+  <div class="alert-banner danger">
+    <i class="bi bi-x-circle-fill"></i>
+    <div><strong>Simulation error:</strong> {{ run.get("error_message") or "Unknown error" }}</div>
   </div>
   {% endif %}
 
+  <!-- KPI strip -->
   {% if run.summary %}
-  <!-- ── KPI cards ──────────────────────────────────────────────────────── -->
-  <div class="row row-cols-2 row-cols-md-4 g-3 mb-4">
-    {% set s = run.summary %}
-
+  {% set s = run.summary %}
+  <div class="kpi-strip">
     {% if s.get("peak_C_ven") is not none %}
-    <div class="col">
-      <div class="card text-center h-100 border-primary">
-        <div class="card-body py-3">
-          <div class="text-muted small">Peak venous conc.</div>
-          <div class="fs-4 fw-bold text-primary">{{ "%.3g" | format(s.peak_C_ven) }}</div>
-          <div class="text-muted small">mg/L</div>
-        </div>
-      </div>
+    <div class="kpi-card primary">
+      <div class="kpi-card-label">Peak venous conc.</div>
+      <div class="kpi-card-value">{{ "%.3g" | format(s.peak_C_ven) }}<span class="kpi-card-unit"> mg/L</span></div>
     </div>
     {% endif %}
-
     {% if s.get("peak_Age_yr") is not none %}
-    <div class="col">
-      <div class="card text-center h-100">
-        <div class="card-body py-3">
-          <div class="text-muted small">Age at peak</div>
-          <div class="fs-4 fw-bold">{{ "%.2f" | format(s.peak_Age_yr) }}</div>
-          <div class="text-muted small">years</div>
-        </div>
-      </div>
+    <div class="kpi-card">
+      <div class="kpi-card-label">Age at peak</div>
+      <div class="kpi-card-value">{{ "%.2f" | format(s.peak_Age_yr) }}<span class="kpi-card-unit"> yr</span></div>
     </div>
     {% endif %}
-
     {% if s.get("final_C_ven") is not none %}
-    <div class="col">
-      <div class="card text-center h-100">
-        <div class="card-body py-3">
-          <div class="text-muted small">Final venous conc.</div>
-          <div class="fs-4 fw-bold">{{ "%.3g" | format(s.final_C_ven) }}</div>
-          <div class="text-muted small">mg/L</div>
-        </div>
-      </div>
+    <div class="kpi-card">
+      <div class="kpi-card-label">Final venous conc.</div>
+      <div class="kpi-card-value">{{ "%.3g" | format(s.final_C_ven) }}<span class="kpi-card-unit"> mg/L</span></div>
     </div>
     {% endif %}
-
     {% if s.get("final_Age_yr") is not none %}
-    <div class="col">
-      <div class="card text-center h-100">
-        <div class="card-body py-3">
-          <div class="text-muted small">Final age</div>
-          <div class="fs-4 fw-bold">{{ "%.2f" | format(s.final_Age_yr) }}</div>
-          <div class="text-muted small">years</div>
-        </div>
-      </div>
+    <div class="kpi-card">
+      <div class="kpi-card-label">Final age</div>
+      <div class="kpi-card-value">{{ "%.2f" | format(s.final_Age_yr) }}<span class="kpi-card-unit"> yr</span></div>
     </div>
     {% endif %}
-
     {% if s.get("peak_CA_maternal_mgL") is not none %}
-    <div class="col">
-      <div class="card text-center h-100 border-primary">
-        <div class="card-body py-3">
-          <div class="text-muted small">Peak maternal conc.</div>
-          <div class="fs-4 fw-bold text-primary">{{ "%.3g" | format(s.peak_CA_maternal_mgL) }}</div>
-          <div class="text-muted small">mg/L</div>
-        </div>
-      </div>
+    <div class="kpi-card primary">
+      <div class="kpi-card-label">Peak maternal conc.</div>
+      <div class="kpi-card-value">{{ "%.3g" | format(s.peak_CA_maternal_mgL) }}<span class="kpi-card-unit"> mg/L</span></div>
     </div>
     {% endif %}
-
     {% if s.get("CA_cord_mgL") is not none %}
-    <div class="col">
-      <div class="card text-center h-100">
-        <div class="card-body py-3">
-          <div class="text-muted small">Cord blood conc.</div>
-          <div class="fs-4 fw-bold">{{ "%.3g" | format(s.CA_cord_mgL) }}</div>
-          <div class="text-muted small">mg/L</div>
-        </div>
-      </div>
+    <div class="kpi-card">
+      <div class="kpi-card-label">Cord blood conc.</div>
+      <div class="kpi-card-value">{{ "%.3g" | format(s.CA_cord_mgL) }}<span class="kpi-card-unit"> mg/L</span></div>
     </div>
     {% endif %}
-
     {% if s.get("transfer_ratio") is not none %}
-    <div class="col">
-      <div class="card text-center h-100">
-        <div class="card-body py-3">
-          <div class="text-muted small">Fetal/maternal ratio</div>
-          <div class="fs-4 fw-bold">{{ "%.3f" | format(s.transfer_ratio) }}</div>
-          <div class="text-muted small">dimensionless</div>
-        </div>
-      </div>
+    <div class="kpi-card">
+      <div class="kpi-card-label">Fetal/maternal ratio</div>
+      <div class="kpi-card-value">{{ "%.3f" | format(s.transfer_ratio) }}</div>
     </div>
     {% endif %}
-
     {% if s.get("n_iter") is not none %}
-    <div class="col">
-      <div class="card text-center h-100">
-        <div class="card-body py-3">
-          <div class="text-muted small">MC iterations</div>
-          <div class="fs-4 fw-bold">{{ s.n_iter }}</div>
-          <div class="text-muted small">samples</div>
+    <div class="kpi-card">
+      <div class="kpi-card-label">MC iterations</div>
+      <div class="kpi-card-value">{{ s.n_iter }}</div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Regulatory context (collapsible) -->
+  {% if thresholds %}
+  <div class="detail-card" style="margin-bottom:var(--space-6)">
+    <div class="detail-card-header" style="cursor:pointer;justify-content:space-between"
+         onclick="this.parentElement.querySelector('.reg-body').classList.toggle('open');this.querySelector('.chevron-reg').classList.toggle('open')">
+      <span><i class="bi bi-bar-chart-line"></i> Regulatory context &amp; thresholds</span>
+      <i class="bi bi-chevron-down chevron-reg" style="transition:transform 200ms"></i>
+    </div>
+    <div class="reg-body" style="display:block">
+      <div style="padding:10px 20px;font-size:0.8125rem;color:var(--color-text-secondary);border-bottom:1px solid var(--color-border)">
+        Compare predicted concentrations against these regulatory thresholds.
+        Dashed reference lines appear on the chart below.
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Chemical</th><th>Endpoint</th><th>Threshold</th><th>Basis</th></tr></thead>
+        <tbody>
+          {% for t in thresholds %}
+          <tr>
+            <td><span class="chem-badge">{{ t.chemical }}</span></td>
+            <td>{{ t.endpoint }}</td>
+            <td class="mono">{{ t.value }} {{ t.units }}</td>
+            <td style="color:var(--color-text-secondary);font-size:0.75rem;max-width:220px">
+              {{ t.basis | truncate(80) }}
+              {% if t.doi %}
+                <a href="https://doi.org/{{ t.doi }}" target="_blank"
+                   style="color:var(--color-info)">[ref]</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <style>.chevron-reg.open { transform: rotate(180deg); }</style>
+  {% endif %}
+
+  <!-- Main two-col: chart left, provenance right -->
+  {% if run.timeseries %}
+  <div class="two-col">
+
+    <!-- Left: chart + actions -->
+    <div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3><i class="bi bi-graph-up"></i> Concentration–time profile</h3>
+          <div class="chart-card-actions">
+            <button class="btn-secondary-custom btn-sm" id="compare-runs-btn" onclick="toggleCompareDrawer()">
+              <i class="bi bi-layers"></i> Compare runs
+            </button>
+            <button class="btn-secondary-custom btn-sm" id="scale-toggle" onclick="toggleScale()">Linear</button>
+            <button class="btn-secondary-custom btn-sm" onclick="exportPNG()">
+              <i class="bi bi-download"></i> PNG
+            </button>
+            <button class="btn-secondary-custom btn-sm" id="download-btn">
+              <i class="bi bi-file-earmark-spreadsheet"></i> CSV
+            </button>
+          </div>
+        </div>
+        <div class="chart-card-body">
+          <div style="position:relative;height:380px">
+            <canvas id="sim-chart"></canvas>
+          </div>
+        </div>
+        <!-- Compare runs drawer -->
+        <div id="compare-drawer" style="display:none;border-top:1px solid var(--color-border);padding:14px 20px;background:var(--color-surface-muted)">
+          <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--color-primary);margin-bottom:10px">
+            <i class="bi bi-layers"></i> Overlay past runs — {{ model.slug if model else '' }} model
+          </div>
+          <div id="compare-run-list" style="display:flex;flex-direction:column;gap:6px">
+            <span style="font-size:0.8125rem;color:var(--color-text-muted)">Loading…</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:var(--space-6)">
+        {% if model %}
+        <a href="/model/studies/{{ model.slug }}/ui" class="btn-primary-custom">
+          <i class="bi bi-arrow-repeat"></i> Run again
+        </a>
+        <a href="/model/catalogue/{{ model.slug }}" class="btn-secondary-custom">
+          <i class="bi bi-info-circle"></i> Model details
+        </a>
+        {% endif %}
+        <a href="/model/catalogue" class="btn-secondary-custom">
+          <i class="bi bi-grid-3x3-gap"></i> Catalogue
+        </a>
+        <a href="/model/runs/{{ run.id }}" class="btn-secondary-custom" target="_blank">
+          <i class="bi bi-braces"></i> Raw JSON
+        </a>
+        <!-- Download bundle dropdown -->
+        <div style="position:relative">
+          <button class="btn-secondary-custom" id="bundle-btn" onclick="toggleBundleMenu()">
+            <i class="bi bi-box-arrow-down"></i> Download bundle
+            <i class="bi bi-chevron-down" style="font-size:0.625rem;margin-left:2px"></i>
+          </button>
+          <div id="bundle-menu" style="display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:220px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);z-index:50;padding:4px 0">
+            <button onclick="downloadBundle('csv')" style="display:flex;align-items:center;gap:8px;width:100%;padding:9px 14px;background:none;border:none;font-family:var(--font-body);font-size:0.8125rem;color:var(--color-text-secondary);cursor:pointer;text-align:left" onmouseover="this.style.background='var(--color-surface-muted)'" onmouseout="this.style.background='none'">
+              <i class="bi bi-file-earmark-spreadsheet" style="color:var(--color-primary)"></i> Time-series CSV
+            </button>
+            <button onclick="downloadBundle('json')" style="display:flex;align-items:center;gap:8px;width:100%;padding:9px 14px;background:none;border:none;font-family:var(--font-body);font-size:0.8125rem;color:var(--color-text-secondary);cursor:pointer;text-align:left" onmouseover="this.style.background='var(--color-surface-muted)'" onmouseout="this.style.background='none'">
+              <i class="bi bi-braces" style="color:var(--color-primary)"></i> Run metadata JSON
+            </button>
+            <button onclick="downloadBundle('png')" style="display:flex;align-items:center;gap:8px;width:100%;padding:9px 14px;background:none;border:none;font-family:var(--font-body);font-size:0.8125rem;color:var(--color-text-secondary);cursor:pointer;text-align:left" onmouseover="this.style.background='var(--color-surface-muted)'" onmouseout="this.style.background='none'">
+              <i class="bi bi-image" style="color:var(--color-primary)"></i> Chart PNG
+            </button>
+            <hr style="margin:4px 0;border:none;border-top:1px solid var(--color-border)">
+            <button onclick="downloadBundle('all')" style="display:flex;align-items:center;gap:8px;width:100%;padding:9px 14px;background:none;border:none;font-family:var(--font-body);font-size:0.8125rem;font-weight:600;color:var(--color-primary);cursor:pointer;text-align:left" onmouseover="this.style.background='var(--color-primary-pale)'" onmouseout="this.style.background='none'">
+              <i class="bi bi-box-arrow-down"></i> All files (CSV + JSON + PNG)
+            </button>
+          </div>
         </div>
       </div>
     </div>
-    {% endif %}
 
-  </div><!-- /kpi cards -->
-  {% endif %}
-
-  <!-- ── Regulatory threshold reference ─────────────────────────────────── -->
-  {% if thresholds %}
-  <div class="alert alert-info small mb-4">
-    <strong><i class="bi bi-bar-chart-line me-1"></i>Regulatory context:</strong>
-    {% for t in thresholds %}
-      <strong>{{ t.chemical }}</strong> {{ t.endpoint }} threshold: {{ t.value }} {{ t.units }}
-      ({{ t.basis | truncate(60) }}){% if not loop.last %}; {% endif %}
-    {% endfor %}
-    — Compare concentrations above against these values to assess regulatory relevance.
-  </div>
-  {% endif %}
-
-  <!-- ── Timeseries chart ───────────────────────────────────────────────── -->
-  {% if run.timeseries %}
-  <div class="card mb-4 shadow-sm">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span class="fw-semibold"><i class="bi bi-graph-up me-1"></i>Concentration–time profile</span>
-      <button id="download-btn" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-download me-1"></i>Download CSV
-      </button>
+    <!-- Right: provenance sidebar -->
+    <div class="provenance-sidebar">
+      <div class="prov-header">
+        <span><i class="bi bi-diagram-3" style="margin-right:6px"></i> Run provenance</span>
+        <span class="status-badge {{ run.status }}">{{ run.status }}</span>
+      </div>
+      <div class="prov-list">
+        <div class="prov-item">
+          <dt>Run ID</dt>
+          <dd><span class="id-pill">{{ run.id }}</span></dd>
+        </div>
+        <div class="prov-item">
+          <dt>Study</dt>
+          <dd>{{ run.get("study_slug") or "—" }}</dd>
+        </div>
+        <div class="prov-item">
+          <dt>Scenario</dt>
+          <dd>{{ run.get("scenario") or "—" }}</dd>
+        </div>
+        <div class="prov-item">
+          <dt>Compound</dt>
+          <dd>{{ run.get("compound") or "—" }}</dd>
+        </div>
+        <div class="prov-item">
+          <dt>Engine</dt>
+          <dd>{{ run.get("engine") or "scipy_lsoda" }}</dd>
+        </div>
+        <div class="prov-item">
+          <dt>Created by</dt>
+          <dd style="font-family:var(--font-body)">{{ run.get("created_by") or "—" }}</dd>
+        </div>
+        <div class="prov-item">
+          <dt>Started</dt>
+          <dd>{{ run.get("started_at") or "—" }}</dd>
+        </div>
+        <div class="prov-item">
+          <dt>Finished</dt>
+          <dd>{{ run.get("finished_at") or "—" }}</dd>
+        </div>
+        {% if model %}
+        <div class="prov-item">
+          <dt>SBML model</dt>
+          <dd><span class="id-pill">{{ model.sbml_file }}</span></dd>
+        </div>
+        {% endif %}
+      </div>
+      <!-- Provenance tags -->
+      <div style="padding:10px 20px;border-top:1px solid var(--color-border)">
+        <div style="font-size:0.625rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--color-text-muted);margin-bottom:6px">Tags</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          <span class="prov-tag" data-tag="validation" onclick="toggleProvTag(this)" title="Used in model validation">
+            <i class="bi bi-check2-square"></i> Validation
+          </span>
+          <span class="prov-tag" data-tag="publication" onclick="toggleProvTag(this)" title="Linked to a publication">
+            <i class="bi bi-journal-text"></i> Publication
+          </span>
+          <span class="prov-tag" data-tag="uq" onclick="toggleProvTag(this)" title="Uncertainty quantification run">
+            <i class="bi bi-dice-5"></i> UQ
+          </span>
+          <span class="prov-tag" data-tag="archived" onclick="toggleProvTag(this)" title="Archived for long-term storage">
+            <i class="bi bi-archive"></i> Archived
+          </span>
+        </div>
+      </div>
+      <div class="prov-actions">
+        {% if model %}
+        <a href="/model/studies/{{ model.slug }}/ui" class="btn-primary-custom btn-sm"
+           style="justify-content:center">
+          <i class="bi bi-arrow-repeat"></i> Run again
+        </a>
+        {% endif %}
+        <a href="/model/history" class="btn-secondary-custom btn-sm"
+           style="justify-content:center">
+          <i class="bi bi-clock-history"></i> All runs
+        </a>
+      </div>
     </div>
-    <div class="card-body">
-      <canvas id="sim-chart" height="90"></canvas>
-    </div>
-  </div>
-  {% endif %}
 
-  <!-- ── Actions ──────────────────────────────────────────────────────────── -->
-  <div class="d-flex gap-2 mb-4">
+  </div><!-- /two-col -->
+  {% else %}
+  <!-- No timeseries — simpler layout -->
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:var(--space-6)">
     {% if model %}
-    <a href="/model/studies/{{ model.slug }}/ui" class="btn btn-primary">
-      <i class="bi bi-arrow-repeat me-1"></i>Run again
-    </a>
-    <a href="/model/catalogue/{{ model.slug }}" class="btn btn-outline-secondary">
-      <i class="bi bi-info-circle me-1"></i>Model details
+    <a href="/model/studies/{{ model.slug }}/ui" class="btn-primary-custom">
+      <i class="bi bi-arrow-repeat"></i> Run again
     </a>
     {% endif %}
-    <a href="/model/catalogue" class="btn btn-outline-secondary">
-      <i class="bi bi-grid-3x3-gap me-1"></i>Catalogue
+    <a href="/model/catalogue" class="btn-secondary-custom">
+      <i class="bi bi-grid-3x3-gap"></i> Catalogue
     </a>
-    <a href="/model/runs/{{ run.id }}" class="btn btn-outline-secondary" target="_blank">
-      <i class="bi bi-braces me-1"></i>Raw JSON
+    <a href="/model/runs/{{ run.id }}" class="btn-secondary-custom" target="_blank">
+      <i class="bi bi-braces"></i> Raw JSON
     </a>
   </div>
+  {% endif %}
 
 </div><!-- /container -->
 
@@ -236,89 +318,252 @@
 (function () {
   "use strict";
 
-  const ts = {{ run.timeseries | tojson }};
+  var ts = {{ run.timeseries | tojson }};
   if (!ts || !ts.length) return;
 
-  // Detect x-axis key (Age, time_h, month, etc.) and y-axis keys
-  const firstRow = ts[0];
-  const xKey = ["Age", "time_h", "month", "GW"].find(k => k in firstRow) ||
-               Object.keys(firstRow)[0];
+  var firstRow = ts[0];
+  var xKey = ["Age", "time_h", "month", "GW"].find(function (k) { return k in firstRow; }) ||
+             Object.keys(firstRow)[0];
+  var yKeys = Object.keys(firstRow).filter(function (k) { return k !== xKey; });
 
-  const yKeys = Object.keys(firstRow).filter(k => k !== xKey);
+  var palette = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#56B4E9", "#E69F00", "#F0E442", "#000000"];
 
-  // Colour palette (Okabe-Ito, colourblind-safe)
-  const palette = [
-    "#0072B2", "#D55E00", "#009E73", "#CC79A7",
-    "#56B4E9", "#E69F00", "#F0E442", "#000000"
-  ];
-
-  const labels = ts.map(r => {
-    const v = r[xKey];
+  var labels = ts.map(function (r) {
+    var v = r[xKey];
     return typeof v === "number" ? v.toFixed(2) : v;
   });
 
-  const datasets = yKeys.map((key, i) => ({
-    label: key,
-    data: ts.map(r => r[key]),
-    borderColor: palette[i % palette.length],
-    backgroundColor: "transparent",
-    borderWidth: 1.8,
-    pointRadius: ts.length <= 20 ? 3 : 0,
-    tension: 0.2,
-  }));
+  var datasets = yKeys.map(function (key, i) {
+    return {
+      label: key,
+      data: ts.map(function (r) { return r[key]; }),
+      borderColor: palette[i % palette.length],
+      backgroundColor: "transparent",
+      borderWidth: 1.8,
+      pointRadius: ts.length <= 20 ? 3 : 0,
+      tension: 0.2,
+    };
+  });
 
-  // Add regulatory threshold line(s) if chemical matches
+  // Regulatory threshold lines
   {% if thresholds %}
   {% for t in thresholds %}
   datasets.push({
     label: "{{ t.chemical }} threshold ({{ t.value }} {{ t.units }})",
     data: new Array(labels.length).fill({{ t.value }}),
-    borderColor: "#d00000",
-    borderWidth: 1.5,
-    borderDash: [6, 4],
+    borderColor: "#C0392B",
+    backgroundColor: "transparent",
+    borderWidth: 1.2,
+    borderDash: [5, 4],
     pointRadius: 0,
-    fill: false,
   });
   {% endfor %}
   {% endif %}
 
-  const chart = new Chart(document.getElementById("sim-chart"), {
+  var _logScale = false;
+  var _chart = new Chart(document.getElementById("sim-chart"), {
     type: "line",
-    data: { labels, datasets },
+    data: { labels: labels, datasets: datasets },
     options: {
       animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
       plugins: {
-        legend: { display: true, position: "bottom" },
-        tooltip: { callbacks: {
-          label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toExponential(3) : "—"}`,
-        }},
+        legend: {
+          display: true, position: "bottom",
+          labels: {
+            font: { family: "'Inter', sans-serif", size: 11 },
+            boxWidth: 22, boxHeight: 2, padding: 14, usePointStyle: true,
+          },
+        },
+        tooltip: {
+          backgroundColor: "#fff", borderColor: "rgba(0,0,0,0.1)", borderWidth: 1,
+          titleColor: "#111827", bodyColor: "#374151",
+          callbacks: {
+            label: function (ctx) {
+              return ctx.dataset.label + ": " + (ctx.parsed.y != null ? ctx.parsed.y.toExponential(3) : "—");
+            },
+          },
+        },
       },
       scales: {
         x: {
-          title: { display: true, text: xKey },
-          ticks: { maxTicksLimit: 12 },
+          grid: { display: false },
+          title: { display: true, text: xKey, font: { family: "'Inter',sans-serif", size: 12, weight: "500" } },
+          ticks: { maxTicksLimit: 12, font: { size: 11 } },
         },
         y: {
-          title: { display: true, text: "Concentration (mg/L)" },
-          beginAtZero: true,
+          min: 0,
+          grid: { color: "rgba(0,0,0,0.06)" },
+          title: { display: true, text: "Concentration (mg/L)", font: { family: "'Inter',sans-serif", size: 12, weight: "500" } },
+          ticks: { maxTicksLimit: 8, font: { size: 11 } },
         },
       },
     },
   });
 
-  document.getElementById("download-btn")?.addEventListener("click", () => {
-    const cols = [xKey, ...yKeys];
-    const header = cols.join(",");
-    const body = ts.map(r => cols.map(c => r[c] ?? "").join(",")).join("\n");
-    const blob = new Blob([header + "\n" + body], { type: "text/csv" });
-    const a = Object.assign(document.createElement("a"), {
-      href: URL.createObjectURL(blob),
-      download: `pbkfair_run_{{ run.id }}.csv`,
-    });
+  window.toggleScale = function () {
+    _logScale = !_logScale;
+    document.getElementById("scale-toggle").textContent = _logScale ? "Log" : "Linear";
+    if (_logScale) {
+      _chart.options.scales.y.type = "logarithmic";
+      delete _chart.options.scales.y.min;
+    } else {
+      _chart.options.scales.y.type = "linear";
+      _chart.options.scales.y.min = 0;
+    }
+    _chart.update();
+  };
+
+  window.exportPNG = function () {
+    var a = document.createElement("a");
+    a.href = _chart.toBase64Image("image/png", 1);
+    a.download = "pbkfair_run_{{ run.id }}_chart.png";
     a.click();
-    URL.revokeObjectURL(a.href);
+  };
+
+  document.getElementById("download-btn").addEventListener("click", function () {
+    downloadBundle("csv");
   });
+
+  /* ── Provenance tags ─────────────────────────────────────────── */
+  window.toggleProvTag = function (el) { el.classList.toggle("active"); };
+
+  /* ── Download bundle dropdown ────────────────────────────────── */
+  window.toggleBundleMenu = function () {
+    var menu = document.getElementById("bundle-menu");
+    if (menu) menu.style.display = menu.style.display === "none" ? "" : "none";
+  };
+  document.addEventListener("click", function (e) {
+    var btn  = document.getElementById("bundle-btn");
+    var menu = document.getElementById("bundle-menu");
+    if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
+      menu.style.display = "none";
+    }
+  });
+  window.downloadBundle = function (type) {
+    var menu = document.getElementById("bundle-menu");
+    if (menu) menu.style.display = "none";
+    if ((type === "csv" || type === "all") && ts && ts.length) {
+      var cols   = [xKey].concat(yKeys);
+      var header = cols.join(",");
+      var body   = ts.map(function (r) { return cols.map(function (c) { return r[c] != null ? r[c] : ""; }).join(","); }).join("\n");
+      var blob   = new Blob([header + "\n" + body], { type: "text/csv" });
+      var a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "pbkfair_run_{{ run.id }}_timeseries.csv" });
+      a.click(); URL.revokeObjectURL(a.href);
+    }
+    if ((type === "json" || type === "all")) {
+      var activeTags = Array.from(document.querySelectorAll(".prov-tag.active")).map(function (t) { return t.dataset.tag; });
+      var meta = {
+        run_id: "{{ run.id }}", study: "{{ run.get('study_slug', '') }}", scenario: "{{ run.get('scenario', '') }}",
+        compound: "{{ run.get('compound', '') }}", engine: "{{ run.get('engine', 'scipy_lsoda') }}", status: "{{ run.status }}",
+        created_by: "{{ run.get('created_by', '') }}", tags: activeTags,
+        summary: {{ run.summary | tojson if run.summary else 'null' }},
+      };
+      var blob = new Blob([JSON.stringify(meta, null, 2)], { type: "application/json" });
+      var a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "pbkfair_run_{{ run.id }}_metadata.json" });
+      a.click(); URL.revokeObjectURL(a.href);
+    }
+    if ((type === "png" || type === "all") && _chart) {
+      var a = Object.assign(document.createElement("a"), { href: _chart.toBase64Image("image/png", 1), download: "pbkfair_run_{{ run.id }}_chart.png" });
+      a.click();
+    }
+  };
+
+  /* ── Compare runs drawer ─────────────────────────────────────── */
+  var PALETTE = ["#0072B2","#D55E00","#009E73","#CC79A7"];
+  var _compareRuns = [];
+  var _activeCompare = {};
+
+  window.toggleCompareDrawer = function () {
+    var drawer = document.getElementById("compare-drawer");
+    var btn    = document.getElementById("compare-runs-btn");
+    var open   = drawer.style.display === "none";
+    drawer.style.display = open ? "" : "none";
+    btn.style.background   = open ? "var(--color-primary-pale)" : "";
+    btn.style.borderColor  = open ? "var(--color-primary-light)" : "";
+    if (open && !_compareRuns.length) loadCompareRuns();
+  };
+
+  function loadCompareRuns() {
+    var listEl = document.getElementById("compare-run-list");
+    fetch("/model/api/runs?limit=20")
+      .then(function (r) { return r.json(); })
+      .then(function (runs) {
+        _compareRuns = runs.filter(function (r) {
+          return r.status === "done" && r.id !== {{ run.id }} && r.study_slug === "{{ run.get('study_slug', '') }}";
+        });
+        renderCompareList();
+      })
+      .catch(function () {
+        listEl.innerHTML = '<span style="font-size:0.8125rem;color:var(--color-error)">Failed to load past runs.</span>';
+      });
+  }
+
+  function renderCompareList() {
+    var listEl = document.getElementById("compare-run-list");
+    if (!_compareRuns.length) {
+      listEl.innerHTML = '<span style="font-size:0.8125rem;color:var(--color-text-muted)">No other completed runs for this model.</span>';
+      return;
+    }
+    listEl.innerHTML = _compareRuns.slice(0, 5).map(function (r, i) {
+      var color  = PALETTE[(i + 1) % PALETTE.length];
+      var active = !!_activeCompare[r.id];
+      var s = r.summary;
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1.5px solid ' + (active ? color : 'var(--color-border)') + ';border-radius:var(--radius-md);background:var(--color-surface);cursor:pointer;transition:all 150ms" onclick="toggleCompareRun(' + r.id + ',\'' + color + '\',' + i + ')">' +
+        '<div style="width:14px;height:14px;border-radius:2px;border:2px solid ' + (active ? color : 'var(--color-border)') + ';background:' + (active ? color : 'transparent') + ';flex-shrink:0"></div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<span style="font-family:var(--font-mono);font-size:0.75rem;font-weight:600;color:var(--color-primary)">' + String(r.id).slice(0,8) + '</span>' +
+          '<span style="margin-left:8px;font-size:0.75rem;color:var(--color-text-secondary)">' + (r.scenario || '—') + (r.compound ? ' &middot; <span class="chem-badge" style="font-size:0.5625rem">' + r.compound + '</span>' : '') + '</span>' +
+        '</div>' +
+        (s && s.peak_C_ven != null ? '<span style="font-family:var(--font-mono);font-size:0.6875rem;color:var(--color-text-muted)">C<sub>max</sub> ' + s.peak_C_ven.toExponential(2) + '</span>' : '') +
+        '<span style="font-size:0.6875rem;color:var(--color-text-muted)">' + (r.created_at || '').slice(0,10) + '</span>' +
+      '</div>';
+    }).join("");
+  }
+
+  window.toggleCompareRun = function (id, color, idx) {
+    if (_activeCompare[id]) {
+      delete _activeCompare[id];
+      var di = _chart.data.datasets.findIndex(function (d) { return d._compareId === id; });
+      if (di >= 0) _chart.data.datasets.splice(di, 1);
+    } else {
+      _activeCompare[id] = true;
+      fetch("/model/api/runs/compare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ run_ids: [{{ run.id }}, id] }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var cmpRun = (data.runs || []).find(function (r) { return r.id === id; });
+          if (!cmpRun || !cmpRun.timeseries || !cmpRun.timeseries.length) return;
+          var cmpTs = cmpRun.timeseries;
+          var cmpXKey = Object.keys(cmpTs[0])[0];
+          var cmpYKey = Object.keys(cmpTs[0]).find(function (k) { return k !== cmpXKey; }) || Object.keys(cmpTs[0])[1];
+          var dataset = {
+            _compareId: id,
+            label: (cmpRun.scenario || "run " + String(id).slice(0,6)) + " (" + String(id).slice(0,6) + ")",
+            data: cmpTs.map(function (r) { return r[cmpYKey]; }),
+            borderColor: color,
+            backgroundColor: "transparent",
+            borderWidth: 1.5,
+            borderDash: [6, 3],
+            pointRadius: 0,
+            tension: 0.2,
+          };
+          var firstThreshIdx = _chart.data.datasets.findIndex(function (d) { return d.borderDash && !d._compareId; });
+          if (firstThreshIdx >= 0) _chart.data.datasets.splice(firstThreshIdx, 0, dataset);
+          else _chart.data.datasets.push(dataset);
+          _chart.update();
+          renderCompareList();
+        });
+      return;
+    }
+    _chart.update();
+    renderCompareList();
+  };
 })();
 </script>
 {% endblock %}

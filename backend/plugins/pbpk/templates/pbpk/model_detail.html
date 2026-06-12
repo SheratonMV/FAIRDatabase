@@ -1,57 +1,56 @@
 {% extends "dashboard/layout.html" %}
 
-{% block title %}{{ model.label }} — PBKFAIRModel{% endblock %}
+{% block title %}{{ model.label }} — FAIRDatabase{% endblock %}
 
 {% block content %}
+{% set pbpk_active_tab = "catalogue" %}
 {% include "pbpk/_studies_tabs.html" %}
 
 <div class="container mt-2">
 
   <!-- Breadcrumb -->
-  <nav aria-label="breadcrumb" class="mb-3">
-    <ol class="breadcrumb small">
-      <li class="breadcrumb-item"><a href="/model/catalogue">Model Catalogue</a></li>
-      <li class="breadcrumb-item active">{{ model.slug }}</li>
-    </ol>
-  </nav>
+  <div class="breadcrumb-bar">
+    <a href="/model/catalogue">Model Catalogue</a>
+    <span class="sep">/</span>
+    <span>{{ model.slug }}</span>
+  </div>
 
-  <div class="row g-4">
+  <!-- Page header -->
+  <div class="page-header">
+    <h2>{{ model.label }}</h2>
+    <p>{{ model.description }}</p>
+  </div>
+
+  <!-- Two-column layout -->
+  <div class="two-col">
 
     <!-- Left column: metadata + applicability -->
-    <div class="col-lg-7">
+    <div>
 
-      <!-- Title block -->
-      <div class="mb-3">
-        <h2 class="mb-1">{{ model.label }}</h2>
-        <p class="text-muted">{{ model.description }}</p>
-      </div>
-
-      <!-- Key metadata card -->
-      <div class="card mb-3 shadow-sm">
-        <div class="card-header fw-semibold">Model metadata</div>
-        <div class="card-body">
-          <dl class="row mb-0 small">
-            <dt class="col-sm-4">Chemicals</dt>
-            <dd class="col-sm-8">
+      <!-- Metadata card -->
+      <div class="detail-card">
+        <div class="detail-card-header">
+          <i class="bi bi-cpu"></i> Model metadata
+        </div>
+        <div class="detail-card-body">
+          <dl class="spec-list" style="row-gap:8px">
+            <dt>Chemicals</dt>
+            <dd>
               {% for chem in model.chemicals %}
-                <span class="badge bg-info text-dark me-1">{{ chem }}</span>
+                <span class="chem-badge">{{ chem }}</span>
               {% endfor %}
             </dd>
-            <dt class="col-sm-4">Population</dt>
-            <dd class="col-sm-8">{{ model.population }}</dd>
-            <dt class="col-sm-4">Life stage</dt>
-            <dd class="col-sm-8">{{ model.life_stage }}</dd>
-            <dt class="col-sm-4">SBML file</dt>
-            <dd class="col-sm-8"><code>{{ model.sbml_file }}</code></dd>
-            <dt class="col-sm-4">Encoding</dt>
-            <dd class="col-sm-8">SBML Level 3 Version 2</dd>
-            <dt class="col-sm-4">Reference</dt>
-            <dd class="col-sm-8">
+            <dt>Population</dt><dd>{{ model.population }}</dd>
+            <dt>Life stage</dt><dd>{{ model.life_stage }}</dd>
+            <dt>SBML file</dt><dd><code>{{ model.sbml_file }}</code></dd>
+            <dt>Encoding</dt><dd>SBML Level 3 Version 2</dd>
+            <dt>Reference</dt>
+            <dd>
               {% if model.reference_doi %}
-                <a href="https://doi.org/{{ model.reference_doi }}" target="_blank"
-                   rel="noopener">doi:{{ model.reference_doi }}</a>
+                <a href="https://doi.org/{{ model.reference_doi }}" target="_blank" rel="noopener"
+                   style="color:var(--color-info);font-size:0.8125rem">doi:{{ model.reference_doi }}</a>
               {% else %}
-                <span class="text-muted">—</span>
+                <span style="color:var(--color-text-muted)">—</span>
               {% endif %}
             </dd>
           </dl>
@@ -60,103 +59,120 @@
 
       <!-- Applicability domain -->
       {% set ap = model.applicability %}
-      <div class="card mb-3 shadow-sm border-warning">
-        <div class="card-header fw-semibold text-warning-emphasis bg-warning-subtle">
-          <i class="bi bi-exclamation-triangle me-1"></i>Applicability domain
+      <div class="detail-card warning">
+        <div class="detail-card-header">
+          <i class="bi bi-exclamation-triangle"></i> Applicability domain
         </div>
-        <div class="card-body small">
+        <div class="detail-card-body" style="font-size:0.8125rem;line-height:1.6">
           {% if ap.get("domain") %}
-          <p><strong>Domain:</strong> {{ ap.domain }}</p>
+          <p style="margin:0 0 6px"><strong>Domain:</strong> {{ ap.domain }}</p>
           {% endif %}
           {% if ap.get("calibration_range") %}
-          <p><strong>Calibration range:</strong> {{ ap.calibration_range }}</p>
+          <p style="margin:0 0 6px"><strong>Calibration range:</strong> {{ ap.calibration_range }}</p>
           {% endif %}
           {% if ap.get("regulatory_status") %}
-          <p class="mb-1"><strong>Regulatory status:</strong>
-            <span class="badge {% if 'regulatory' in ap.regulatory_status | lower and 'research' not in ap.regulatory_status | lower %}bg-success{% else %}bg-secondary{% endif %}">
-              {{ ap.regulatory_status }}
-            </span>
+          <p style="margin:0 0 6px"><strong>Regulatory status:</strong>
+            <span class="status-badge queued" style="font-size:0.6875rem">{{ ap.regulatory_status }}</span>
           </p>
           {% endif %}
           {% if ap.get("limitations") %}
-          <p class="fw-semibold mt-2 mb-1">Known limitations:</p>
-          <ul class="mb-0">
+          <p style="margin:10px 0 4px;font-weight:600">Known limitations:</p>
+          <ul style="margin:0;padding-left:18px">
             {% for lim in ap.limitations %}
-            <li class="mb-1">{{ lim }}</li>
+            <li style="margin-bottom:4px">{{ lim }}</li>
             {% endfor %}
           </ul>
           {% endif %}
         </div>
-        <div class="card-footer bg-warning-subtle border-top border-warning small text-warning-emphasis">
-          ⚠ Predictions outside the documented domain should be interpreted with caution and
-          are not validated for regulatory decision-making.
+        <div class="detail-card-footer">
+          <i class="bi bi-exclamation-triangle" style="margin-right:4px"></i>
+          Predictions outside the documented domain should be interpreted with caution.
         </div>
       </div>
 
     </div><!-- /left col -->
 
-    <!-- Right column: FAIR checklist + thresholds + actions -->
-    <div class="col-lg-5">
+    <!-- Right column: FAIR checklist + thresholds + ontology + actions -->
+    <div>
 
-      <!-- FAIR checklist card -->
+      <!-- FAIR panel -->
       {% set fb = model.fair_badges %}
-      <div class="card mb-3 shadow-sm">
-        <div class="card-header fw-semibold">FAIRness checklist</div>
-        <ul class="list-group list-group-flush small">
-          {% set fair_items = [
-            ("F1", "Globally unique persistent identifier (UUID per run)", fb.get("F1_uuid_runs")),
-            ("F1", "Zenodo DOI for SBML model file", fb.get("F1_zenodo_doi")),
-            ("F2", "Rich metadata per simulation run", fb.get("F2_run_metadata")),
-            ("A1", "Retrievable via REST API", fb.get("A1_rest_api")),
-            ("I1", "SBML L3V2 community format", fb.get("I1_sbml_l3v2")),
-            ("R1", "Parameter sets stored in DB", fb.get("R1_params_in_db")),
-            ("R1.1", "Open license (CC BY 4.0 / MIT)", fb.get("R1_1_open_license")),
-            ("R1.2", "Provenance chain (run → params → model)", fb.get("R1_2_provenance")),
-            ("R1.3", "Community standard (SBML)", fb.get("R1_3_sbml_standard")),
-          ] %}
-          {% for code, label, ok in fair_items %}
-          <li class="list-group-item d-flex justify-content-between align-items-center py-2">
-            <span>
-              <span class="badge bg-light text-dark border me-2">{{ code }}</span>
-              {{ label }}
-            </span>
-            {% if ok %}
-              <span class="text-success fw-bold">✓</span>
-            {% else %}
-              <span class="text-warning">⏳</span>
-            {% endif %}
-          </li>
+      {% set zenodo_val = fb.get("F1_zenodo_doi_value", "") %}
+      {% set license_val = fb.get("R1_1_license_spdx", "") %}
+      {% set i3_ontos = fb.get("I3_ontologies", []) | join(", ") or "PBPKO, UBERON, CHEBI, NCBITaxon" %}
+
+      {% set fair_groups = [
+        ("F", "Findable", [
+          ("F1", "Globally unique persistent identifier (UUID per run)", fb.get("F1_uuid_runs")),
+          ("F1", "Zenodo DOI" ~ (" (" ~ zenodo_val ~ ")" if zenodo_val else ""), fb.get("F1_zenodo_doi")),
+          ("F2", "Rich metadata per simulation run", fb.get("F2_run_metadata")),
+        ]),
+        ("A", "Accessible", [
+          ("A1", "Retrievable via REST API", fb.get("A1_rest_api")),
+        ]),
+        ("I", "Interoperable", [
+          ("I1", "SBML L3V2 community format", fb.get("I1_sbml_l3v2")),
+          ("I3", "FAIR vocabularies (" ~ i3_ontos ~ ")", fb.get("I3_uses_fair_vocabularies")),
+        ]),
+        ("R", "Reusable", [
+          ("R1", "Parameter sets stored in DB", fb.get("R1_params_in_db")),
+          ("R1.1", "Open license" ~ (" (" ~ license_val ~ ")" if license_val else ""), fb.get("R1_1_open_license")),
+          ("R1.2", "Provenance chain (run → params → model)", fb.get("R1_2_provenance")),
+          ("R1.3", "Community standard (SBML)", fb.get("R1_3_sbml_standard")),
+        ]),
+      ] %}
+
+      {% set all_fair_items = fair_groups | map(attribute=2) | sum(start=[]) %}
+      {% set met_count = all_fair_items | selectattr(2) | list | length %}
+      {% set total_count = all_fair_items | length %}
+
+      <div class="fair-panel" style="margin-bottom:var(--space-6)">
+        <div class="fair-panel-header">
+          <h3><i class="bi bi-shield-check"></i> FAIRness checklist</h3>
+          <span class="fair-score-badge {{ 'good' if met_count == total_count else 'partial' }}">
+            {{ met_count }}/{{ total_count }} met
+          </span>
+        </div>
+        {% for letter, title, items in fair_groups %}
+        <div class="fair-group">
+          <div class="fair-group-title">
+            <span class="principle-letter">{{ letter }}</span>
+            {{ title }}
+          </div>
+          {% for code, label, ok in items %}
+          <div class="fair-item">
+            <span class="fair-item-icon {{ 'met' if ok else 'pending' }}">{{ '✓' if ok else '⏳' }}</span>
+            <span class="fair-item-code">{{ code }}</span>
+            <span class="fair-item-label">{{ label }}</span>
+          </div>
           {% endfor %}
-        </ul>
+        </div>
+        {% endfor %}
       </div>
 
-      <!-- Regulatory thresholds card -->
+      <!-- Regulatory thresholds -->
       {% set model_thresholds = thresholds | selectattr("chemical", "in", model.chemicals) | list %}
       {% if model_thresholds %}
-      <div class="card mb-3 shadow-sm">
-        <div class="card-header fw-semibold">
-          <i class="bi bi-bar-chart-line me-1"></i>Regulatory thresholds
+      <div class="detail-card">
+        <div class="detail-card-header">
+          <i class="bi bi-bar-chart-line"></i> Regulatory thresholds
         </div>
-        <div class="card-body p-0">
-          <table class="table table-sm mb-0 small">
-            <thead class="table-light">
-              <tr>
-                <th>Chemical</th>
-                <th>Endpoint</th>
-                <th>Value</th>
-                <th>Basis</th>
-              </tr>
+        <div class="detail-card-body no-pad">
+          <table class="data-table">
+            <thead>
+              <tr><th>Chemical</th><th>Endpoint</th><th>Value</th><th>Basis</th></tr>
             </thead>
             <tbody>
               {% for t in model_thresholds %}
               <tr>
-                <td><span class="badge bg-info text-dark">{{ t.chemical }}</span></td>
+                <td><span class="chem-badge">{{ t.chemical }}</span></td>
                 <td>{{ t.endpoint }}</td>
-                <td>{{ t.value }} {{ t.units }}</td>
-                <td class="text-muted" style="max-width:180px; white-space:normal;">
+                <td class="mono">{{ t.value }} {{ t.units }}</td>
+                <td style="color:var(--color-text-secondary);max-width:200px">
                   {{ t.basis | truncate(80) }}
                   {% if t.doi %}
-                    <a href="https://doi.org/{{ t.doi }}" target="_blank" class="ms-1">[ref]</a>
+                    <a href="https://doi.org/{{ t.doi }}" target="_blank"
+                       style="color:var(--color-info)">[ref]</a>
                   {% endif %}
                 </td>
               </tr>
@@ -167,29 +183,128 @@
       </div>
       {% endif %}
 
+      <!-- Ontology annotations -->
+      <div class="detail-card" id="ontology-card">
+        <div class="detail-card-header" style="justify-content:space-between">
+          <span><i class="bi bi-diagram-3"></i> Ontology annotations</span>
+          <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--color-text-muted)"
+                id="onto-count">loading…</span>
+        </div>
+        <div class="onto-tabs" id="onto-tabs">
+          <button class="onto-tab active" data-type="compartment">Compartments</button>
+          <button class="onto-tab" data-type="species">Species</button>
+          <button class="onto-tab" data-type="parameter">Parameters</button>
+        </div>
+        <div style="max-height:280px;overflow-y:auto">
+          <table class="data-table">
+            <thead><tr><th>ID</th><th>Ontology</th><th>Label / IRI</th></tr></thead>
+            <tbody id="onto-tbody">
+              <tr><td colspan="3" style="text-align:center;color:var(--color-text-muted);padding:20px">
+                <span class="spinner-border spinner-border-sm me-1"></span>Fetching…
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="detail-card-footer">
+          Labels resolved via
+          <a href="https://www.ebi.ac.uk/ols4" target="_blank" rel="noopener"
+             style="color:var(--color-info)">EBI OLS4</a>.
+          <a href="/model/api/models/{{ model.slug }}/ontology" target="_blank"
+             style="margin-left:8px;color:var(--color-info)">JSON ↗</a>
+        </div>
+      </div>
+
       <!-- Actions -->
-      <div class="card shadow-sm">
-        <div class="card-header fw-semibold">Actions</div>
-        <div class="card-body d-grid gap-2">
-          <a href="/model/studies/{{ model.slug }}/ui" class="btn btn-primary">
-            <i class="bi bi-play-fill me-1"></i>Run simulation
+      <div class="detail-card">
+        <div class="detail-card-header"><i class="bi bi-lightning"></i> Actions</div>
+        <div class="detail-card-body" style="display:flex;flex-wrap:wrap;gap:8px">
+          <a href="/model/studies/{{ model.slug }}/ui" class="btn-primary-custom">
+            <i class="bi bi-play-fill"></i> Run simulation
           </a>
           {% if model.sbml_file %}
-          <a href="/model/catalogue/{{ model.slug }}/sbml" class="btn btn-outline-secondary"
-             title="Download {{ model.sbml_file }}">
-            <i class="bi bi-file-code me-1"></i>Download SBML
+          <a href="/model/catalogue/{{ model.slug }}/sbml" class="btn-secondary-custom">
+            <i class="bi bi-file-code"></i> Download SBML
           </a>
           {% endif %}
-          <a href="/model/api/models/{{ model.slug }}" class="btn btn-outline-secondary" target="_blank">
-            <i class="bi bi-braces me-1"></i>View metadata (JSON)
+          <a href="/model/api/models/{{ model.slug }}" class="btn-secondary-custom" target="_blank">
+            <i class="bi bi-braces"></i> View metadata (JSON)
           </a>
-          <a href="/model/catalogue" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i>Back to catalogue
+          <a href="/model/catalogue" class="btn-secondary-custom">
+            <i class="bi bi-arrow-left"></i> Back to catalogue
           </a>
         </div>
       </div>
 
     </div><!-- /right col -->
-  </div><!-- /row -->
+  </div><!-- /two-col -->
 </div><!-- /container -->
+
+<script>
+(function () {
+  "use strict";
+
+  var SLUG = {{ model.slug | tojson }};
+  var _allTerms = [];
+  var _activeType = "compartment";
+
+  var ONTO_COLORS = {
+    "PBPKO":      "pbpko",
+    "UBERON":     "uberon",
+    "CHEBI":      "chebi",
+    "NCBITaxon":  "ncbitaxon",
+  };
+
+  function ontoClass(ont) {
+    return "onto-badge " + (ONTO_COLORS[ont] || "");
+  }
+
+  function renderRows(type) {
+    var tbody = document.getElementById("onto-tbody");
+    var rows = _allTerms.filter(function (t) { return t.element_type === type; });
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--color-text-muted);padding:20px">No ' + type + ' terms.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function (t) {
+      return '<tr>' +
+        '<td style="font-family:var(--font-mono);font-size:0.8125rem">' + t.element_id + '</td>' +
+        '<td><span class="' + ontoClass(t.ontology) + '">' + t.ontology + '</span></td>' +
+        '<td>' +
+          (t.label !== t.local_id ? '<span>' + t.label + '</span><br>' : '') +
+          '<a href="' + t.iri + '" target="_blank" rel="noopener" ' +
+          'style="font-size:0.75rem;color:var(--color-text-muted);text-decoration:none">' + t.local_id + '</a>' +
+        '</td>' +
+      '</tr>';
+    }).join("");
+  }
+
+  fetch("/model/api/models/" + SLUG + "/ontology")
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.error) {
+        document.getElementById("onto-tbody").innerHTML =
+          '<tr><td colspan="3" style="text-align:center;color:var(--color-warning);padding:16px">' + data.error + '</td></tr>';
+        document.getElementById("onto-count").textContent = "—";
+        return;
+      }
+      _allTerms = data.terms || [];
+      document.getElementById("onto-count").textContent = data.total_terms + " terms";
+      renderRows(_activeType);
+    })
+    .catch(function () {
+      document.getElementById("onto-tbody").innerHTML =
+        '<tr><td colspan="3" style="text-align:center;color:var(--color-error);padding:16px">Failed to load ontology terms.</td></tr>';
+      document.getElementById("onto-count").textContent = "—";
+    });
+
+  document.getElementById("onto-tabs").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-type]");
+    if (!btn) return;
+    document.querySelectorAll("#onto-tabs .onto-tab").forEach(function (b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+    _activeType = btn.dataset.type;
+    renderRows(_activeType);
+  });
+})();
+</script>
 {% endblock %}

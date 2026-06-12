@@ -5,7 +5,7 @@
 {% block content %}
 {% include "pbpk/_studies_tabs.html" %}
 <div class="container mt-4">
-  <h2>Lifetime PBPK Model <small class="text-muted fs-6">PFAS / PFOA</small></h2>
+  <h2>Lifetime PBK Module <small class="text-muted fs-6">PFAS / PFOA</small></h2>
   <p class="text-muted">
     Simulates PFAS body burden from birth (~6.77 years) across four breastfeeding
     exposure scenarios using the <code>Ratier2024FAIR.xml</code> SBML model.
@@ -41,19 +41,19 @@
         <div class="col-md-3">
           <label for="HalfLife" class="form-label">Chemical half-life (years)</label>
           <input type="number" id="HalfLife" name="HalfLife"
-                 class="form-control" value="2.5" min="0.01" step="any">
+                 class="form-control" value="{{ param_specs.HalfLife.default }}" min="{{ param_specs.HalfLife.min }}" step="{{ param_specs.HalfLife.step }}">
         </div>
 
         <div class="col-md-3">
           <label for="RateInj" class="form-label">Dietary intake (ng/kg/min)</label>
           <input type="number" id="RateInj" name="RateInj"
-                 class="form-control" value="0.451695" min="0" step="any">
+                 class="form-control" value="{{ param_specs.RateInj.default }}" min="{{ param_specs.RateInj.min }}" step="{{ param_specs.RateInj.step }}">
         </div>
 
         <div class="col-md-2">
           <label for="BirthYear" class="form-label">Birth year</label>
           <input type="number" id="BirthYear" name="BirthYear"
-                 class="form-control" value="2007" min="1950" max="2050">
+                 class="form-control" value="{{ param_specs.BirthYear.default }}" min="{{ param_specs.BirthYear.min }}" max="{{ param_specs.BirthYear.max }}" step="{{ param_specs.BirthYear.step }}">
         </div>
 
         <div class="col-12">
@@ -318,11 +318,7 @@
   }
 
   // ── Applicability domain check ───────────────────────────────────────────
-  const DOMAIN = {
-    HalfLife:  { min: 2,    max: 5,    label: "PFOA half-life (yr)" },
-    BirthYear: { min: 1990, max: 2020, label: "birth year" },
-    RateInj:   { min: 0.1,  max: 2.0,  label: "dietary intake (ng/kg/min)" },
-  };
+  const DOMAIN = {{ domain_js | safe }};
 
   function checkDomain() {
     const form = document.getElementById("sim-form");

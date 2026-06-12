@@ -1,80 +1,207 @@
 {% extends "dashboard/layout.html" %}
-{% block title %}Run History — PBKFAIRModel{% endblock %}
+{% block title %}Run History — FAIRDatabase{% endblock %}
+
 {% block content %}
+{% set pbpk_active_tab = "history" %}
 {% include "pbpk/_studies_tabs.html" %}
+
 <div class="container mt-2">
 
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <div>
-      <h2 class="mb-0">Run History</h2>
-      <p class="text-muted mb-0 small">
-        Simulation runs stored with full provenance — click any run to view results.
-      </p>
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:var(--space-6)">
+    <div class="page-header" style="margin-bottom:0">
+      <h2>Run History</h2>
+      <p>Simulation runs stored with full provenance — click any run to view results.</p>
     </div>
-    <a href="/model/catalogue" class="btn btn-sm btn-outline-secondary">
-      <i class="bi bi-grid-3x3-gap me-1"></i>Model Catalogue
+    <a href="/model/catalogue" class="btn-secondary-custom btn-sm">
+      <i class="bi bi-grid-3x3-gap"></i> Model Catalogue
     </a>
   </div>
 
   {% if runs %}
-  <div class="table-responsive">
-    <table class="table table-sm table-hover align-middle small">
-      <thead class="table-light">
-        <tr>
-          <th>Run ID</th>
-          <th>Study</th>
-          <th>Scenario</th>
-          <th>Compound</th>
-          <th>Engine</th>
-          <th>Status</th>
-          <th>Created</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in runs %}
-        <tr>
-          <td><code>{{ r.id }}</code></td>
-          <td>
-            {% if r.study_slug %}
-              <a href="/model/catalogue/{{ r.study_slug }}" class="text-decoration-none">
-                {{ r.study_slug }}
-              </a>
-            {% else %}
-              <span class="text-muted">lifetime</span>
-            {% endif %}
-          </td>
-          <td>{{ r.scenario or "—" }}</td>
-          <td>
-            {% if r.compound %}
-              <span class="badge bg-info text-dark">{{ r.compound }}</span>
-            {% else %}—{% endif %}
-          </td>
-          <td><code>{{ r.engine or "scipy_lsoda" }}</code></td>
-          <td>
-            <span class="badge {% if r.status == 'done' %}bg-success{% elif r.status == 'error' %}bg-danger{% elif r.status == 'running' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
-              {{ r.status }}
-            </span>
-          </td>
-          <td class="text-muted">{{ r.created_at[:16] if r.created_at else "—" }}</td>
-          <td>
-            {% if r.status == "done" %}
-            <a href="/model/results/{{ r.id }}" class="btn btn-sm btn-outline-primary py-0 px-2">
-              <i class="bi bi-graph-up me-1"></i>Results
-            </a>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+
+  <!-- Search + status filter bar -->
+  <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:var(--space-3)">
+    <div class="search-box" style="margin-bottom:0">
+      <i class="bi bi-search"></i>
+      <input type="text" id="search-input" placeholder="Search by ID, study, compound…">
+    </div>
+    <div class="filter-chips" id="status-filters" style="margin-bottom:0">
+      <button class="filter-chip active" data-status="all">All</button>
+      <button class="filter-chip" data-status="done">
+        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--color-success);margin-right:4px;vertical-align:middle"></span>Done
+      </button>
+      <button class="filter-chip" data-status="running">
+        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--color-warning);margin-right:4px;vertical-align:middle"></span>Running
+      </button>
+      <button class="filter-chip" data-status="error">
+        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--color-error);margin-right:4px;vertical-align:middle"></span>Error
+      </button>
+    </div>
   </div>
+
+  <!-- Model + date facets -->
+  <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:var(--space-4)">
+    <div class="filter-chips" id="model-filters" style="margin-bottom:0">
+      <span style="font-size:0.6875rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--color-text-muted);margin-right:4px">Model:</span>
+      <button class="filter-chip active" data-model="all">All</button>
+      <button class="filter-chip" data-model="ratier">Ratier</button>
+      <button class="filter-chip" data-model="generic">Generic</button>
+      <button class="filter-chip" data-model="rovira">Rovira</button>
+      <button class="filter-chip" data-model="verner">Verner</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:0.8125rem;color:var(--color-text-secondary)">
+      <i class="bi bi-calendar3" style="font-size:0.875rem"></i>
+      <span>From</span>
+      <input type="date" id="date-from"
+             style="padding:5px 8px;border:1.5px solid var(--color-border);border-radius:var(--radius-md);font-family:var(--font-body);font-size:0.8125rem;background:var(--color-surface);color:var(--color-text-primary);outline:none">
+      <span>to</span>
+      <input type="date" id="date-to"
+             style="padding:5px 8px;border:1.5px solid var(--color-border);border-radius:var(--radius-md);font-family:var(--font-body);font-size:0.8125rem;background:var(--color-surface);color:var(--color-text-primary);outline:none">
+      <button class="btn-secondary-custom btn-sm" id="clear-dates-btn">Clear</button>
+    </div>
+  </div>
+
+  <!-- Summary stats -->
+  <div style="display:flex;gap:24px;margin-bottom:var(--space-4);font-size:0.8125rem;color:var(--color-text-secondary)"
+       id="run-stats"></div>
+
+  <!-- Run list -->
+  <div class="run-list" id="run-list">
+    {% for r in runs %}
+    <div class="run-item"
+         data-status="{{ r.status }}"
+         data-model="{{ r.study_slug or '' }}"
+         data-date="{{ r.created_at[:10] if r.created_at else '' }}"
+         data-search="{{ [r.id, r.study_slug or '', r.scenario or '', r.compound or '', r.engine or ''] | join(' ') | lower }}">
+      <div class="run-item-id">
+        <span class="id-pill" title="{{ r.id }}">#{{ r.id }}</span>
+      </div>
+      <div class="run-item-meta">
+        <span><strong>Study:</strong> {{ r.study_slug or "—" }}</span>
+        <span><strong>Scenario:</strong> {{ r.scenario or "—" }}</span>
+        {% if r.compound %}
+        <span><span class="chem-badge">{{ r.compound }}</span></span>
+        {% endif %}
+        {% if r.summary and r.summary.get("peak_C_ven") is not none %}
+        <span class="run-mini-metrics">
+          <strong>C<sub>max</sub></strong> {{ "%.3g" | format(r.summary.peak_C_ven) }} mg/L
+          {% if r.summary.get("peak_Age_yr") is not none %}
+          &nbsp;<strong>T<sub>max</sub></strong> {{ "%.2f" | format(r.summary.peak_Age_yr) }} yr
+          {% endif %}
+        </span>
+        {% elif r.summary and r.summary.get("peak_CA_maternal_mgL") is not none %}
+        <span class="run-mini-metrics">
+          <strong>C<sub>max</sub></strong> {{ "%.3g" | format(r.summary.peak_CA_maternal_mgL) }} mg/L
+        </span>
+        {% endif %}
+        {% if r.created_at %}
+        <span style="color:var(--color-text-muted)">{{ r.created_at[:16] }}</span>
+        {% endif %}
+      </div>
+      <span class="status-badge {{ r.status }}">{{ r.status }}</span>
+      <div>
+        {% if r.status == "done" %}
+        <a href="/model/results/{{ r.id }}" class="btn-secondary-custom btn-sm">
+          <i class="bi bi-graph-up"></i> Results
+        </a>
+        {% elif r.status == "running" %}
+        <span style="font-size:0.75rem;color:var(--color-warning)">In progress…</span>
+        {% else %}
+        <span style="font-size:0.75rem;color:var(--color-error)">Failed</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Empty state (shown by JS when filtered) -->
+  <div class="empty-state" id="empty-state" style="display:none">
+    <i class="bi bi-clock-history"></i>
+    <p>No runs match your filter. <a href="/model/catalogue">Run a simulation</a> to get started.</p>
+  </div>
+
   {% else %}
-  <div class="text-center text-muted py-5">
-    <i class="bi bi-clock-history display-4 mb-3 d-block" aria-hidden="true"></i>
-    No simulation runs yet. <a href="/model/catalogue">Run a simulation</a> to get started.
+  <div class="empty-state">
+    <i class="bi bi-clock-history"></i>
+    <p>No simulation runs yet. <a href="/model/catalogue">Run a simulation</a> to get started.</p>
   </div>
   {% endif %}
 
-</div>
+</div><!-- /container -->
+
+{% if runs %}
+<script>
+(function () {
+  "use strict";
+
+  var _statusFilter = "all";
+  var _modelFilter  = "all";
+
+  function updateStats() {
+    var items = document.querySelectorAll(".run-item");
+    var total = items.length;
+    var done    = document.querySelectorAll('.run-item[data-status="done"]').length;
+    var running = document.querySelectorAll('.run-item[data-status="running"]').length;
+    var error   = document.querySelectorAll('.run-item[data-status="error"]').length;
+    document.getElementById("run-stats").innerHTML =
+      "<span>" + total + " total</span>" +
+      '<span style="color:var(--color-success)"><i class="bi bi-check-circle" style="margin-right:2px"></i>' + done + " done</span>" +
+      (running ? '<span style="color:var(--color-warning)"><i class="bi bi-hourglass-split" style="margin-right:2px"></i>' + running + " running</span>" : "") +
+      (error ? '<span style="color:var(--color-error)"><i class="bi bi-x-circle" style="margin-right:2px"></i>' + error + " error</span>" : "");
+  }
+
+  function filterRuns() {
+    var query     = (document.getElementById("search-input").value || "").toLowerCase().trim();
+    var dateFrom  = document.getElementById("date-from").value;
+    var dateTo    = document.getElementById("date-to").value;
+    var items     = document.querySelectorAll(".run-item");
+    var visible   = 0;
+
+    items.forEach(function (item) {
+      var statusMatch = _statusFilter === "all" || item.dataset.status === _statusFilter;
+      var modelMatch  = _modelFilter  === "all" || item.dataset.model  === _modelFilter;
+      var searchMatch = !query  || (item.dataset.search || "").includes(query);
+      var dateAfter   = !dateFrom || (item.dataset.date || "") >= dateFrom;
+      var dateBefore  = !dateTo   || (item.dataset.date || "") <= dateTo;
+      var show = statusMatch && modelMatch && searchMatch && dateAfter && dateBefore;
+      item.style.display = show ? "" : "none";
+      if (show) visible++;
+    });
+
+    document.getElementById("empty-state").style.display = visible === 0 ? "" : "none";
+    document.getElementById("run-list").style.display    = visible === 0 ? "none" : "";
+  }
+
+  document.getElementById("search-input").addEventListener("input", filterRuns);
+  document.getElementById("date-from").addEventListener("input", filterRuns);
+  document.getElementById("date-to").addEventListener("input", filterRuns);
+
+  document.getElementById("clear-dates-btn").addEventListener("click", function () {
+    document.getElementById("date-from").value = "";
+    document.getElementById("date-to").value   = "";
+    filterRuns();
+  });
+
+  document.getElementById("status-filters").addEventListener("click", function (e) {
+    var btn = e.target.closest(".filter-chip");
+    if (!btn) return;
+    document.querySelectorAll("#status-filters .filter-chip").forEach(function (b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+    _statusFilter = btn.dataset.status;
+    filterRuns();
+  });
+
+  document.getElementById("model-filters").addEventListener("click", function (e) {
+    var btn = e.target.closest(".filter-chip[data-model]");
+    if (!btn) return;
+    document.querySelectorAll("#model-filters .filter-chip").forEach(function (b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+    _modelFilter = btn.dataset.model;
+    filterRuns();
+  });
+
+  updateStats();
+})();
+</script>
+{% endif %}
 {% endblock %}
