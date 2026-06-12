@@ -22,10 +22,11 @@ DELETE /model/artifacts/<id>          Delete an artifact (blob + catalog row)
 from __future__ import annotations
 
 import os
+import pathlib
 import tempfile
 import uuid as _uuid
 
-from flask import Blueprint, abort, g, jsonify, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, g, jsonify, redirect, render_template, request, send_file, session, url_for
 from werkzeug.utils import secure_filename
 
 from kernel.auth import login_required
@@ -56,6 +57,7 @@ from .catalogue import (
     list_thresholds,
     create_threshold,
     list_run_history,
+    fetch_runs_for_compare,
 )
 
 import logging
@@ -408,6 +410,29 @@ def model_detail(slug):
     )
 
 
+@routes.route("/catalogue/<slug>/sbml", methods=["GET"])
+@login_required()
+def download_sbml(slug):
+    """Serve the SBML model file for direct download (§3.2 ideas)."""
+    model = fetch_model(slug)
+    if model is None:
+        abort(404, description=f"Model '{slug}' not found")
+    sbml_filename = model.get("sbml_file", "")
+    if not sbml_filename:
+        abort(404, description="No SBML file registered for this model")
+    sbml_path = (
+        pathlib.Path(__file__).parent / "studies" / slug / sbml_filename
+    )
+    if not sbml_path.exists():
+        abort(404, description=f"SBML file '{sbml_filename}' not found on disk")
+    return send_file(
+        sbml_path,
+        mimetype="application/xml",
+        as_attachment=True,
+        download_name=sbml_filename,
+    )
+
+
 @routes.route("/results/<int:run_id>", methods=["GET"])
 @login_required("admin", "curator", "accessor")
 def results_page(run_id):
@@ -428,6 +453,17 @@ def results_page(run_id):
         user_email=session.get("email"),
         current_path=request.path,
         pbpk_active_tab=slug or "lifetime",
+    )
+
+
+@routes.route("/validation", methods=["GET"])
+@login_required()
+def validation_page():
+    return render_template(
+        "pbpk/validation.html",
+        user_email=session.get("email"),
+        current_path=request.path,
+        pbpk_active_tab="comparison",
     )
 
 
@@ -463,6 +499,71 @@ def api_get_model(slug):
     if model is None:
         return jsonify({"error": "Model not found"}), 404
     return jsonify(model), 200
+
+
+@routes.route("/api/models/<slug>/ontology", methods=["GET"])
+@login_required()
+def api_model_ontology(slug):
+    """Return all SBML CV-term annotations for a model with resolved labels.
+
+    Response shape::
+
+        {
+          "slug": "rovira",
+          "total_terms": 392,
+          "resolved_labels": 378,
+          "terms": [
+            {
+              "element_id": "V_plas",
+              "element_type": "compartment",
+              "qualifier": "BQB_IS",
+              "iri": "http://purl.obolibrary.org/obo/PBPKO_00488",
+              "ontology": "PBPKO",
+              "local_id": "PBPKO:00488",
+              "label": "plasma compartment"
+            }, ...
+          ]
+        }
+    """
+    from .catalogue import ensure_seeded
+    ensure_seeded()
+
+    with g.db.cursor() as cur:
+        cur.execute(
+            """
+            SELECT ct.element_id, ct.element_type, ct.qualifier,
+                   ct.iri, il.ontology, il.local_id, il.label
+            FROM _fd.pbpk_cv_terms   ct
+            JOIN _fd.pbpk_iri_labels il ON il.iri = ct.iri
+            WHERE ct.study_slug = %s
+            ORDER BY ct.element_type, ct.element_id, ct.qualifier
+            """,
+            (slug,),
+        )
+        rows = cur.fetchall()
+
+    if not rows:
+        return jsonify({"error": "Model not found or ontology terms not yet seeded"}), 404
+
+    terms = [
+        {
+            "element_id":   r[0],
+            "element_type": r[1],
+            "qualifier":    r[2],
+            "iri":          r[3],
+            "ontology":     r[4],
+            "local_id":     r[5],
+            "label":        r[6] if r[6] else r[5],   # fall back to local_id
+        }
+        for r in rows
+    ]
+    resolved = sum(1 for t in terms if t["label"] != t["local_id"])
+    return jsonify({
+        "slug": slug,
+        "total_terms": len(terms),
+        "resolved_labels": resolved,
+        "terms": terms,
+    }), 200
 
 
 @routes.route("/api/thresholds", methods=["GET"])
@@ -504,6 +605,33 @@ def api_list_runs():
         limit = 50
     runs = list_run_history(user_id=g.user, role=g.role, limit=limit)
     return jsonify(runs), 200
+
+
+@routes.route("/api/runs/compare", methods=["POST"])
+@login_required()
+def api_compare_runs():
+    """Compare multiple completed runs side-by-side.
+
+    Body: {"run_ids": [id1, id2, ...]}  (2–6 IDs)
+
+    Returns each run's summary and timeseries so the client can overlay
+    concentration-time curves and diff parameters. Only returns runs that
+    are visible to the caller (admin sees all; others see their own runs).
+    """
+    payload = request.get_json(silent=True) or {}
+    run_ids = payload.get("run_ids", [])
+    if not isinstance(run_ids, list):
+        return jsonify({"error": "run_ids must be a list"}), 400
+    if len(run_ids) < 2 or len(run_ids) > 6:
+        return jsonify({"error": "run_ids must contain 2–6 IDs"}), 400
+    try:
+        run_ids = [int(rid) for rid in run_ids]
+    except (TypeError, ValueError):
+        return jsonify({"error": "run_ids must be integers"}), 400
+
+    runs = fetch_runs_for_compare(run_ids, g.user, g.role)
+    not_found = set(run_ids) - {r["id"] for r in runs}
+    return jsonify({"runs": runs, "not_found": sorted(not_found)}), 200
 
 
 # ── Artifact endpoints ────────────────────────────────────────────────────────

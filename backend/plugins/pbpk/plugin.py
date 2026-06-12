@@ -16,7 +16,22 @@ PLUGIN = Plugin(
     url_prefix="/model",
     blueprint=routes,
 
-    sql_migrations=["sql/001_schema.sql"],
+    sql_migrations=[
+        "sql/001_schema.sql",
+        # 002_catalogue.sql adds the _fd.pbpk_models (catalogue),
+        # _fd.pbpk_thresholds (regulatory thresholds), and the
+        # study_slug / compound / engine / content_hash columns on
+        # _fd.pbpk_simulation_runs. Without this migration the
+        # catalogue and run-comparison features fail with
+        # UndefinedTable. The seed values for the EFSA 2020 group
+        # TWI plasma equivalent (6.9 ng/mL for PFOA and PFOS) are
+        # included in the migration and applied idempotently.
+        "sql/002_catalogue.sql",
+        # 003_ontology.sql creates _fd.pbpk_iri_labels (OLS4 label cache) and
+        # _fd.pbpk_cv_terms (per-study SBML CV-term inventory). Populated by
+        # ontology.seed_ontology_terms() at first ensure_seeded() call.
+        "sql/003_ontology.sql",
+    ],
 
     # Importable module names — verified by the loader at boot. Installed via
     # ``plugins/pbpk/requirements.txt`` (pip dist names: ``scipy``,
@@ -47,5 +62,5 @@ PLUGIN = Plugin(
     templates_dir="templates",
     # One flat sidebar entry — the studies switcher lives inside the plugin
     # pages (templates/pbpk/_studies_tabs.html), not in the global sidebar.
-    nav={"label": "PBPK Model", "icon": "flask"},
+    nav={"label": "PBK Module", "icon": "flask", "path": "catalogue"},
 )

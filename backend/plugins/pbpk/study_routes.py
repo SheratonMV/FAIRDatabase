@@ -57,8 +57,29 @@ def register(routes):
     @routes.route("/studies/<slug>/ui", methods=["GET"])
     @login_required()
     def study_ui(slug):
-        _meta(slug)  # validate slug exists (raises 404 if not)
-        return redirect(url_for("pbpk_routes.catalogue"))
+        meta = _meta(slug)
+        try:
+            mod = _studies.load(slug)
+        except ImportError:
+            mod = None
+        from plugins.pbpk import params as _params
+        _spec_map = {
+            "ratier": _params.RATIER,
+            "rovira": _params.ROVIRA,
+            "verner": _params.VERNER_UI,
+            "generic": _params.GENERIC,
+        }
+        return render_template(
+            meta["template"],
+            scenarios=_scenarios(mod) if (mod and meta["has_scenarios"]) else [],
+            compounds=_compounds(mod) if (mod and meta["has_compounds"]) else [],
+            thresholds=list_thresholds(),
+            pbpk_active_tab=slug,
+            user_email=session.get("email"),
+            current_path=request.path,
+            param_specs=_spec_map.get(slug, {}),
+            domain_js=_params.domain_js(slug),
+        )
 
     @routes.route("/studies/<slug>/run", methods=["POST"])
     @login_required()
