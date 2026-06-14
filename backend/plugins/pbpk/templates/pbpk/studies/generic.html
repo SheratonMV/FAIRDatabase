@@ -214,7 +214,7 @@
   /** Regulatory threshold reference-line datasets. */
   function thresholdDatasets(len) {
     return THRESHOLDS.map(t => ({
-      label: `${t.chemical} ${t.endpoint} (${t.value} ${t.units})`,
+      label: `EFSA 2020 Σ4-PFAS serum benchmark (${t.value} ${t.units}) — group-sum limit`,
       data: Array(len).fill(t.value),
       borderColor: "#C0392B", backgroundColor: "transparent",
       borderWidth: 1.2, borderDash: [5, 4], pointRadius: 0, clip: false,

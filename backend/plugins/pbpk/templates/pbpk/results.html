@@ -349,7 +349,7 @@
   {% if thresholds %}
   {% for t in thresholds %}
   datasets.push({
-    label: "{{ t.chemical }} threshold ({{ t.value }} {{ t.units }})",
+    label: "EFSA 2020 Σ4-PFAS serum benchmark ({{ t.value }} {{ t.units }}) — group-sum limit",
     data: new Array(labels.length).fill({{ t.value }}),
     borderColor: "#C0392B",
     backgroundColor: "transparent",
