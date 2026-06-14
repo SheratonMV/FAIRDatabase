@@ -1,6 +1,7 @@
 {% extends "dashboard/layout.html" %}
 {% block title %}FAIRMicrobiome | Privacy processing{% endblock %}
 {% block content %}
+<div class="container mt-4">
 <br>
 <h1>Updated P29-Score</h1>
 <div class="alert alert-success" role="alert">
@@ -216,5 +217,6 @@
 <div class="alert alert-info d-flex justify-content-between align-items-center" style="margin-top: 1%;" role="alert">
    <p>The dataset has a P29 value higher than 0.0, which means that it can be further processed in the differential privacy module. Press continue to initiate this proces. </p>
    <a type="button" class="btn btn-primary-custom" href="/privacy/differential_privacy">Continue</a>
+</div>
 </div>
 {% endblock %}

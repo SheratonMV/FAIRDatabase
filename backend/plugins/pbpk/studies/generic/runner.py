@@ -45,24 +45,44 @@ SBML_PATH = os.path.join(os.path.dirname(__file__), "GenericPBKFAIR.xml")
 # These are now PFOA_milk_fplas_frac / PFOS_milk_fplas_frac constants in the SBML,
 # with milk_fplas_frac computed by a compound-selector assignment rule (mirrors Pmar),
 # so no runtime override is needed here.
+#
+# CVINIT defaults correspond to post-phase-out (2015+) European general-population
+# geometric means: PFOA ~0.34 µg/L, PFOS ~3.14 µg/L (HBM4EU, EFSA 2020 background data).
+# These are lower than pre-2010 values used in Verner 2015 (PFOA ~2.53 µg/L).
+from plugins.pbpk.params import (
+    CVINIT as _CVINIT, MILK_PLASMA_RATIO as _MPR, GENERIC_PC as _GPC,
+)
 PFOA_PARAMS: dict[str, float] = {
-    "PFOA": 1.0, "PFOS": 0.0, "CVINIT": 0.00034,
+    "PFOA": 1.0, "PFOS": 0.0, "CVINIT": _CVINIT["PFOA"],
     "kelim_child": math.log(2) / (2.5 * H_PER_YEAR),
 }
 PFOS_PARAMS: dict[str, float] = {
-    "PFOA": 0.0, "PFOS": 1.0, "CVINIT": 0.00314,
+    "PFOA": 0.0, "PFOS": 1.0, "CVINIT": _CVINIT["PFOS"],
     "kelim_child": math.log(2) / (4.1 * H_PER_YEAR),
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Breastfeeding scenarios
 # ─────────────────────────────────────────────────────────────────────────────
+# C_milk_input is intentionally absent from the BF scenarios below; it is
+# calculated dynamically in simulate() from CVINIT × compound-specific
+# milk:plasma ratio (see MILK_PLASMA_RATIO constants).  A fixed value of
+# 0.00028 mg/L was used previously but that implied a milk:plasma ratio of
+# ~0.82 against CVINIT=0.00034 mg/L — far above literature values of 0.01–0.05
+# (Haug et al. 2011, Mondal et al. 2014).  Users may still override
+# C_milk_input explicitly via **params.
 _BF_SCENARIOS: dict[str, dict] = {
-    "no_bf":  {"T_lact_end": T_DELIVERY,                      "C_milk_input": 0.0},
-    "bf_6mo": {"T_lact_end": T_DELIVERY + H_PER_YEAR / 2,     "C_milk_input": 0.00028},
-    "bf_1yr": {"T_lact_end": T_DELIVERY + H_PER_YEAR,         "C_milk_input": 0.00028},
-    "bf_2yr": {"T_lact_end": T_DELIVERY + 2 * H_PER_YEAR,     "C_milk_input": 0.00028},
+    "no_bf":  {"T_lact_end": T_DELIVERY,                  "C_milk_input": 0.0},
+    "bf_6mo": {"T_lact_end": T_DELIVERY + H_PER_YEAR / 2},
+    "bf_1yr": {"T_lact_end": T_DELIVERY + H_PER_YEAR},
+    "bf_2yr": {"T_lact_end": T_DELIVERY + 2 * H_PER_YEAR},
 }
+
+# Milk:plasma partition ratios used to derive C_milk_input from maternal CVINIT.
+# Sources: Haug et al. (2011) Environ Int; Mondal et al. (2014) Environ Health Perspect.
+# PFOA: 0.020 (range 0.01–0.05); PFOS: 0.040 (range 0.02–0.08).
+PFOA_MILK_PLASMA_RATIO: float = _MPR["PFOA"]
+PFOS_MILK_PLASMA_RATIO: float = _MPR["PFOS"]
 
 SCENARIOS: list[dict] = [
     {"label": "no_bf",  "description": "No breastfeeding"},
@@ -86,8 +106,12 @@ EXECUTE_COLS = [
 # ─────────────────────────────────────────────────────────────────────────────
 # Unit conversion
 # ─────────────────────────────────────────────────────────────────────────────
-# Molecular weights (g/mol): PFOA=414.07, PFOS=538.22
-_MW: dict[str, float] = {"PFOA": 414.07, "PFOS": 538.22}
+# Molecular weights (g/mol)
+# PFOA: free acid C₈F₁₅O₂H = 414.07 g/mol ✓
+# PFOS: free acid C₈F₁₇SO₃H = 500.13 g/mol.
+#   Using the potassium-salt MW (538.22) would underestimate molar concentration
+#   by ~7.6 %; EU/US biomonitoring programs report PFOS as the free-acid form.
+_MW: dict[str, float] = {"PFOA": 414.07, "PFOS": 500.13}
 
 SUPPORTED_UNITS = ("mg_L", "ug_L", "ng_mL", "nmol_L")
 
@@ -314,6 +338,14 @@ def simulate(
     mdl  = _get_model()
     base = PFOA_PARAMS if compound.upper() == "PFOA" else PFOS_PARAMS
     overrides = dict(_BF_SCENARIOS[scenario])
+
+    # Derive C_milk_input from maternal CVINIT unless the scenario fixes it to
+    # zero (no_bf) or the caller explicitly overrides it.
+    if "C_milk_input" not in overrides and "C_milk_input" not in params:
+        ratio = (PFOA_MILK_PLASMA_RATIO if compound.upper() == "PFOA"
+                 else PFOS_MILK_PLASMA_RATIO)
+        overrides["C_milk_input"] = base["CVINIT"] * ratio
+
     overrides.update(params)
     full_params = mdl.make_params(base, overrides)
 

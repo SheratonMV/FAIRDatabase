@@ -1,6 +1,7 @@
 {% extends "dashboard/layout.html" %}
 {% block title %}FAIRMicrobiome | Table preview{% endblock %}
 {% block content %}
+<div class="container mt-4">
 <form action="{{ url_for('dashboard_routes.table_preview') }}" method="post">
    <!-- <div class="alert custom-alert-secondary d-flex justify-content-between align-items-center" role="alert" style="overflow: hidden;">
       <span style="overflow: hidden; text-overflow: ellipsis;">Table preview for: <b>{{ table_name }}</b></span>
@@ -39,4 +40,5 @@
 <div class="col"><a href=" {{url_for('dashboard_routes.search') }}" class="btn btn-primary-custom">Back to search</a></div>
 <br>
 {% endfor %}
+</div>
 {% endblock %}

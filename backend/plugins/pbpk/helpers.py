@@ -1,25 +1,20 @@
 """
-helpers.py — thin bridge between the Flask routes and PBKFAIRModel,
+helpers.py — thin bridge between the Flask routes and the Ratier study runner,
 plus DB helpers for persisting parameter sets and simulation runs.
 """
 from __future__ import annotations
 
 import json
 import os
-import sys
 from datetime import datetime, timezone
 
 import psycopg2.extras
 from flask import g
 
-# PBKFAIRModel/ lives at the repository root (three levels up from
-# backend/plugins/pbpk/). It is normally already importable via PYTHONPATH;
-# this insert keeps the plugin runnable when it is not.
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-if _REPO_ROOT not in sys.path:
-    sys.path.insert(0, _REPO_ROOT)
-
-from PBKFAIRModel import execute, SCENARIOS, DEFAULT_PARAMS  # noqa: E402
+# Use the per-study Ratier runner so the active /model/run endpoint loads the
+# FAIRified SBML file (Ratier2024FAIR.xml, CC BY 4.0, Zenodo DOI
+# 10.5281/zenodo.20447876) rather than the legacy lifetime_pbpk.xml.
+from .studies.ratier.runner import execute, SCENARIOS, DEFAULT_PARAMS
 
 
 # ── Simulation helpers ────────────────────────────────────────────────────────
@@ -32,9 +27,10 @@ def run_scenario(user_params: dict) -> dict:
         raise ValueError(
             f"Unknown scenario '{label}'. Valid options: {sorted(valid_labels)}"
         )
+    from plugins.pbpk.params import RATIER as _RATIER_SPECS
     half_life = user_params.get("HalfLife")
-    if half_life is not None and float(half_life) <= 0:
-        raise ValueError("HalfLife must be positive.")
+    if half_life is not None and float(half_life) < _RATIER_SPECS["HalfLife"]["min"]:
+        raise ValueError(f"HalfLife must be >= {_RATIER_SPECS['HalfLife']['min']}.")
     return execute(user_params)
 
 
@@ -160,8 +156,10 @@ def update_run(
     parts = ["status = %s"]
     values: list = [status]
 
-    if status == "running":
-        parts.append("started_at = %s")
+    if status in ("running", "done", "error"):
+        # COALESCE preserves started_at when an earlier "running" update already set it.
+        # For synchronous runs that skip the "running" update, this sets it on completion.
+        parts.append("started_at = COALESCE(started_at, %s)")
         values.append(now)
     if status in ("done", "error"):
         parts.append("finished_at = %s")
@@ -208,6 +206,158 @@ def fetch_run(run_id: int) -> dict | None:
     if row is None:
         return None
     result = dict(row)
+    for field in ("summary", "timeseries"):
+        if isinstance(result.get(field), str):
+            result[field] = json.loads(result[field])
+    for field in ("started_at", "finished_at", "created_at"):
+        if result.get(field) is not None:
+            result[field] = result[field].isoformat()
+    return result
+
+
+def fetch_run_provenance(run_id: int) -> dict | None:
+    """Return a W3C PROV-JSON document for run_id, or None if not found."""
+    cur = g.db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        cur.execute(
+            """
+            SELECT r.id, r.param_set_id, r.study_slug, r.scenario,
+                   r.compound, r.engine, r.created_at, r.owner_id AS user_id,
+                   ps.name AS param_set_name
+            FROM _fd.pbpk_simulation_runs r
+            LEFT JOIN _fd.pbpk_parameter_sets ps ON ps.id = r.param_set_id
+            WHERE r.id = %s
+            """,
+            (run_id,),
+        )
+        row = cur.fetchone()
+    finally:
+        cur.close()
+
+    if row is None:
+        return None
+
+    run_uri = f"fairdatabase:pbpk/runs/{row['id']}"
+    ps_uri = (
+        f"fairdatabase:pbpk/parameter-sets/{row['param_set_id']}"
+        if row["param_set_id"]
+        else None
+    )
+    user_uri = (
+        f"fairdatabase:users/{row['user_id']}"
+        if row["user_id"]
+        else "fairdatabase:users/anonymous"
+    )
+    ts = row["created_at"].isoformat() if row["created_at"] else None
+
+    doc: dict = {
+        "prefix": {
+            "fairdatabase": "https://github.com/SheratonMV/FAIRDatabase/",
+            "prov": "http://www.w3.org/ns/prov#",
+            "xsd": "http://www.w3.org/2001/XMLSchema#",
+        },
+        "entity": {
+            run_uri: {
+                "prov:type": "prov:Entity",
+                "fairdatabase:run_id": row["id"],
+                "fairdatabase:study_slug": row["study_slug"],
+                "fairdatabase:scenario": row["scenario"],
+                "fairdatabase:compound": row["compound"],
+                "fairdatabase:engine": row["engine"],
+                "fairdatabase:ontology_annotations": {
+                    "endpoint": f"/model/api/models/{row['study_slug']}/ontology",
+                    "ontologies": ["PBPKO", "UBERON", "CHEBI", "NCBITaxon"],
+                },
+            },
+        },
+        "activity": {
+            f"fairdatabase:pbpk/simulation-events/{row['id']}": {
+                k: v
+                for k, v in {
+                    "prov:type": "prov:Activity",
+                    "prov:startedAtTime": (
+                        {"$": ts, "type": "xsd:dateTime"} if ts else None
+                    ),
+                    "prov:endedAtTime": (
+                        {"$": ts, "type": "xsd:dateTime"} if ts else None
+                    ),
+                }.items()
+                if v is not None
+            },
+        },
+        "agent": {
+            user_uri: {
+                "prov:type": "prov:Agent",
+                "fairdatabase:user_id": (
+                    str(row["user_id"]) if row["user_id"] else None
+                ),
+            },
+        },
+        "wasGeneratedBy": {
+            f"_:wgb{row['id']}": {
+                "prov:entity": run_uri,
+                "prov:activity": f"fairdatabase:pbpk/simulation-events/{row['id']}",
+            },
+        },
+        "wasAttributedTo": {
+            f"_:wat{row['id']}": {
+                "prov:entity": run_uri,
+                "prov:agent": user_uri,
+            },
+        },
+    }
+
+    if ps_uri:
+        doc["entity"][ps_uri] = {
+            "prov:type": "prov:Entity",
+            "fairdatabase:param_set_id": row["param_set_id"],
+            "fairdatabase:param_set_name": row["param_set_name"],
+        }
+        doc["wasDerivedFrom"] = {
+            f"_:wdf{row['id']}": {
+                "prov:generatedEntity": run_uri,
+                "prov:usedEntity": ps_uri,
+            },
+        }
+
+    return doc
+
+
+def fetch_run_checked(run_id: int, user_id: str, role: str) -> dict:
+    """Fetch a simulation run and verify read access in a single DB query.
+
+    Replaces the ``assert_can_read_run`` + ``fetch_run`` two-query pattern
+    used in GET /runs/<id> and the results page. Returns the run dict
+    (owner_id is stripped). Raises FileNotFoundError when the run does not
+    exist, PermissionError when access is denied.
+    """
+    cur = g.db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        """
+        SELECT id, param_set_id, scenario, status, started_at, finished_at,
+               error_message, summary, timeseries, created_by, created_at, owner_id
+        FROM _fd.pbpk_simulation_runs
+        WHERE id = %s
+        """,
+        (run_id,),
+    )
+    row = cur.fetchone()
+    cur.close()
+
+    if row is None:
+        raise FileNotFoundError("run not found")
+
+    run_owner = row["owner_id"]
+    if role == "admin":
+        pass
+    elif role in ("curator", "accessor") and user_id:
+        if str(run_owner) != str(user_id):
+            raise PermissionError("forbidden")
+    else:
+        raise PermissionError("forbidden")
+
+    result = dict(row)
+    result.pop("owner_id", None)  # do not expose internal UUID to clients
     for field in ("summary", "timeseries"):
         if isinstance(result.get(field), str):
             result[field] = json.loads(result[field])

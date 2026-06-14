@@ -1,0 +1,182 @@
+{% extends "dashboard/layout.html" %}
+
+{% block title %}PBK Model Catalogue — FAIRDatabase{% endblock %}
+
+{% block content %}
+{% include "pbpk/_studies_tabs.html" %}
+
+<div class="container mt-2">
+
+  <!-- Page header -->
+  <div class="page-header">
+    <h2>PBK Model Catalogue</h2>
+    <p>SBML-encoded PFAS pharmacokinetic models — FAIR-compliant, web-executable, provenance-tracked.</p>
+  </div>
+
+  <!-- Filter chips -->
+  <div class="filter-chips" id="filter-bar">
+    <button class="filter-chip active" data-filter="all">All models</button>
+    <button class="filter-chip" data-filter="pfoa">PFOA</button>
+    <button class="filter-chip" data-filter="pfos">PFOS</button>
+    <button class="filter-chip" data-filter="pregnancy">Pregnancy</button>
+    <button class="filter-chip" data-filter="infant">Infant / Child</button>
+  </div>
+
+  <!-- Model grid -->
+  <div class="model-grid" id="model-grid">
+    {% for m in models %}
+    {% set fb = m.fair_badges %}
+
+    {# ── FAIR meter scores ── #}
+    {% set F_vals = [fb.get("F1_uuid_runs", False), fb.get("F1_zenodo_doi", False), fb.get("F2_run_metadata", False)] %}
+    {% set A_vals = [fb.get("A1_rest_api", False)] %}
+    {% set I_vals = [fb.get("I1_sbml_l3v2", False), fb.get("I3_uses_fair_vocabularies", False)] %}
+    {% set R_vals = [fb.get("R1_params_in_db", False), fb.get("R1_1_open_license", False), fb.get("R1_2_provenance", False), fb.get("R1_3_sbml_standard", False)] %}
+    {% set all_vals = F_vals + A_vals + I_vals + R_vals %}
+    {% set total_met = all_vals | select | list | length %}
+    {% set total_max = all_vals | length %}
+
+    {% set F_met = F_vals | select | list | length %}
+    {% set A_met = A_vals | select | list | length %}
+    {% set I_met = I_vals | select | list | length %}
+    {% set R_met = R_vals | select | list | length %}
+
+    {% set F_status = "met" if F_met == F_vals|length else ("partial" if F_met > 0 else "unmet") %}
+    {% set A_status = "met" if A_met == A_vals|length else ("partial" if A_met > 0 else "unmet") %}
+    {% set I_status = "met" if I_met == I_vals|length else ("partial" if I_met > 0 else "unmet") %}
+    {% set R_status = "met" if R_met == R_vals|length else ("partial" if R_met > 0 else "unmet") %}
+
+    <div class="model-card"
+         data-chemicals="{{ m.chemicals | join(' ') | lower }}"
+         data-lifestage="{{ m.life_stage | lower }}">
+
+      <!-- Card header -->
+      <div class="model-card-header">
+        <div>
+          <h3>{{ m.label }}</h3>
+          <div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
+            {% for chem in m.chemicals %}
+              <span class="chem-badge">{{ chem }}</span>
+            {% endfor %}
+            {% set readiness_labels = {"ready": "Ready", "review": "Requires review", "experimental": "Experimental"} %}
+            <span class="readiness-badge {{ m.readiness or 'experimental' }}" title="Simulation readiness">
+              {{ readiness_labels.get(m.readiness, "Experimental") }}
+            </span>
+          </div>
+        </div>
+        <div class="fair-meter" title="FAIR: {{ total_met }}/{{ total_max }} criteria met">
+          <span class="fair-meter-segment {{ F_status }}" title="F: {{ F_status }}">F</span>
+          <span class="fair-meter-segment {{ A_status }}" title="A: {{ A_status }}">A</span>
+          <span class="fair-meter-segment {{ I_status }}" title="I: {{ I_status }}">I</span>
+          <span class="fair-meter-segment {{ R_status }}" title="R: {{ R_status }}">R</span>
+          <span class="fair-meter-label">{{ total_met }}/{{ total_max }}</span>
+        </div>
+      </div>
+
+      <!-- Card body -->
+      <div class="model-card-body">
+        <p class="description">{{ m.description }}</p>
+
+        {% if m.capabilities %}
+        {% set cap_map = {
+          "timecourse":             ("bi-graph-up",      "Time-course"),
+          "montecarlo":             ("bi-dice-5",        "Monte Carlo"),
+          "breastfeeding_scenarios":("bi-heart-pulse",   "BF scenarios"),
+          "pregnancy":              ("bi-person-hearts", "Pregnancy"),
+          "child":                  ("bi-person",        "Child"),
+          "validation_data":        ("bi-check2-square", "Validation data"),
+        } %}
+        <div class="capability-row">
+          {% for cap in m.capabilities %}
+          {% if cap in cap_map %}
+          <span class="capability-icon" title="{{ cap_map[cap][1] }}">
+            <i class="bi {{ cap_map[cap][0] }}"></i>{{ cap_map[cap][1] }}
+          </span>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <dl class="spec-list">
+          <dt>Population</dt><dd>{{ m.population }}</dd>
+          <dt>Life stage</dt><dd>{{ m.life_stage }}</dd>
+          <dt>SBML</dt><dd><code>{{ m.sbml_file }}</code></dd>
+          {% if m.reference_doi %}
+          <dt>DOI</dt>
+          <dd><a href="https://doi.org/{{ m.reference_doi }}" target="_blank" rel="noopener"
+                 style="font-size:0.75rem;color:var(--color-info)">{{ m.reference_doi }}</a></dd>
+          {% else %}
+          <dt>DOI</dt>
+          <dd><span style="color:var(--color-warning);font-style:italic;font-size:0.75rem">—</span></dd>
+          {% endif %}
+        </dl>
+
+        <!-- Applicability accordion -->
+        <div>
+          <button class="acc-trigger" type="button"
+                  onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
+            <i class="bi bi-chevron-down chevron"></i>
+            Applicability domain
+          </button>
+          <div class="acc-body">
+            {% set ap = m.applicability %}
+            {% if ap.get("domain") %}
+            <p style="margin:0 0 4px"><strong>Domain:</strong> {{ ap.domain }}</p>
+            {% endif %}
+            {% if ap.get("calibration_range") %}
+            <p style="margin:0 0 4px"><strong>Range:</strong> {{ ap.calibration_range }}</p>
+            {% endif %}
+            {% if ap.get("regulatory_status") %}
+            <p style="margin:0 0 4px"><strong>Regulatory:</strong> {{ ap.regulatory_status }}</p>
+            {% endif %}
+            {% if ap.get("limitations") %}
+            <p style="margin:8px 0 4px;font-weight:600">Limitations:</p>
+            <ul style="margin:0;padding-left:16px">
+              {% for lim in ap.limitations %}
+              <li style="margin-bottom:2px">{{ lim }}</li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </div>
+        </div>
+      </div><!-- /card-body -->
+
+      <!-- Card footer -->
+      <div class="model-card-footer">
+        <a href="/model/catalogue/{{ m.slug }}" class="btn-secondary-custom btn-sm">
+          <i class="bi bi-info-circle"></i> Details
+        </a>
+        <a href="/model/studies/{{ m.slug }}/ui" class="btn-primary-custom btn-sm">
+          <i class="bi bi-play-fill"></i> Simulate
+        </a>
+      </div>
+
+    </div><!-- /model-card -->
+    {% else %}
+    <div style="grid-column:1/-1;padding:48px 0;text-align:center;color:var(--color-text-muted)">
+      No models found. The catalogue will populate on first request.
+    </div>
+    {% endfor %}
+  </div><!-- /model-grid -->
+
+</div><!-- /container -->
+
+<script>
+(function () {
+  "use strict";
+  document.querySelectorAll(".filter-chip").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      document.querySelectorAll(".filter-chip").forEach(function (b) { b.classList.remove("active"); });
+      this.classList.add("active");
+      var filter = this.dataset.filter.toLowerCase();
+      document.querySelectorAll(".model-card").forEach(function (card) {
+        if (filter === "all") { card.style.display = ""; return; }
+        var chem = (card.dataset.chemicals || "");
+        var ls   = (card.dataset.lifestage  || "");
+        card.style.display = (chem.includes(filter) || ls.includes(filter)) ? "" : "none";
+      });
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -1,6 +1,7 @@
 {% extends "dashboard/layout.html" %}
 {% block title %}FAIRMicrobiome | P29-Score{% endblock %}
 {% block content %}
+<div class="container mt-4">
 {% if not result %}
 <div class="card text-center" style="background-color: white;">
    <div class="card-body">
@@ -283,4 +284,5 @@
    <br>
 </div>
 {% endif %}
+</div>
 {% endblock %}
