@@ -1,0 +1,5 @@
+# vertical_fl plugin runtime dependencies.
+#
+# torch is OPTIONAL: only `POST /vfl/tasks/<id>/simulate` needs it, and the
+# import is lazy. The CRUD surface mounts cleanly without torch installed.
+torch>=2.1.0
