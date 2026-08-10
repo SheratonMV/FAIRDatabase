@@ -63,6 +63,10 @@ CREATE TABLE IF NOT EXISTS _fd.vfl_rounds (
     UNIQUE (task_id, round_n)
 );
 
+-- Per-party gradient slices for a round, keyed by site_id. Consumed on first
+-- GET (see db.consume_gradient).
+ALTER TABLE _fd.vfl_rounds ADD COLUMN IF NOT EXISTS gradients JSONB;
+
 CREATE INDEX IF NOT EXISTS vfl_parties_task_idx ON _fd.vfl_parties (task_id);
 CREATE INDEX IF NOT EXISTS vfl_psi_task_idx     ON _fd.vfl_psi     (task_id);
 CREATE INDEX IF NOT EXISTS vfl_rounds_task_idx  ON _fd.vfl_rounds  (task_id);

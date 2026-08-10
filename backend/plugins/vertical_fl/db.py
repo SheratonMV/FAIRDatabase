@@ -236,6 +236,36 @@ def store_top_weights(conn, task_id: str, round_n: int,
     conn.commit()
 
 
+def store_gradients(conn, task_id: str, round_n: int, gradients: dict) -> None:
+    """Store per-party gradient slices for a completed round, keyed by site_id."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPDATE _fd.vfl_rounds SET gradients=%s WHERE task_id=%s AND round_n=%s",
+            (json.dumps(gradients), task_id, round_n),
+        )
+    conn.commit()
+
+
+def consume_gradient(conn, task_id: str, round_n: int, site_id: str) -> Optional[list]:
+    """Return one party's gradient slice and remove it (single-fetch)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT gradients FROM _fd.vfl_rounds WHERE task_id=%s AND round_n=%s",
+            (task_id, round_n),
+        )
+        row = cur.fetchone()
+        gradients = (row[0] if row else None) or {}
+        grad = gradients.pop(site_id, None)
+        if grad is None:
+            return None
+        cur.execute(
+            "UPDATE _fd.vfl_rounds SET gradients=%s WHERE task_id=%s AND round_n=%s",
+            (json.dumps(gradients), task_id, round_n),
+        )
+    conn.commit()
+    return grad
+
+
 def purge_round_embeddings(conn, task_id: str, round_n: int) -> None:
     """Remove raw embeddings after gradients have been dispatched."""
     with conn.cursor() as cur:

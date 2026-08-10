@@ -179,3 +179,64 @@ class TestRBAC:
             content_type="application/json",
         )
         assert resp.status_code == 403
+
+
+class TestGradientRetrieval:
+    """Each party must be able to retrieve its own gradient slice."""
+
+    def _aligned_two_party_task(self, client, vfl_task_cleanup):
+        task_id = TestPartyRegistration._create_task(
+            client, vfl_task_cleanup, n_parties=2, model_arch={"embed_dim": 4},
+        )
+        for site_id in ("site_a", "site_b"):
+            client.post(f"/vfl/tasks/{task_id}/parties",
+                        json={"site_id": site_id, "feature_dim": 2},
+                        content_type="application/json")
+            client.post(f"/vfl/tasks/{task_id}/psi",
+                        json={"site_id": site_id, "hashed_ids": ["h1", "h2"]},
+                        content_type="application/json")
+        return task_id
+
+    def test_each_party_can_retrieve_its_own_gradient_after_round_closes(
+        self, curator_user, vfl_task_cleanup,
+    ):
+        client, _ = curator_user
+        task_id = self._aligned_two_party_task(client, vfl_task_cleanup)
+        embedding = [[0.1, 0.2, 0.3, 0.4], [0.5, 0.6, 0.7, 0.8]]
+
+        resp = client.post(f"/vfl/tasks/{task_id}/rounds/1/embeddings",
+                            json={"site_id": "site_a", "embedding": embedding},
+                            content_type="application/json")
+        assert resp.get_json()["status"] == "waiting"
+
+        resp = client.post(f"/vfl/tasks/{task_id}/rounds/1/embeddings",
+                            json={"site_id": "site_b", "embedding": embedding},
+                            content_type="application/json")
+        assert resp.get_json()["status"] == "aggregated"
+
+        for site_id in ("site_a", "site_b"):
+            resp = client.get(f"/vfl/tasks/{task_id}/rounds/1/gradients/{site_id}")
+            assert resp.status_code == 200
+            grad = resp.get_json()["gradient"]
+            assert len(grad) == 2          # batch size
+            assert len(grad[0]) == 4       # this party's embed_dim slice
+
+    def test_gradient_is_single_fetch_not_persisted(
+        self, curator_user, vfl_task_cleanup,
+    ):
+        client, _ = curator_user
+        task_id = self._aligned_two_party_task(client, vfl_task_cleanup)
+        embedding = [[0.1, 0.2, 0.3, 0.4]]
+
+        client.post(f"/vfl/tasks/{task_id}/rounds/1/embeddings",
+                    json={"site_id": "site_a", "embedding": embedding},
+                    content_type="application/json")
+        client.post(f"/vfl/tasks/{task_id}/rounds/1/embeddings",
+                    json={"site_id": "site_b", "embedding": embedding},
+                    content_type="application/json")
+
+        first = client.get(f"/vfl/tasks/{task_id}/rounds/1/gradients/site_a")
+        assert first.status_code == 200
+
+        second = client.get(f"/vfl/tasks/{task_id}/rounds/1/gradients/site_a")
+        assert second.status_code == 410

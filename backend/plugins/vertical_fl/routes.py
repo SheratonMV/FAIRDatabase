@@ -228,6 +228,12 @@ def submit_embeddings(task_id, round_n):
         for k, s in enumerate(sigma_per_task)
     }
 
+    site_ids_sorted = sorted(embeddings_dict)
+    vfl_db.store_gradients(
+        g.db, task_id, round_n,
+        gradients={sid: grad_slices[i].tolist() for i, sid in enumerate(site_ids_sorted)},
+    )
+
     vfl_db.store_top_weights(
         g.db, task_id, round_n,
         top_weights=list(top_model.state_dict().values())[0].tolist(),
@@ -267,10 +273,11 @@ def get_gradients(task_id, round_n, site_id):
     if rnd is None or rnd.get("status") != "done":
         return jsonify({"error": "Round not complete"}), 404
 
-    # Gradient slices are not persisted — parties must fetch immediately after
-    # the round closes. This is intentional: storing gradients long-term would
-    # leak information about other parties' embeddings.
-    return jsonify({"error": "Gradient no longer available — fetch immediately after round closes"}), 410
+    # Single-fetch: a repeat call 410s instead of re-serving the slice.
+    grad = vfl_db.consume_gradient(g.db, task_id, round_n, site_id)
+    if grad is None:
+        return jsonify({"error": "Gradient no longer available — fetch immediately after round closes"}), 410
+    return jsonify({"site_id": site_id, "gradient": grad}), 200
 
 
 # ── Model + simulate + export ─────────────────────────────────────────────────
@@ -401,6 +408,7 @@ def export_task(task_id):
     rounds = vfl_db.list_rounds(g.db, task_id)
     for r in rounds:
         r.pop("embeddings", None)  # never expose raw embeddings
+        r.pop("gradients", None)   # or unconsumed gradient slices
         if r.get("created_at"):
             r["created_at"] = str(r["created_at"])
     export = {
