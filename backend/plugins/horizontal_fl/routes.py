@@ -24,7 +24,10 @@ import logging
 
 import numpy as np
 import requests
-from flask import Blueprint, Response, g, jsonify, render_template, request, session
+from flask import (
+    Blueprint, Response, current_app, g, jsonify, render_template, request,
+    session,
+)
 
 from kernel import dp_budget
 from kernel.auth import login_required
@@ -83,6 +86,7 @@ def federated_ui():
         tasks=tasks,
         user_email=session.get("email"),
         current_path=request.path,
+        vfl_available="vertical_fl_routes" in current_app.blueprints,
     )
 
 

@@ -48,3 +48,23 @@ class TestLegacyRedirect:
     def test_legacy_url_redirects(self, client):
         resp = client.get("/federated/federated_learning/federated_learning")
         assert resp.status_code in (301, 302)
+
+
+class TestVerticalFLAvailability:
+    def _render(self, app, vfl_available):
+        with app.test_request_context("/fl/ui"):
+            return app.jinja_env.get_template(
+                "horizontal_fl/federated_learning.html"
+            ).render(tasks=[], user_email=None, current_path="/fl/ui",
+                     vfl_available=vfl_available)
+
+    def test_vertical_tab_hidden_when_plugin_absent(self, app):
+        html = self._render(app, vfl_available=False)
+        assert 'id="btn-vertical"' not in html
+        assert 'id="panel-vertical"' not in html
+        assert "const VFL_AVAILABLE = false" in html
+
+    def test_vertical_tab_shown_when_plugin_present(self, app):
+        html = self._render(app, vfl_available=True)
+        assert 'id="btn-vertical"' in html
+        assert 'id="panel-vertical"' in html

@@ -223,6 +223,7 @@
         </svg>
         Horizontal FL
       </button>
+      {% if vfl_available %}
       <button class="fl-mode-btn" id="btn-vertical" onclick="switchMode('vertical')">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/>
@@ -230,6 +231,7 @@
         </svg>
         Vertical FL
       </button>
+      {% endif %}
     </div>
   </div>
 
@@ -435,6 +437,7 @@
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <!-- VERTICAL FL PANEL                                                     -->
   <!-- ══════════════════════════════════════════════════════════════════════ -->
+  {% if vfl_available %}
   <div id="panel-vertical" style="display:none">
 
     <div class="fl-info-box mb-4">
@@ -627,16 +630,22 @@
     </div>
 
   </div><!-- /panel-vertical -->
+  {% endif %}
 
 </div><!-- /fl-page -->
 
 <script>
+const VFL_AVAILABLE = {{ vfl_available | tojson }};
+
 /* ── Mode toggle ─────────────────────────────────────────────────────── */
 function switchMode(mode) {
+  if (mode === 'vertical' && !VFL_AVAILABLE) return;
   document.getElementById('panel-horizontal').style.display = mode === 'horizontal' ? '' : 'none';
-  document.getElementById('panel-vertical').style.display   = mode === 'vertical'   ? '' : 'none';
   document.getElementById('btn-horizontal').classList.toggle('active', mode === 'horizontal');
-  document.getElementById('btn-vertical').classList.toggle('active',   mode === 'vertical');
+  if (VFL_AVAILABLE) {
+    document.getElementById('panel-vertical').style.display = mode === 'vertical' ? '' : 'none';
+    document.getElementById('btn-vertical').classList.toggle('active', mode === 'vertical');
+  }
 }
 
 /* ── Demo simulation (client-side, calls backend API) ───────────────── */
@@ -905,7 +914,7 @@ function setVflProgress(done, total) {
 }
 
 async function runVflDemo() {
-  if (_vflDemoRunning) return;
+  if (!VFL_AVAILABLE || _vflDemoRunning) return;
   _vflDemoRunning = true;
 
   const runBtn   = document.getElementById('vfl-run-btn');
@@ -1033,6 +1042,7 @@ function resetVflDemo() {
 /* ── Vertical FL tasks table ────────────────────────────────────────── */
 async function loadVflTasks() {
   const ind = document.getElementById('vfl-tasks-refresh-indicator');
+  if (!ind) return;
   ind.textContent = 'Refreshing…';
   try {
     const resp = await fetch('/vfl/tasks');
@@ -1077,12 +1087,14 @@ function renderVflTasks(tasks) {
   }).join('');
 }
 
-loadVflTasks();
-setInterval(async () => {
-  const rows = document.querySelectorAll('#vfl-tasks-tbody tr');
-  const hasActive = Array.from(rows).some(r => r.querySelector('.badge-running'));
-  if (hasActive) loadVflTasks();
-}, 15000);
+if (VFL_AVAILABLE) {
+  loadVflTasks();
+  setInterval(async () => {
+    const rows = document.querySelectorAll('#vfl-tasks-tbody tr');
+    const hasActive = Array.from(rows).some(r => r.querySelector('.badge-running'));
+    if (hasActive) loadVflTasks();
+  }, 15000);
+}
 </script>
 
 <style>
