@@ -70,6 +70,13 @@ Per-task ownership: admins see and act on any task; all other roles only see tas
 they created. Mutation routes (`POST`) require `admin` or `curator`. Read routes
 and model/export endpoints are open to any authenticated user.
 
+The round protocol (`register_party`, `submit_psi`, `submit_embeddings`, gradient
+retrieval) is gated by task ownership, so one user drives a task end to end. A
+real multi-institution deployment, where each party is a distinct user, needs a
+per-party authorisation path — a token issued at `register_party` rather than the
+task-owner check. This is a known limitation, in the same spirit as the
+simplified PSI above; the simulation path is unaffected.
+
 ## Tests
 
 `tests/` — engine unit tests (`test_engine.py`: `SiteEncoder` shape, MMoE forward,
