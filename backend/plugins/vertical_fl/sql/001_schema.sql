@@ -1,6 +1,5 @@
 -- Vertical FL plugin schema. Idempotent — re-running this file must be a no-op.
 -- Only ever touch tables prefixed with your plugin name: `_fd.vfl_*`.
--- See docs/PLUGIN_GUIDE.md §6, §7.
 
 CREATE TABLE IF NOT EXISTS _fd.vfl_tasks (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -37,7 +36,7 @@ CREATE TABLE IF NOT EXISTS _fd.vfl_parties (
 
 -- Each party submits SHA-256-hashed patient IDs. The server computes the
 -- intersection once all n_parties have submitted and stores cohort_size on
--- vfl_tasks. Honest-but-curious threat model; see CLAUDE.md PSI Note.
+-- vfl_tasks. Honest-but-curious threat model; see README.md.
 CREATE TABLE IF NOT EXISTS _fd.vfl_psi (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task_id         UUID NOT NULL REFERENCES _fd.vfl_tasks(id) ON DELETE CASCADE,

@@ -1,4 +1,4 @@
-"""Plugin manifest. See docs/PLUGIN_GUIDE.md §5."""
+"""Plugin manifest."""
 from kernel.plugin import Plugin
 
 from .routes import routes

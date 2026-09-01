@@ -48,8 +48,9 @@ in the horizontal FL dashboard — no separate `/vfl/ui` route).
 - `kernel.rdp_accountant` — `compute_epsilon_spent` called by
   `engine.renyi_epsilon_per_task` to convert per-task noise multiplier + rounds
   into (ε, δ)-DP.
-- `kernel.dp_budget` — not yet wired; per-dataset budget ledger consumption is a
-  known gap.
+- `kernel.dp_budget` — `get_epsilon_budget` and `consume_epsilon_guarded` charge
+  the shared per-dataset ε ledger on every round of `submit_embeddings` and
+  `run_simulation`; `create_task` rejects a `dataset_id` with no budget row.
 
 ## Cross-plugin hand-off
 
@@ -78,6 +79,14 @@ and route tests (`test_routes.py`: DB-dependent tests marked `skip` until servic
 are up). Picked up by the project pytest. `conftest.py` imports shared app/auth
 fixtures from the project `tests/conftest.py`.
 
+## Threat model
+
+Patient alignment uses SHA-256-hashed ID-set intersection, consistent with the
+honest-but-curious threat model. The server sees only hashes, never raw IDs.
+Production deployments across real institutions should replace this with a
+circuit-based PSI protocol for cryptographic guarantees against a malicious
+coordinator.
+
 ## FAIR / GDPR notes
 
 - Raw embeddings are purged from `_fd.vfl_rounds.embeddings` after gradient dispatch;
@@ -85,7 +94,6 @@ fixtures from the project `tests/conftest.py`.
 - Gradient slices are not stored; parties must retrieve them before the next round.
 - PSI operates on SHA-256 hashes; the server never receives raw patient IDs.
 - DP epsilon is tracked per task via `renyi_epsilon_per_task`; per-round ε is
-  stored in `vfl_rounds.epsilon_per_task` for audit.
+  stored in `vfl_rounds.epsilon_per_task` for audit. The per-dataset total is
+  charged to `kernel.dp_budget` each round.
 - **Known gap:** mutations do not yet call `kernel.audit.record`.
-- **Known gap:** `kernel.dp_budget.consume_epsilon_guarded` is not yet wired;
-  per-dataset global budget is not enforced at the route level.

@@ -1,7 +1,7 @@
-"""Routes for the vertical FL plugin. See docs/PLUGIN_GUIDE.md §6.
+"""Routes for the vertical FL plugin.
 
 Every import is from ``kernel.*`` — never reach into ``src.*`` or a sibling
-plugin (guide §3). UI is served by the horizontal_fl dashboard (/fl/ui).
+plugin. UI is served by the horizontal_fl dashboard (/fl/ui).
 
 /vfl/tasks                                      POST — create task / GET — list
 /vfl/tasks/<id>                                 GET  — task status

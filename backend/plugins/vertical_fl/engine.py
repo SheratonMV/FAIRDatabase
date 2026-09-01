@@ -268,7 +268,7 @@ def psi_intersect(hashed_id_sets: List[List[str]]) -> List[str]:
 
     Each party hashes their patient IDs with SHA-256 before sending.
     The server sees only hashes, not raw IDs. Assumes honest-but-curious
-    parties — see CLAUDE.md PSI Note for production upgrade path.
+    parties — see README.md for the production upgrade path.
     """
     if not hashed_id_sets:
         return []
