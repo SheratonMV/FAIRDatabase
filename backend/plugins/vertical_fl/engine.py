@@ -241,6 +241,26 @@ def renyi_epsilon_per_task(
     }
 
 
+def dataset_epsilon_for_round(
+    sigma_per_task: List[float],
+    delta: float,
+    rounds_done: int,
+) -> float:
+    """Incremental ε for one round, charged to the per-dataset kernel ledger.
+
+    Single scalar, so the worst (lowest-sigma) task bounds the dataset.
+    """
+    from kernel.rdp_accountant import compute_epsilon_spent
+    worst_sigma = min(sigma_per_task)
+    now = compute_epsilon_spent(worst_sigma, delta, rounds_done)
+    prev = (
+        compute_epsilon_spent(worst_sigma, delta, rounds_done - 1)
+        if rounds_done > 1
+        else 0.0
+    )
+    return now - prev
+
+
 # ── PSI ────────────────────────────────────────────────────────────────────────
 
 def psi_intersect(hashed_id_sets: List[List[str]]) -> List[str]:

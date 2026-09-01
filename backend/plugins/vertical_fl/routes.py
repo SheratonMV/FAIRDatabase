@@ -33,6 +33,13 @@ def _load_task_authorized(task_id):
     return task, None
 
 
+def _sigma_list(task_sigma, task_types):
+    """Per-task sigmas by key (jsonb doesn't preserve order), in task order."""
+    if not task_sigma:
+        return [1.0] * len(task_types)
+    return [task_sigma[f"task_{k}"] for k in range(len(task_types))]
+
+
 # ── Task endpoints ─────────────────────────────────────────────────────────────
 
 @routes.post("/tasks")
@@ -47,6 +54,13 @@ def create_task():
     dp_epsilon = float(payload["dp_epsilon"])
     dp_delta = float(payload.get("dp_delta", 1e-5))
     rounds_total = int(payload["rounds_total"])
+
+    # Reject a dataset_id the caller can't spend DP budget against.
+    dataset_id = payload.get("dataset_id")
+    if dataset_id is not None:
+        from kernel import dp_budget
+        if dp_budget.get_epsilon_budget(g.db, dataset_id) is None:
+            return jsonify({"error": "dataset_id is not FL-eligible"}), 400
 
     task_sigma = payload.get("task_sigma")
     if not task_sigma:
@@ -67,7 +81,7 @@ def create_task():
         sim_n_clients=int(payload.get("sim_n_clients", 3)),
         sim_alpha=float(payload.get("sim_alpha", 0.5)),
         model_arch=payload.get("model_arch", {}),
-        dataset_id=payload.get("dataset_id"),
+        dataset_id=dataset_id,
         created_by=g.user,
     )
     return jsonify({"task_id": task_id}), 201
@@ -166,6 +180,13 @@ def submit_embeddings(task_id, round_n):
     if task.get("psi_status") != "aligned":
         return jsonify({"error": "PSI not complete"}), 400
 
+    dataset_id = task.get("dataset_id")
+    if dataset_id:
+        from kernel import dp_budget
+        budget = dp_budget.get_epsilon_budget(g.db, dataset_id)
+        if budget and budget["spent"] >= budget["total_budget"]:
+            return jsonify({"error": "Epsilon budget exhausted for this dataset"}), 403
+
     payload = request.get_json(silent=True) or {}
     missing = {"site_id", "embedding"} - set(payload)
     if missing:
@@ -211,7 +232,7 @@ def submit_embeddings(task_id, round_n):
         np.zeros((z_concat.shape[0], 1), dtype=np.float32)
         for _ in task_types
     ]
-    sigma_per_task = list(task.get("task_sigma", {}).values()) or [1.0] * len(task_types)
+    sigma_per_task = _sigma_list(task.get("task_sigma"), task_types)
 
     grad_slices, losses = split_backward(
         top_model, z_concat, labels,
@@ -227,6 +248,14 @@ def submit_embeddings(task_id, round_n):
         f"task_{k}": compute_epsilon_spent(s, dp_delta, rounds_done)
         for k, s in enumerate(sigma_per_task)
     }
+
+    # Charge the dataset's shared kernel ledger before finalising the round.
+    if dataset_id:
+        from kernel import dp_budget
+        from .engine import dataset_epsilon_for_round
+        eps_round = dataset_epsilon_for_round(sigma_per_task, dp_delta, rounds_done)
+        if not dp_budget.consume_epsilon_guarded(g.db, dataset_id, eps_round):
+            return jsonify({"error": "Epsilon budget exhausted for this dataset"}), 403
 
     site_ids_sorted = sorted(embeddings_dict)
     vfl_db.store_gradients(
@@ -300,9 +329,11 @@ def run_simulation(task_id):
     # torch imported lazily — plugin loads without it installed
     import numpy as np
     import torch
+    from kernel import dp_budget
     from .engine import (
-        SiteEncoder, VFLTopModel, dirichlet_feature_partition,
-        renyi_epsilon_per_task, split_backward, vfl_aggregate_embeddings,
+        SiteEncoder, VFLTopModel, dataset_epsilon_for_round,
+        dirichlet_feature_partition, renyi_epsilon_per_task, split_backward,
+        vfl_aggregate_embeddings,
     )
 
     task, err = _load_task_authorized(task_id)
@@ -312,6 +343,12 @@ def run_simulation(task_id):
         return jsonify({"error": "Not a simulation task"}), 400
     if task.get("status") == "completed":
         return jsonify({"error": "Task already completed"}), 400
+
+    dataset_id = task.get("dataset_id")
+    if dataset_id:
+        budget = dp_budget.get_epsilon_budget(g.db, dataset_id)
+        if budget and budget["spent"] >= budget["total_budget"]:
+            return jsonify({"error": "Epsilon budget exhausted for this dataset"}), 403
 
     arch          = task.get("model_arch") or {}
     n_parties     = int(task.get("n_parties", 3))
@@ -323,7 +360,7 @@ def run_simulation(task_id):
     dp_clip_norm  = float(task.get("dp_clip_norm", 1.0))
     dp_delta      = float(task.get("dp_delta", 1e-5))
     sim_alpha     = float(task.get("sim_alpha", 0.5))
-    sigma_list    = list(task.get("task_sigma", {}).values()) or [1.0] * len(task_types)
+    sigma_list    = _sigma_list(task.get("task_sigma"), task_types)
 
     # Synthetic dataset — one time step per sample for simplicity
     rng = np.random.default_rng(42)
@@ -379,10 +416,20 @@ def run_simulation(task_id):
             z.backward(torch.tensor(grad_np))
             opt.step()
 
+        if dataset_id:
+            eps_round = dataset_epsilon_for_round(sigma_list, dp_delta, rnd)
+            if not dp_budget.consume_epsilon_guarded(g.db, dataset_id, eps_round):
+                vfl_db.set_task_status(g.db, task_id, "budget_exhausted")
+                return jsonify({
+                    "task_id": task_id,
+                    "rounds_completed": rnd - 1,
+                    "error": "Epsilon budget exhausted for this dataset",
+                }), 403
+
         eps_per_task = renyi_epsilon_per_task(sigma_list, dp_delta, rnd)
         vfl_db.store_top_weights(
             g.db, task_id, rnd,
-            top_weights=[],  # top model weights not persisted in sim for brevity
+            top_weights=list(top_model.state_dict().values())[0].tolist(),
             loss_per_task={f"task_{k}": v for k, v in enumerate(losses)},
             epsilon_per_task=eps_per_task,
         )

@@ -169,7 +169,81 @@ def test_calibrated_sigma_orders_by_output_dimensionality():
     assert task_sigma["task_0"] <= task_sigma["task_1"] <= task_sigma["task_2"]
 
 
+def test_dataset_epsilon_for_round_telescopes_to_cumulative():
+    """Per-round increments charged to the kernel ledger must sum to the
+    cumulative epsilon of the worst (lowest-sigma) task after all rounds."""
+    from kernel.rdp_accountant import compute_epsilon_spent
+    from plugins.vertical_fl.engine import dataset_epsilon_for_round
+
+    sigma_per_task, delta, rounds = [1.5, 1.0, 2.0], 1e-5, 8
+    increments = [
+        dataset_epsilon_for_round(sigma_per_task, delta, r)
+        for r in range(1, rounds + 1)
+    ]
+
+    assert all(inc > 0 for inc in increments)
+    assert sum(increments) == pytest.approx(
+        compute_epsilon_spent(min(sigma_per_task), delta, rounds), rel=1e-6
+    )
+
+
 # ── DB-dependent tests (require live services) ────────────────────────────────
+
+def test_simulate_charges_kernel_epsilon_ledger(app, curator_user, vfl_task_cleanup):
+    """Simulation on a budgeted dataset spends the ledger and 403s when exhausted."""
+    import uuid
+
+    from app import get_db
+    from kernel import dp_budget
+
+    client, _ = curator_user
+    dataset_id = str(uuid.uuid4())
+
+    with app.app_context():
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute(
+                "INSERT INTO _fd.fl_epsilon_budget (dataset_id, total_budget) "
+                "VALUES (%s, 0.05)",
+                (dataset_id,),
+            )
+        db.commit()
+    try:
+        resp = client.post("/vfl/tasks", json={
+            "dp_epsilon": 1.0, "rounds_total": 10, "n_parties": 3,
+            "simulation": True, "dataset_id": dataset_id,
+        })
+        assert resp.status_code == 201
+        task_id = resp.get_json()["task_id"]
+        vfl_task_cleanup.append(task_id)
+
+        assert client.post(f"/vfl/tasks/{task_id}/simulate").status_code == 403
+
+        with app.app_context():
+            budget = dp_budget.get_epsilon_budget(get_db(), dataset_id)
+        assert 0 < budget["spent"] <= budget["total_budget"]
+    finally:
+        with app.app_context():
+            db = get_db()
+            with db.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM _fd.fl_epsilon_budget WHERE dataset_id = %s",
+                    (dataset_id,),
+                )
+            db.commit()
+
+
+def test_create_task_rejects_unenrolled_dataset(curator_user):
+    """create_task refuses a dataset_id with no epsilon-budget row."""
+    import uuid
+
+    client, _ = curator_user
+    resp = client.post("/vfl/tasks", json={
+        "dp_epsilon": 1.0, "rounds_total": 5,
+        "dataset_id": str(uuid.uuid4()),
+    })
+    assert resp.status_code == 400
+
 
 @pytest.mark.skip(reason="requires live DB — run with services up")
 def test_simulate_endpoint_completes():
