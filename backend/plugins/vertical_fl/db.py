@@ -220,7 +220,7 @@ def store_embeddings(conn, task_id: str, round_n: int,
 
 
 def store_top_weights(conn, task_id: str, round_n: int,
-                      top_weights: list, loss_per_task: dict,
+                      top_weights: dict, loss_per_task: dict,
                       epsilon_per_task: dict) -> None:
     with conn.cursor() as cur:
         cur.execute(
@@ -277,7 +277,7 @@ def purge_round_embeddings(conn, task_id: str, round_n: int) -> None:
     conn.commit()
 
 
-def get_latest_top_weights(conn, task_id: str) -> Optional[list]:
+def get_latest_top_weights(conn, task_id: str) -> Optional[dict]:
     with conn.cursor() as cur:
         cur.execute(
             "SELECT top_model_weights FROM _fd.vfl_rounds "
