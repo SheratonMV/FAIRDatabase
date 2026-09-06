@@ -22,10 +22,11 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r backend/requirements.txt
+          ./scripts/install-plugin-deps.sh
 
       - name: Run tests
         run: |
-          PYTHONPATH=backend:. pytest backend/tests/ -v --tb=short
+          PYTHONPATH=backend:. pytest backend/tests/ backend/plugins/ -v --tb=short
 
   build:
     runs-on: ubuntu-latest

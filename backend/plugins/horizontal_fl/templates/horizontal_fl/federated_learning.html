@@ -223,6 +223,7 @@
         </svg>
         Horizontal FL
       </button>
+      {% if vfl_available %}
       <button class="fl-mode-btn" id="btn-vertical" onclick="switchMode('vertical')">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/>
@@ -230,6 +231,7 @@
         </svg>
         Vertical FL
       </button>
+      {% endif %}
     </div>
   </div>
 
@@ -435,50 +437,215 @@
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <!-- VERTICAL FL PANEL                                                     -->
   <!-- ══════════════════════════════════════════════════════════════════════ -->
+  {% if vfl_available %}
   <div id="panel-vertical" style="display:none">
 
-    <div class="uc-panel">
-      <div class="uc-icon">🏗️</div>
-      <h2>Vertical Federated Learning</h2>
-      <p>
-        Vertical FL enables learning across sites that hold <strong>different feature columns</strong>
-        for overlapping entities — using split learning and entity alignment protocols.
-        This module is planned for <strong>FAIRification Phase 3</strong> (multi-hospital FL)
-        and requires cross-site Data Use Agreements encoded in ODRL/DUO and site-level
-        P29 assessment alignment.
-      </p>
-      <span class="uc-badge">
-        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
-        </svg>
-        Under Construction — FAIRification §10 Phase 3
-      </span>
+    <div class="fl-info-box mb-4">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-top:.05rem;flex-shrink:0" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
+      <span>Vertical FL shares <strong>the same patients across parties that hold different feature columns</strong> (split learning). Each party runs an LSTM <code>SiteEncoder</code>; a server-side MMoE top model aggregates embeddings and applies task-stratified (ε,δ)-DP to the embedding gradient before returning per-party slices.</span>
+    </div>
 
-      <div class="fl-info-box mt-4" style="max-width:32rem;text-align:left">
-        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="margin-top:.05rem;flex-shrink:0" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
-        <div>
-          <strong>Activation criteria:</strong>
-          <ul style="margin:.4rem 0 0;padding-left:1.2rem;font-size:.82rem">
-            <li>Data Use Agreements signed and encoded in ODRL/DUO</li>
-            <li>Standard Contractual Clauses (SCC) or BCR documented in DPV RDF</li>
-            <li>All sites passed identical P29 assessment pipeline</li>
-            <li>Entity alignment protocol agreed between data controllers</li>
-          </ul>
+    <!-- ── Simulation launcher ───────────────────────────────────────────── -->
+    <div class="fl-card">
+      <div class="fl-card-header">
+        <span>
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-.2em;margin-right:.35rem" viewBox="0 0 24 24">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          Simulation Demo — Split Learning + MMoE
+        </span>
+        <span class="pill badge-sim">Simulation</span>
+      </div>
+      <div class="fl-card-body">
+        <div class="demo-grid">
+
+          <!-- Left: parties + task config ---------------------------------- -->
+          <div>
+            <div class="param-row">
+              <label class="param-label">Parties (feature-disjoint sites)</label>
+              <div class="range-row">
+                <input type="range" id="vfl-cfg-parties" min="2" max="5" value="3" oninput="document.getElementById('vfl-val-parties').textContent=this.value">
+                <span class="range-val" id="vfl-val-parties">3</span>
+              </div>
+            </div>
+
+            <div class="param-row">
+              <label class="param-label">Rounds</label>
+              <div class="range-row">
+                <input type="range" id="vfl-cfg-rounds" min="3" max="30" value="10" oninput="document.getElementById('vfl-val-rounds').textContent=this.value">
+                <span class="range-val" id="vfl-val-rounds">10</span>
+              </div>
+            </div>
+
+            <div class="param-row">
+              <label class="param-label">Tasks (heterogeneous, per-task DP σ)</label>
+              <select id="vfl-cfg-tasks" class="form-select form-select-sm">
+                <option value="binary" selected>Single task — binary (e.g. IHM)</option>
+                <option value="binary,binary">2 tasks — binary, binary</option>
+                <option value="binary,binary,regression,multilabel_25">4 tasks — IHM / Decomp / LOS / Pheno-25 (MMoE)</option>
+              </select>
+            </div>
+
+            <div class="param-row">
+              <label class="param-label">Input features (per-party split via Dirichlet)</label>
+              <div class="range-row">
+                <input type="range" id="vfl-cfg-features" min="6" max="30" value="14" oninput="document.getElementById('vfl-val-features').textContent=this.value">
+                <span class="range-val" id="vfl-val-features">14</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: privacy + model config ---------------------------------- -->
+          <div>
+            <div class="param-row">
+              <label class="param-label">ε Budget (total, per task — RDP accountant)</label>
+              <div class="range-row">
+                <input type="range" id="vfl-cfg-epsilon" min="0.1" max="10" step="0.1" value="1.0" oninput="document.getElementById('vfl-val-epsilon').textContent=parseFloat(this.value).toFixed(1)">
+                <span class="range-val" id="vfl-val-epsilon">1.0</span>
+              </div>
+            </div>
+
+            <div class="param-row">
+              <label class="param-label">Embedding dim (SiteEncoder output)</label>
+              <select id="vfl-cfg-embed" class="form-select form-select-sm">
+                <option value="32">32</option>
+                <option value="64" selected>64</option>
+                <option value="128">128</option>
+              </select>
+            </div>
+
+            <div class="param-row">
+              <label class="param-label">MMoE experts (multi-task only)</label>
+              <div class="range-row">
+                <input type="range" id="vfl-cfg-experts" min="2" max="8" value="4" oninput="document.getElementById('vfl-val-experts').textContent=this.value">
+                <span class="range-val" id="vfl-val-experts">4</span>
+              </div>
+            </div>
+
+            <div class="param-row">
+              <label class="param-label">Clip norm C (embedding gradient)</label>
+              <div class="range-row">
+                <input type="range" id="vfl-cfg-clip" min="0.1" max="5" step="0.1" value="1.0" oninput="document.getElementById('vfl-val-clip').textContent=parseFloat(this.value).toFixed(1)">
+                <span class="range-val" id="vfl-val-clip">1.0</span>
+              </div>
+            </div>
+          </div>
         </div>
+
+        <!-- Run button ---------------------------------------------------- -->
+        <div class="d-flex align-items-center gap-3 mt-1 mb-3">
+          <button class="btn-fl-run" id="vfl-run-btn" onclick="runVflDemo()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Run Simulation
+          </button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="resetVflDemo()" id="vfl-reset-btn" style="display:none">
+            Reset
+          </button>
+          <span id="vfl-run-status" style="font-size:.82rem;color:var(--fl-slate-500)"></span>
+        </div>
+
+        <!-- Progress bar ---------------------------------------------------- -->
+        <div id="vfl-progress-wrap" style="display:none">
+          <div class="d-flex justify-content-between mb-1" style="font-size:.75rem;color:var(--fl-slate-500)">
+            <span id="vfl-progress-label">Round 0 / 0</span>
+            <span id="vfl-progress-pct">0%</span>
+          </div>
+          <div class="fl-progress-bar-wrap">
+            <div class="fl-progress-bar" id="vfl-progress-bar"></div>
+          </div>
+        </div>
+
+        <!-- Metrics row ---------------------------------------------------- -->
+        <div class="metrics-row" id="vfl-metrics-row" style="display:none">
+          <div class="fl-metric">
+            <span class="fl-metric-label">Rounds completed</span>
+            <span class="fl-metric-value" id="vfl-m-rounds">—</span>
+          </div>
+          <div class="fl-metric">
+            <span class="fl-metric-label">ε spent / task (max)</span>
+            <span class="fl-metric-value" id="vfl-m-epsilon">—</span>
+          </div>
+          <div class="fl-metric">
+            <span class="fl-metric-label">Parties</span>
+            <span class="fl-metric-value" id="vfl-m-parties">—</span>
+          </div>
+          <div class="fl-metric">
+            <span class="fl-metric-label">Final loss (task 0)</span>
+            <span class="fl-metric-value" id="vfl-m-loss">—</span>
+          </div>
+        </div>
+
+        <!-- Log box ---------------------------------------------------- -->
+        <div class="log-box" id="vfl-log-box" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- ── Active VFL tasks ──────────────────────────────────────────────── -->
+    <div class="fl-card">
+      <div class="fl-card-header">
+        <span>VFL Tasks</span>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <span id="vfl-tasks-refresh-indicator" style="font-size:.72rem;color:var(--fl-slate-400)"></span>
+          <button class="btn btn-sm btn-outline-secondary" style="font-size:.78rem" onclick="loadVflTasks()">Refresh</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="fl-table">
+          <thead>
+            <tr>
+              <th>Task ID</th><th>Parties</th><th>Tasks</th><th>Rounds</th>
+              <th>ε Budget</th><th>PSI</th><th>Status</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="vfl-tasks-tbody">
+            <tr><td colspan="8" class="text-center" style="padding:2rem;color:var(--fl-slate-400);font-size:.85rem">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── API Reference ─────────────────────────────────────────────────── -->
+    <div class="fl-card">
+      <div class="fl-card-header">API Quick Reference</div>
+      <div class="fl-card-body" style="padding-bottom:.75rem">
+        <pre class="api-pre"><span class="kw">POST</span>  /vfl/tasks
+  {
+    <span class="str">"dp_epsilon"</span>: 1.0,          <span class="cmt">// target ε per task (RDP accountant)</span>
+    <span class="str">"rounds_total"</span>: 10,
+    <span class="str">"n_parties"</span>: 3,
+    <span class="str">"task_types"</span>: [<span class="str">"binary"</span>],  <span class="cmt">// or multi-task list for MMoE</span>
+    <span class="str">"simulation"</span>: true,
+    <span class="str">"model_arch"</span>: {
+      <span class="str">"input_dim"</span>: 14, <span class="str">"embed_dim"</span>: 64, <span class="str">"n_experts"</span>: 4
+    }
+  }
+  <span class="cmt">// task_sigma omitted above → calibrated from dp_epsilon via kernel.rdp_accountant</span>
+
+<span class="kw">POST</span>  /vfl/tasks/&lt;id&gt;/parties      <span class="cmt">{ "site_id": "...", "feature_dim": 5, "feature_names": [...] }</span>
+<span class="kw">POST</span>  /vfl/tasks/&lt;id&gt;/psi          <span class="cmt">{ "site_id": "...", "hashed_ids": [...] }  // SHA-256 patient IDs</span>
+<span class="kw">GET</span>   /vfl/tasks/&lt;id&gt;/psi/status
+<span class="kw">POST</span>  /vfl/tasks/&lt;id&gt;/simulate     <span class="cmt">// runs all rounds in-process (no PSI needed)</span>
+<span class="kw">GET</span>   /vfl/tasks/&lt;id&gt;/export       <span class="cmt">// config + round log, raw embeddings stripped</span></pre>
       </div>
     </div>
 
   </div><!-- /panel-vertical -->
+  {% endif %}
 
 </div><!-- /fl-page -->
 
 <script>
+const VFL_AVAILABLE = {{ vfl_available | tojson }};
+
 /* ── Mode toggle ─────────────────────────────────────────────────────── */
 function switchMode(mode) {
+  if (mode === 'vertical' && !VFL_AVAILABLE) return;
   document.getElementById('panel-horizontal').style.display = mode === 'horizontal' ? '' : 'none';
-  document.getElementById('panel-vertical').style.display   = mode === 'vertical'   ? '' : 'none';
   document.getElementById('btn-horizontal').classList.toggle('active', mode === 'horizontal');
-  document.getElementById('btn-vertical').classList.toggle('active',   mode === 'vertical');
+  if (VFL_AVAILABLE) {
+    document.getElementById('panel-vertical').style.display = mode === 'vertical' ? '' : 'none';
+    document.getElementById('btn-vertical').classList.toggle('active', mode === 'vertical');
+  }
 }
 
 /* ── Demo simulation (client-side, calls backend API) ───────────────── */
@@ -728,6 +895,206 @@ setInterval(async () => {
   const hasActive = Array.from(rows).some(r => r.querySelector('.badge-running'));
   if (hasActive) loadTasks();
 }, 15000);
+
+/* ── Vertical FL demo simulation ────────────────────────────────────── */
+let _vflDemoRunning = false;
+
+function vflLog(msg) {
+  const box = document.getElementById('vfl-log-box');
+  box.style.display = '';
+  box.textContent += msg + '\n';
+  box.scrollTop = box.scrollHeight;
+}
+
+function setVflProgress(done, total) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  document.getElementById('vfl-progress-bar').style.width = pct + '%';
+  document.getElementById('vfl-progress-label').textContent = `Round ${done} / ${total}`;
+  document.getElementById('vfl-progress-pct').textContent = pct + '%';
+}
+
+async function runVflDemo() {
+  if (!VFL_AVAILABLE || _vflDemoRunning) return;
+  _vflDemoRunning = true;
+
+  const runBtn   = document.getElementById('vfl-run-btn');
+  const resetBtn = document.getElementById('vfl-reset-btn');
+  const statusEl = document.getElementById('vfl-run-status');
+
+  runBtn.disabled = true;
+  statusEl.textContent = 'Creating task…';
+  document.getElementById('vfl-log-box').textContent = '';
+  document.getElementById('vfl-log-box').style.display = '';
+  document.getElementById('vfl-progress-wrap').style.display = '';
+  document.getElementById('vfl-metrics-row').style.display = 'none';
+
+  const nParties  = parseInt(document.getElementById('vfl-cfg-parties').value);
+  const rounds    = parseInt(document.getElementById('vfl-cfg-rounds').value);
+  const taskTypes = document.getElementById('vfl-cfg-tasks').value.split(',');
+  const nFeatures = parseInt(document.getElementById('vfl-cfg-features').value);
+  const epsilon   = parseFloat(document.getElementById('vfl-cfg-epsilon').value);
+  const embedDim  = parseInt(document.getElementById('vfl-cfg-embed').value);
+  const nExperts  = parseInt(document.getElementById('vfl-cfg-experts').value);
+  const clipNorm  = parseFloat(document.getElementById('vfl-cfg-clip').value);
+
+  setVflProgress(0, rounds);
+
+  try {
+    vflLog(`[init] Creating VFL task — parties=${nParties}, tasks=${taskTypes.join('+')}, rounds=${rounds}, ε=${epsilon}`);
+    const taskResp = await fetch('/vfl/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dp_epsilon: epsilon,
+        dp_clip_norm: clipNorm,
+        rounds_total: rounds,
+        n_parties: nParties,
+        n_tasks: taskTypes.length,
+        task_types: taskTypes,
+        simulation: true,
+        model_arch: {
+          input_dim: nFeatures,
+          embed_dim: embedDim,
+          n_experts: nExperts,
+        },
+      }),
+    });
+
+    if (!taskResp.ok) {
+      const err = await taskResp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${taskResp.status}`);
+    }
+
+    const taskData = await taskResp.json();
+    const taskId   = taskData.task_id;
+
+    vflLog(`[init] Task created: ${taskId}`);
+    vflLog(`[dp]   σ calibrated per task from ε=${epsilon} via RDP accountant — clip norm C=${clipNorm}`);
+    vflLog(`[split] ${nParties} parties, Dirichlet feature partition over ${nFeatures} input features`);
+    vflLog(`[run]  Running ${rounds} split-learning rounds (forward → top model → DP-noised gradient slice)…`);
+    vflLog('');
+
+    statusEl.textContent = 'Running simulation…';
+
+    let animFrame = 0;
+    const animInterval = setInterval(() => {
+      animFrame++;
+      const fakePct = Math.min(95, (animFrame / (rounds * 3)) * 100);
+      document.getElementById('vfl-progress-bar').style.width = fakePct + '%';
+      document.getElementById('vfl-progress-label').textContent = `Running… ~${Math.round(fakePct)}%`;
+      document.getElementById('vfl-progress-pct').textContent  = Math.round(fakePct) + '%';
+    }, 400);
+
+    const simResp = await fetch(`/vfl/tasks/${taskId}/simulate`, { method: 'POST' });
+    clearInterval(animInterval);
+
+    if (!simResp.ok) {
+      const err = await simResp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${simResp.status}`);
+    }
+
+    const simData = await simResp.json();
+    const roundsDone = simData.rounds_completed || rounds;
+
+    let maxEpsilon = 0, lastLoss = null;
+    (simData.rounds || []).forEach(r => {
+      const epsVals = Object.values(r.epsilon || {});
+      const roundMaxEps = epsVals.length ? Math.max(...epsVals) : 0;
+      maxEpsilon = Math.max(maxEpsilon, roundMaxEps);
+      lastLoss = Array.isArray(r.losses) ? r.losses[0] : lastLoss;
+      const lossStr = Array.isArray(r.losses) ? `  loss=${r.losses.map(l => l.toFixed(4)).join(',')}` : '';
+      vflLog(`[round ${r.round}/${rounds}] ε_max=${roundMaxEps.toFixed(4)}${lossStr}`);
+    });
+    vflLog('');
+    vflLog(`[done] Simulation complete after ${roundsDone} rounds`);
+    vflLog(`[dp]   Max ε spent across tasks = ${maxEpsilon.toFixed(4)} (budget ${epsilon})`);
+    vflLog(`[✓]    Split learning: SiteEncoder (LSTM) per party → MMoE top model → clip+DP-noise gradient → per-party slice`);
+
+    setVflProgress(rounds, rounds);
+    document.getElementById('vfl-m-rounds').textContent  = roundsDone;
+    document.getElementById('vfl-m-epsilon').textContent = maxEpsilon.toFixed(4);
+    document.getElementById('vfl-m-parties').textContent = nParties;
+    document.getElementById('vfl-m-loss').textContent    = lastLoss != null ? lastLoss.toFixed(4) : '—';
+    document.getElementById('vfl-metrics-row').style.display = '';
+    statusEl.textContent = 'Simulation complete.';
+    resetBtn.style.display = '';
+
+    loadVflTasks();
+  } catch (err) {
+    vflLog(`[error] ${err.message}`);
+    statusEl.textContent = 'Error — check log.';
+  } finally {
+    _vflDemoRunning = false;
+    runBtn.disabled = false;
+  }
+}
+
+function resetVflDemo() {
+  document.getElementById('vfl-log-box').textContent = '';
+  document.getElementById('vfl-log-box').style.display = 'none';
+  document.getElementById('vfl-progress-wrap').style.display = 'none';
+  document.getElementById('vfl-metrics-row').style.display = 'none';
+  document.getElementById('vfl-run-status').textContent = '';
+  document.getElementById('vfl-reset-btn').style.display = 'none';
+  document.getElementById('vfl-progress-bar').style.width = '0%';
+}
+
+/* ── Vertical FL tasks table ────────────────────────────────────────── */
+async function loadVflTasks() {
+  const ind = document.getElementById('vfl-tasks-refresh-indicator');
+  if (!ind) return;
+  ind.textContent = 'Refreshing…';
+  try {
+    const resp = await fetch('/vfl/tasks');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const tasks = await resp.json();
+    renderVflTasks(tasks);
+    ind.textContent = 'Updated ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    ind.textContent = 'Refresh failed';
+  }
+}
+
+function renderVflTasks(tasks) {
+  const tbody = document.getElementById('vfl-tasks-tbody');
+  if (!tasks || tasks.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center" style="padding:2rem;color:var(--fl-slate-400);font-size:.85rem">No VFL tasks yet — run the simulation above or use <code>POST /vfl/tasks</code>.</td></tr>';
+    return;
+  }
+  const esc = s => String(s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+  tbody.innerHTML = tasks.map(t => {
+    const statusClass = t.status === 'completed' ? 'badge-completed'
+                      : t.status === 'running'   ? 'badge-running'
+                      : t.status === 'failed'    ? 'badge-danger'
+                      : 'badge-pending';
+    const idEnc = encodeURIComponent(t.id);
+    const exportBtn = t.status === 'completed'
+      ? `<a class="btn-action btn-export" href="/vfl/tasks/${idEnc}/export" download>Export</a>`
+      : '';
+
+    return `<tr>
+      <td><code style="font-size:.8rem">${esc(String(t.id).slice(0,8))}</code></td>
+      <td>${esc(t.n_parties)}</td>
+      <td>${esc(t.n_tasks)}</td>
+      <td>${esc(t.rounds_done)}/${esc(t.rounds_total)}</td>
+      <td><span style="font-family:var(--fl-mono)">ε=${esc(t.dp_epsilon)}</span></td>
+      <td><span class="pill ${t.psi_status === 'aligned' ? 'badge-completed' : 'badge-pending'}">${esc(t.psi_status)}</span></td>
+      <td><span class="pill ${statusClass}">${esc(t.status)}</span></td>
+      <td style="white-space:nowrap">${exportBtn}</td>
+    </tr>`;
+  }).join('');
+}
+
+if (VFL_AVAILABLE) {
+  loadVflTasks();
+  setInterval(async () => {
+    const rows = document.querySelectorAll('#vfl-tasks-tbody tr');
+    const hasActive = Array.from(rows).some(r => r.querySelector('.badge-running'));
+    if (hasActive) loadVflTasks();
+  }, 15000);
+}
 </script>
 
 <style>

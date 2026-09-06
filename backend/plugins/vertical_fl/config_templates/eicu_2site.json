@@ -1,0 +1,55 @@
+{
+  "dataset": "eICU Collaborative Research Database (illustrative — vitalPeriodic + lab tables)",
+  "description": "Deliberately different shape from the MIMIC-III template: 2 sites instead of 3, 9 features instead of 17, 2 tasks instead of 4, different column names. Same model code (SiteEncoder, VFLTopModel, split_backward, DP) runs unmodified — only this file and the party registration calls change.",
+  "task_creation": {
+    "endpoint": "POST /vfl/tasks",
+    "body": {
+      "n_parties": 2,
+      "n_tasks": 2,
+      "task_types": ["binary", "regression"],
+      "dp_epsilon": 1.0,
+      "dp_delta": 1e-5,
+      "dp_clip_norm": 1.0,
+      "rounds_total": 20,
+      "simulation": false,
+      "model_arch": {
+        "embed_dim": 64,
+        "hidden_dim": 128,
+        "n_experts": 4
+      },
+      "dataset_id": "<uuid of the FAIRDatabase dataset backing this task>"
+    },
+    "task_notes": "task_types order is [in-hospital mortality (binary), ICU length-of-stay (regression)] — a 2-task subset, showing n_tasks/task_types is config-driven and not fixed at the MIMIC template's 4."
+  },
+  "party_registration": [
+    {
+      "endpoint": "POST /vfl/tasks/<id>/parties",
+      "body": {
+        "site_id": "vitalperiodic_site",
+        "feature_dim": 5,
+        "feature_names": ["heartrate", "systemicsystolic", "systemicdiastolic", "systemicmean", "sao2"]
+      }
+    },
+    {
+      "endpoint": "POST /vfl/tasks/<id>/parties",
+      "body": {
+        "site_id": "lab_site",
+        "feature_dim": 4,
+        "feature_names": ["glucose", "pH", "potassium", "creatinine"]
+      }
+    }
+  ],
+  "psi_submission_example": {
+    "endpoint": "POST /vfl/tasks/<id>/psi",
+    "body": {
+      "site_id": "vitalperiodic_site",
+      "hashed_ids": ["<sha256(patientunitstayid) for each patient this site holds>"]
+    },
+    "note": "eICU's natural join key (patientunitstayid) differs from MIMIC-III's (subject_id) — PSI hashing is over whatever ID field the dataset uses; the plugin never assumes a specific column name."
+  },
+  "simulation_equivalent": {
+    "note": "feature_groups for the in-process simulate demo, matching the 5/4 real-party split above.",
+    "model_arch_feature_groups": [[0, 1, 2, 3, 4], [5, 6, 7, 8]],
+    "model_arch_input_dim": 9
+  }
+}

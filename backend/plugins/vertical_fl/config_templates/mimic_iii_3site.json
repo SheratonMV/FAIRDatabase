@@ -1,0 +1,70 @@
+{
+  "dataset": "MIMIC-III multitask benchmark (Harutyunyan et al., Scientific Data 2019)",
+  "description": "17 clinical time-series variables split across 3 feature-disjoint sites. task_sigma is omitted so create_task calibrates it from dp_epsilon.",
+  "task_creation": {
+    "endpoint": "POST /vfl/tasks",
+    "body": {
+      "n_parties": 3,
+      "n_tasks": 4,
+      "task_types": ["binary", "binary", "regression", "multilabel_25"],
+      "dp_epsilon": 1.0,
+      "dp_delta": 1e-5,
+      "dp_clip_norm": 1.0,
+      "rounds_total": 20,
+      "simulation": false,
+      "model_arch": {
+        "embed_dim": 64,
+        "hidden_dim": 128,
+        "n_experts": 4
+      },
+      "dataset_id": "<uuid of the FAIRDatabase dataset backing this task>"
+    },
+    "task_notes": "task_types order is [IHM, Decompensation, LOS, Phenotyping-25] — in-hospital mortality (binary), decompensation (binary), length-of-stay (regression), 25-label phenotype classification (multilabel_25)."
+  },
+  "party_registration": [
+    {
+      "endpoint": "POST /vfl/tasks/<id>/parties",
+      "body": {
+        "site_id": "vitals_site",
+        "feature_dim": 7,
+        "feature_names": [
+          "Heart Rate", "Systolic blood pressure", "Diastolic blood pressure",
+          "Mean blood pressure", "Respiratory rate", "Temperature", "Oxygen saturation"
+        ]
+      }
+    },
+    {
+      "endpoint": "POST /vfl/tasks/<id>/parties",
+      "body": {
+        "site_id": "labs_site",
+        "feature_dim": 3,
+        "feature_names": ["Glucose", "pH", "Fraction inspired oxygen"]
+      }
+    },
+    {
+      "endpoint": "POST /vfl/tasks/<id>/parties",
+      "body": {
+        "site_id": "neuro_anthro_site",
+        "feature_dim": 7,
+        "feature_names": [
+          "Glascow coma scale eye opening", "Glascow coma scale motor response",
+          "Glascow coma scale verbal response", "Glascow coma scale total",
+          "Height", "Weight", "Capillary refill rate"
+        ]
+      }
+    }
+  ],
+  "psi_submission_example": {
+    "endpoint": "POST /vfl/tasks/<id>/psi",
+    "body": {
+      "site_id": "vitals_site",
+      "hashed_ids": ["<sha256(subject_id) for each patient this site holds>"]
+    },
+    "note": "Every site submits this once; PSI must reach 'aligned' before submit_embeddings will accept a round."
+  },
+  "simulation_equivalent": {
+    "note": "For the in-process /vfl/tasks/<id>/simulate demo (no real parties/PSI), pass feature_groups matching the same 7/3/7 split via model_arch.feature_groups so dirichlet_feature_partition slices synthetic columns identically to the real party layout above.",
+    "model_arch_feature_groups": [[0, 1, 2, 3, 4, 5, 6], [7, 8, 9], [10, 11, 12, 13, 14, 15, 16]],
+    "model_arch_input_dim": 17
+  }
+}
