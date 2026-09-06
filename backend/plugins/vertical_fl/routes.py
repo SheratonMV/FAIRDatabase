@@ -34,10 +34,25 @@ def _load_task_authorized(task_id):
 
 
 def _sigma_list(task_sigma, task_types):
-    """Per-task sigmas by key (jsonb doesn't preserve order), in task order."""
+    """Per-task sigmas looked up by key, returned in task index order.
+
+    Never read positionally: jsonb gives no insertion-order guarantee, so
+    nothing may depend on the order the driver hands the mapping back in.
+
+    Raises ValueError when the stored mapping doesn't cover every task. A
+    missing key must not fall back to a default: sigma drives the DP
+    accounting, so a wrong value is worse than a refused request.
+    """
     if not task_sigma:
         return [1.0] * len(task_types)
-    return [task_sigma[f"task_{k}"] for k in range(len(task_types))]
+    keys = [f"task_{k}" for k in range(len(task_types))]
+    missing = [k for k in keys if k not in task_sigma]
+    if missing:
+        raise ValueError(f"task_sigma is missing keys: {missing}")
+    try:
+        return [float(task_sigma[k]) for k in keys]
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"task_sigma values must be numeric: {exc}") from exc
 
 
 # ── Task endpoints ─────────────────────────────────────────────────────────────
@@ -51,6 +66,8 @@ def create_task():
         return jsonify({"error": f"Missing fields: {sorted(missing)}"}), 400
 
     task_types = payload.get("task_types", ["binary"])
+    if not isinstance(task_types, list) or not task_types:
+        return jsonify({"error": "task_types must be a non-empty list"}), 400
     dp_epsilon = float(payload["dp_epsilon"])
     dp_delta = float(payload.get("dp_delta", 1e-5))
     rounds_total = int(payload["rounds_total"])
@@ -63,7 +80,23 @@ def create_task():
             return jsonify({"error": "dataset_id is not FL-eligible"}), 400
 
     task_sigma = payload.get("task_sigma")
-    if not task_sigma:
+    if task_sigma:
+        # create_task is the only writer of this column, so validating here
+        # keeps every later _sigma_list lookup total.
+        if not isinstance(task_sigma, dict):
+            return jsonify({"error": "task_sigma must be an object"}), 400
+        expected = [f"task_{k}" for k in range(len(task_types))]
+        if sorted(task_sigma) != sorted(expected):
+            return jsonify(
+                {"error": f"task_sigma keys must be exactly {expected}"}
+            ), 400
+        try:
+            task_sigma = {k: float(v) for k, v in task_sigma.items()}
+        except (TypeError, ValueError):
+            return jsonify({"error": "task_sigma values must be numeric"}), 400
+        if any(v <= 0 for v in task_sigma.values()):
+            return jsonify({"error": "task_sigma values must be > 0"}), 400
+    else:
         from .engine import calibrate_task_sigma
         task_sigma = calibrate_task_sigma(dp_epsilon, dp_delta, rounds_total, task_types)
 
@@ -172,13 +205,22 @@ def psi_status(task_id):
 def submit_embeddings(task_id, round_n):
     # torch imported lazily — plugin loads without it installed
     import numpy as np
-    from .engine import VFLTopModel, split_backward, vfl_aggregate_embeddings
+    from .engine import (
+        VFLTopModel, serialize_state_dict, split_backward,
+        vfl_aggregate_embeddings,
+    )
 
     task, err = _load_task_authorized(task_id)
     if err:
         return err
     if task.get("psi_status") != "aligned":
         return jsonify({"error": "PSI not complete"}), 400
+
+    task_types = task.get("task_types") or ["binary"]
+    try:
+        sigma_per_task = _sigma_list(task.get("task_sigma"), task_types)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
     dataset_id = task.get("dataset_id")
     if dataset_id:
@@ -210,7 +252,6 @@ def submit_embeddings(task_id, round_n):
     # All parties have submitted — run top-model forward+backward
     rnd = vfl_db.get_round(g.db, task_id, round_n)
     arch = task.get("model_arch") or {}
-    task_types = task.get("task_types") or ["binary"]
     embed_dim = int(arch.get("embed_dim", 64))
     agg_dim = n_parties * embed_dim
 
@@ -232,7 +273,6 @@ def submit_embeddings(task_id, round_n):
         np.zeros((z_concat.shape[0], 1), dtype=np.float32)
         for _ in task_types
     ]
-    sigma_per_task = _sigma_list(task.get("task_sigma"), task_types)
 
     grad_slices, losses = split_backward(
         top_model, z_concat, labels,
@@ -255,6 +295,10 @@ def submit_embeddings(task_id, round_n):
         from .engine import dataset_epsilon_for_round
         eps_round = dataset_epsilon_for_round(sigma_per_task, dp_delta, rounds_done)
         if not dp_budget.consume_epsilon_guarded(g.db, dataset_id, eps_round):
+            # This round can never complete, so drop the raw embeddings now
+            # rather than leaving them for a retry that will also be refused.
+            vfl_db.purge_round_embeddings(g.db, task_id, round_n)
+            vfl_db.set_task_status(g.db, task_id, "budget_exhausted")
             return jsonify({"error": "Epsilon budget exhausted for this dataset"}), 403
 
     site_ids_sorted = sorted(embeddings_dict)
@@ -265,7 +309,7 @@ def submit_embeddings(task_id, round_n):
 
     vfl_db.store_top_weights(
         g.db, task_id, round_n,
-        top_weights=list(top_model.state_dict().values())[0].tolist(),
+        top_weights=serialize_state_dict(top_model),
         loss_per_task={f"task_{k}": v for k, v in enumerate(losses)},
         epsilon_per_task=epsilon_per_task,
     )
@@ -332,8 +376,8 @@ def run_simulation(task_id):
     from kernel import dp_budget
     from .engine import (
         SiteEncoder, VFLTopModel, dataset_epsilon_for_round,
-        dirichlet_feature_partition, renyi_epsilon_per_task, split_backward,
-        vfl_aggregate_embeddings,
+        dirichlet_feature_partition, renyi_epsilon_per_task, serialize_state_dict,
+        split_backward, vfl_aggregate_embeddings,
     )
 
     task, err = _load_task_authorized(task_id)
@@ -360,7 +404,10 @@ def run_simulation(task_id):
     dp_clip_norm  = float(task.get("dp_clip_norm", 1.0))
     dp_delta      = float(task.get("dp_delta", 1e-5))
     sim_alpha     = float(task.get("sim_alpha", 0.5))
-    sigma_list    = _sigma_list(task.get("task_sigma"), task_types)
+    try:
+        sigma_list = _sigma_list(task.get("task_sigma"), task_types)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
     # Synthetic dataset — one time step per sample for simplicity
     rng = np.random.default_rng(42)
@@ -429,7 +476,7 @@ def run_simulation(task_id):
         eps_per_task = renyi_epsilon_per_task(sigma_list, dp_delta, rnd)
         vfl_db.store_top_weights(
             g.db, task_id, rnd,
-            top_weights=list(top_model.state_dict().values())[0].tolist(),
+            top_weights=serialize_state_dict(top_model),
             loss_per_task={f"task_{k}": v for k, v in enumerate(losses)},
             epsilon_per_task=eps_per_task,
         )

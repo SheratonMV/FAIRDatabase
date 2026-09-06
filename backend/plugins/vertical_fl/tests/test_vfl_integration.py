@@ -13,9 +13,11 @@ from plugins.vertical_fl.engine import (
     calibrate_task_sigma,
     dirichlet_feature_partition,
     renyi_epsilon_per_task,
+    serialize_state_dict,
     split_backward,
     vfl_aggregate_embeddings,
 )
+from plugins.vertical_fl.routes import _sigma_list
 
 
 def _make_synthetic(n_samples=120, n_features=14, seed=0):
@@ -185,6 +187,52 @@ def test_dataset_epsilon_for_round_telescopes_to_cumulative():
     assert sum(increments) == pytest.approx(
         compute_epsilon_spent(min(sigma_per_task), delta, rounds), rel=1e-6
     )
+
+
+def test_sigma_list_is_independent_of_mapping_order():
+    """Sigmas pair with tasks by key, never by the mapping's iteration order.
+
+    jsonb carries no insertion-order guarantee, so nothing downstream may
+    depend on the order the driver hands the dict back in.
+    """
+    task_types = ["binary"] * 11
+    expected = [1.0 + k for k in range(11)]
+    out_of_order = {f"task_{k}": 1.0 + k for k in reversed(range(11))}
+
+    assert list(out_of_order.values()) != expected
+    assert _sigma_list(out_of_order, task_types) == expected
+
+
+def test_sigma_list_rejects_incomplete_mapping():
+    """A missing key must raise rather than default: sigma drives the DP
+    accounting, so a silently wrong value is worse than a refused request."""
+    with pytest.raises(ValueError, match="missing keys"):
+        _sigma_list({"task_0": 1.0}, ["binary", "regression"])
+
+    with pytest.raises(ValueError, match="missing keys"):
+        _sigma_list({"a": 1.0}, ["binary"])
+
+    with pytest.raises(ValueError, match="numeric"):
+        _sigma_list({"task_0": "loud"}, ["binary"])
+
+
+def test_sigma_list_defaults_only_when_unset():
+    assert _sigma_list(None, ["binary", "regression"]) == [1.0, 1.0]
+    assert _sigma_list({}, ["binary"]) == [1.0]
+
+
+def test_serialize_state_dict_round_trips_into_a_fresh_model():
+    """What the round paths persist must reload into a model — a single tensor
+    leaves the task heads unrecoverable."""
+    kw = dict(agg_dim=192, task_types=["binary", "regression"], n_experts=4)
+    trained, fresh = VFLTopModel(**kw), VFLTopModel(**kw)
+
+    payload = serialize_state_dict(trained)
+    assert set(payload) == set(trained.state_dict())
+
+    fresh.load_state_dict({k: torch.tensor(v) for k, v in payload.items()})
+    for name, tensor in trained.state_dict().items():
+        assert torch.allclose(fresh.state_dict()[name], tensor)
 
 
 # ── DB-dependent tests (require live services) ────────────────────────────────

@@ -51,20 +51,50 @@ class TestLegacyRedirect:
 
 
 class TestVerticalFLAvailability:
-    def _render(self, app, vfl_available):
-        with app.test_request_context("/fl/ui"):
-            return app.jinja_env.get_template(
-                "horizontal_fl/federated_learning.html"
-            ).render(tasks=[], user_email=None, current_path="/fl/ui",
-                     vfl_available=vfl_available)
+    """Covers the guard that keeps this dashboard usable when vertical_fl is
+    not mounted.
 
-    def test_vertical_tab_hidden_when_plugin_absent(self, app):
-        html = self._render(app, vfl_available=False)
+    Rendered through a bare Jinja environment rather than the shared ``app``
+    fixture: that fixture skips whenever Supabase/Postgres are unreachable,
+    which is every CI run, so these assertions would never execute there. The
+    page only reads ``vfl_available``, so a stub base template is enough.
+    """
+
+    @staticmethod
+    def _render(vfl_available):
+        import jinja2
+
+        templates = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates"
+        )
+        env = jinja2.Environment(
+            loader=jinja2.ChoiceLoader([
+                jinja2.FileSystemLoader(templates),
+                jinja2.DictLoader(
+                    {"dashboard/layout.html": "{% block content %}{% endblock %}"}
+                ),
+            ]),
+            autoescape=True,
+        )
+        return env.get_template("horizontal_fl/federated_learning.html").render(
+            tasks=[], user_email=None, current_path="/fl/ui",
+            vfl_available=vfl_available,
+        )
+
+    def test_vertical_tab_hidden_when_plugin_absent(self):
+        html = self._render(vfl_available=False)
         assert 'id="btn-vertical"' not in html
         assert 'id="panel-vertical"' not in html
         assert "const VFL_AVAILABLE = false" in html
 
-    def test_vertical_tab_shown_when_plugin_present(self, app):
-        html = self._render(app, vfl_available=True)
+    def test_vertical_tab_shown_when_plugin_present(self):
+        html = self._render(vfl_available=True)
         assert 'id="btn-vertical"' in html
         assert 'id="panel-vertical"' in html
+        assert "const VFL_AVAILABLE = true" in html
+
+    def test_guard_key_matches_vertical_fl_blueprint_name(self):
+        """federated_ui derives vfl_available from this blueprint name, so a
+        rename in the sibling plugin would silently hide the tab."""
+        plugin = pytest.importorskip("plugins.vertical_fl.plugin")
+        assert plugin.PLUGIN.blueprint.name == "vertical_fl_routes"

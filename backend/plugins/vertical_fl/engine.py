@@ -261,6 +261,17 @@ def dataset_epsilon_for_round(
     return now - prev
 
 
+def serialize_state_dict(model) -> dict:
+    """JSON-able mapping of every parameter tensor, keyed by parameter name.
+
+    The complete state dict is persisted so ``GET /tasks/<id>/model`` returns
+    weights a caller can load back with ``load_state_dict``. Storing a single
+    tensor leaves the task heads — and for MMoE models most of the network —
+    unrecoverable.
+    """
+    return {k: v.tolist() for k, v in model.state_dict().items()}
+
+
 # ── PSI ────────────────────────────────────────────────────────────────────────
 
 def psi_intersect(hashed_id_sets: List[List[str]]) -> List[str]:
