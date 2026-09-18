@@ -231,9 +231,24 @@ def register_plugins(app, plugins):
 
 def _attach_plugin_hooks(manifest):
     """Wire ``before_request`` on the plugin blueprint so every request handled
-    by it stamps the plugin name onto ``g`` for ``kernel.storage`` to read."""
+    by it stamps the plugin name onto ``g`` for ``kernel.storage`` to read.
+
+    ``manifest.blueprint`` is a module-level object, cached in ``sys.modules``
+    across the whole process — so if ``register_plugins`` runs more than once
+    in one process (multiple ``create_app()`` calls, e.g. the test suite's
+    per-module ``app`` fixture), a second call here would re-decorate the
+    *same* Blueprint with ``before_request``. Flask raises
+    ``AssertionError``/setup-method errors on that once a blueprint has
+    already been registered to any app, which ``register_plugins`` swallows —
+    silently skipping the blueprint mount for every app after the first. Only
+    attach the hook once per blueprint object; Flask replays it for every
+    subsequent ``register_blueprint`` call regardless of when it was added.
+    """
+    if getattr(manifest.blueprint, "_fd_hook_attached", False):
+        return
     name = manifest.name
     bp = manifest.blueprint
+    bp._fd_hook_attached = True
 
     @bp.before_request
     def _stamp_plugin():

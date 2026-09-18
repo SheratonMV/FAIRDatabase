@@ -15,7 +15,12 @@ import pytest
 
 from app import get_db
 
-_STORAGE_TARGET = "kernel.storage.supabase_extension.client.storage"
+
+# ``Client.storage`` is a read-only property (lazily builds and caches a
+# storage client on ``Client._storage``) in the installed supabase-py
+# version, so it can't be ``patch()``-ed directly — patch the writable
+# backing field it reads from instead.
+_STORAGE_TARGET = "kernel.storage.supabase_extension.client._storage"
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -68,8 +73,8 @@ def _mock_storage():
 # ── tests ─────────────────────────────────────────────────────────────────────
 
 class TestArtifactRoutes:
-    def test_curator_can_upload_own_run(self, logged_in_user, app):
-        client, user = logged_in_user
+    def test_curator_can_upload_own_run(self, curator_user, app):
+        client, user = curator_user
         ps_id, run_id = _seed_run(app, owner_id=str(user.id), created_by=user.email)
         try:
             storage, bucket = _mock_storage()
@@ -89,8 +94,8 @@ class TestArtifactRoutes:
         finally:
             _cleanup(app, ps_id, run_id)
 
-    def test_upload_oversize_returns_413(self, logged_in_user, app):
-        client, user = logged_in_user
+    def test_upload_oversize_returns_413(self, curator_user, app):
+        client, user = curator_user
         ps_id, run_id = _seed_run(app, owner_id=str(user.id), created_by=user.email)
         try:
             storage, _ = _mock_storage()
@@ -105,8 +110,8 @@ class TestArtifactRoutes:
         finally:
             _cleanup(app, ps_id, run_id)
 
-    def test_upload_bad_mime_returns_400(self, logged_in_user, app):
-        client, user = logged_in_user
+    def test_upload_bad_mime_returns_400(self, curator_user, app):
+        client, user = curator_user
         ps_id, run_id = _seed_run(app, owner_id=str(user.id), created_by=user.email)
         try:
             storage, _ = _mock_storage()
@@ -120,9 +125,9 @@ class TestArtifactRoutes:
         finally:
             _cleanup(app, ps_id, run_id)
 
-    def test_upload_extension_mime_mismatch_returns_400(self, logged_in_user, app):
+    def test_upload_extension_mime_mismatch_returns_400(self, curator_user, app):
         """Filename says .png but caller claims image/jpeg → reject."""
-        client, user = logged_in_user
+        client, user = curator_user
         ps_id, run_id = _seed_run(app, owner_id=str(user.id), created_by=user.email)
         try:
             storage, _ = _mock_storage()
@@ -146,8 +151,8 @@ class TestArtifactRoutes:
         finally:
             _cleanup(app, ps_id, run_id)
 
-    def test_upload_to_other_users_run_returns_403(self, logged_in_user, app):
-        client, user = logged_in_user
+    def test_upload_to_other_users_run_returns_403(self, curator_user, app):
+        client, user = curator_user
         # Owner is a different uuid; created_by intentionally set to the test
         # user's email so the row is recoverable but not owned by them.
         other_owner = "00000000-0000-0000-0000-0000000000aa"
@@ -164,8 +169,8 @@ class TestArtifactRoutes:
         finally:
             _cleanup(app, ps_id, run_id)
 
-    def test_delete_removes_catalog_row(self, logged_in_user, app):
-        client, user = logged_in_user
+    def test_delete_removes_catalog_row(self, curator_user, app):
+        client, user = curator_user
         ps_id, run_id = _seed_run(app, owner_id=str(user.id), created_by=user.email)
         try:
             storage, bucket = _mock_storage()
@@ -195,9 +200,9 @@ class TestArtifactRoutes:
         finally:
             _cleanup(app, ps_id, run_id)
 
-    def test_delete_proceeds_when_blob_remove_fails(self, logged_in_user, app):
+    def test_delete_proceeds_when_blob_remove_fails(self, curator_user, app):
         """Storage flake should not block catalog cleanup."""
-        client, user = logged_in_user
+        client, user = curator_user
         ps_id, run_id = _seed_run(app, owner_id=str(user.id), created_by=user.email)
         try:
             storage, bucket = _mock_storage()
@@ -224,8 +229,8 @@ class TestArtifactRoutes:
         finally:
             _cleanup(app, ps_id, run_id)
 
-    def test_list_artifacts_for_other_users_run_returns_403(self, logged_in_user, app):
-        client, user = logged_in_user
+    def test_list_artifacts_for_other_users_run_returns_403(self, curator_user, app):
+        client, user = curator_user
         other_owner = "00000000-0000-0000-0000-0000000000bb"
         ps_id, run_id = _seed_run(app, owner_id=other_owner, created_by=user.email)
         try:
