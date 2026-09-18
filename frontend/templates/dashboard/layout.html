@@ -14,6 +14,8 @@
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
       <link href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.6.0/mdb.min.css" rel="stylesheet" />
       <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+      {% block head %}{% endblock %}
    </head>
    <body class="d-flex flex-column" id="body">
       <!-- Sidebar -->
@@ -132,14 +134,26 @@
             <div class="container position-relative">
                <div style="height: 40px;"></div>
                <div class="collapse navbar-collapse" id="navbarSupportedContent"></div>
-               <a  data-bs-toggle="tooltip" data-bs-placement="bottom" {% if current_path != '/documentation' %} href="/documentation" data-bs-title="View documentation"{% endif %}>
+               {# Derive a page-specific documentation section so the info button
+                  opens docs for the module the user is currently on, not the whole
+                  page. #}
+               {% set _p = current_path or '' %}
+               {% if _p.startswith('/model') %}{% set doc_section = 'pbk' %}
+               {% elif _p.startswith('/fl') %}{% set doc_section = 'fl' %}
+               {% elif _p.startswith('/admin') %}{% set doc_section = 'admin' %}
+               {% elif _p.startswith('/visualization') %}{% set doc_section = 'visualization' %}
+               {% elif _p.startswith('/data') or _p == '/p29score' %}{% set doc_section = 'data' %}
+               {% elif _p.startswith('/privacy') or _p == '/differential_privacy' or _p == '/privacy_processing' %}{% set doc_section = 'privacy' %}
+               {% elif _p.startswith('/dashboard') or _p in ['/search', '/upload', '/update', '/table_preview', '/'] %}{% set doc_section = 'dashboard' %}
+               {% else %}{% set doc_section = 'overview' %}{% endif %}
+               <a  data-bs-toggle="tooltip" data-bs-placement="bottom" {% if current_path != '/documentation' %} href="/documentation?section={{ doc_section }}" data-bs-title="Documentation for this page"{% endif %}>
                   <i class="fa fa-info-circle info-icon{% if current_path == '/documentation' %} info-icon--active{% endif %}" aria-hidden="true"></i>
                </a>
             </div>
          </nav>
          
          <!-- Extended HTML goes here -->
-         <div class="container mt-4">{% block content %} {% endblock %}</div>
+         {% block content %}{% endblock %}
       </div>
       <!-- Footer -->
       <footer class="footer custom-footer mt-auto">

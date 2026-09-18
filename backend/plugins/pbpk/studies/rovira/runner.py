@@ -19,16 +19,26 @@ from scipy.integrate import solve_ivp
 _HERE     = os.path.dirname(os.path.abspath(__file__))
 SBML_PATH = os.path.join(_HERE, "Rovira2019FAIR.xml")
 
-T_GW12 = 2016.0   # h (12 weeks)
-T_DEL  = 6384.0   # h (38 weeks)
-BW0      = 70.0
-BW_BIRTH = 3.3
+T_GW12 = 2016.0   # h (12 weeks × 168 h/wk)
+# Rovira 2019 models delivery at GW38 (preterm/average), not GW40 (full term).
+# The Generic model uses GW40 (T_DELIVERY=6720 h).  Keep GW38 here to match
+# the original study design; document explicitly for users comparing outputs.
+T_DEL  = 6384.0   # h (38 weeks × 168 h/wk)
+from plugins.pbpk.params import CVINIT as _CVINIT, ROVIRA as _ROVIRA
+BW0      = _ROVIRA["BW0"]["default"]
+BW_BIRTH = _ROVIRA["BW_BIRTH"]["default"]
 
-CVINIT_DEFAULT = {"PFOA": 0.34e-3, "PFOS": 3.14e-3}   # mg/L
+# CVINIT defaults: post-phase-out (2015+) European general-population levels.
+# PFOA ~0.34 µg/L, PFOS ~3.14 µg/L (HBM4EU / EFSA 2020 background data).
+# Note: Verner 2015 uses higher pre-2010 values (PFOA ~2.53 µg/L, PFOS ~13 µg/L).
+CVINIT_DEFAULT = {"PFOA": _CVINIT["PFOA"], "PFOS": _CVINIT["PFOS"]}  # mg/L — see params.py
 
+# Half-lives in compound descriptions are adult values (Olsen et al. 2007).
+# The Generic/Ratier model uses child-specific values (PFOA 2.5 yr, PFOS 4.1 yr;
+# Ratier 2024) which are shorter due to growth dilution.
 COMPOUNDS = [
-    {"label": "PFOA", "description": "PFOA (C8, half-life 3.8 yr)"},
-    {"label": "PFOS", "description": "PFOS (C8-S, half-life 5.4 yr)"},
+    {"label": "PFOA", "description": "PFOA (C8, adult half-life ~3.8 yr; Olsen 2007)"},
+    {"label": "PFOS", "description": "PFOS (C8-S, adult half-life ~5.4 yr; Olsen 2007)"},
 ]
 
 EXECUTE_COLS = [
@@ -38,7 +48,9 @@ EXECUTE_COLS = [
 # ─────────────────────────────────────────────────────────────────────────────
 # Unit conversion
 # ─────────────────────────────────────────────────────────────────────────────
-_MW: dict[str, float] = {"PFOA": 414.07, "PFOS": 538.22}
+# PFOS MW: free acid C₈F₁₇SO₃H = 500.13 g/mol (not the potassium salt 538.22 g/mol).
+# Biomonitoring data (NHANES, HBM4EU) report PFOS as the free-acid form.
+_MW: dict[str, float] = {"PFOA": 414.07, "PFOS": 500.13}
 SUPPORTED_UNITS = ("mg_L", "ug_L", "ng_mL", "nmol_L")
 
 

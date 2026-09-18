@@ -9,3 +9,4 @@
 # loader can verify the install and skip-mount cleanly if anything is missing.
 scipy>=1.13.1,<1.15
 python-libsbml>=5.20.4
+requests>=2.31.0,<3

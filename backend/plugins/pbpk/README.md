@@ -10,19 +10,77 @@ Lifetime PBPK (physiologically-based pharmacokinetic) simulation. Migrated from
   (`_fd.pbpk_parameter_sets`).
 - **Simulation runs** — executes a scenario against a parameter set via the
   `PBKFAIRModel` package, persisting status, summary, and timeseries
-  (`_fd.pbpk_simulation_runs`).
+  (`_fd.pbpk_simulation_runs`). Study runs are content-hash deduplicated
+  (`canonical_hash`/`find_cached_run` in `catalogue.py`) — resubmitting
+  identical parameters returns the caller's own prior run instead of
+  re-simulating; the cache lookup is scoped to the caller (`owner_id`) for
+  non-admins so it cannot be used to read back another user's run.
 - **Run artifacts** — binary outputs (jpg/png/mp4/vtk) attached to a run; bytes
   in the `pbpk-artifacts` Supabase bucket, catalog rows in
   `_fd.pbpk_run_artifacts`.
+- **Model catalogue** — the four bundled FAIR PBK models (`ratier`, `rovira`,
+  `verner`, `generic`) exposed with regulatory thresholds, applicability
+  domains, and FAIR badges (`_fd.pbpk_models`, `catalogue.py`).
+- **Ontology annotations** — SBML `bqbiol:*` CV-terms extracted per model and
+  resolved to human-readable labels via EBI OLS4, cached in
+  `_fd.pbpk_cv_terms` / `_fd.pbpk_iri_labels` (`ontology.py`). Seeded out of
+  band — see "Ontology seeding" below, not on the request path.
+- **Regulatory thresholds** — reference values (e.g. the EFSA 2020 Σ4-PFAS
+  serum benchmark) shown as chart reference lines and in a thresholds panel
+  (`_fd.pbpk_thresholds`).
+- **Run history & comparison** — per-user run history and multi-run
+  comparison across the bundled studies (`fetch_runs_for_compare`,
+  `list_run_history` in `helpers.py`).
 
 Mounted at `url_prefix=/model` (kept for frontend compatibility — the UI issues
 hardcoded `/model/*` fetches).
+
+## Endpoints
+
+Lifetime simulation surface: `/ui`, `/run`, `/scenarios`, `/parameter-sets`,
+`/runs`, `/runs/<id>`, `/runs/<id>/provenance`, `/runs/<id>/artifacts`,
+`/artifacts/<id>`.
+
+Catalogue, ontology, thresholds, and run-history surface (all `login_required`;
+narrower roles noted):
+
+- `GET  /catalogue`, `GET /catalogue/<slug>`, `GET /catalogue/<slug>/sbml`
+- `GET  /results/<run_id>` — `admin`/`curator`/`accessor` only, ownership-checked
+- `GET  /validation`, `GET /history`
+- `GET  /api/models`, `GET /api/models/<slug>`, `GET /api/models/<slug>/ontology`
+- `GET  /api/thresholds` (open) / `POST /api/thresholds` — `admin`/`curator` only
+- `GET  /api/runs`, `POST /api/runs/compare`
+
+Bundled-study surface (`study_routes.py`, mounted under
+`/studies/<slug>/...`) is documented separately below.
+
+## Ontology seeding
+
+`ontology.seed_ontology_terms()` parses CV terms out of the four bundled SBML
+files and resolves each unique IRI's label via a sequential EBI OLS4 HTTP
+call. This is deliberately **not** run from the request path (it used to be,
+via `catalogue.ensure_seeded()`, which made the first cold-start
+`/model/catalogue` load take minutes and stall hard when OLS4 was
+unreachable). Run it once, out of band, from `backend/`:
+
+```
+python -m plugins.pbpk.scripts.seed_ontology
+```
+
+Safe to re-run — CV-term inserts are `ON CONFLICT DO NOTHING`, already-seeded
+studies are skipped, and any IRI left with `label IS NULL` from a prior OLS4
+outage is retried (`ontology.retry_unresolved_labels`).
 
 ## Dependencies
 
 - `PBKFAIRModel` — the simulation engine, a package at the repository root.
   `helpers.py` adds the repo root to `sys.path` if it is not already
   importable.
+- `requests` — used by `ontology.py` for OLS4 label lookups. Declared in both
+  `plugin.py`'s `required_packages` and `requirements.txt`; it happens to also
+  be a core dependency of `backend/requirements.txt`, but plugin-owned imports
+  must be declared here regardless so the loader can verify the install and
+  skip-mount cleanly if it's ever missing.
 
 ## Environment variables
 
@@ -43,6 +101,13 @@ in `helpers.py` (load-bearing on the Flask path — see the RLS note below).
 
 - `sql/001_schema.sql` — tables + RLS policies, applied by the plugin loader at
   boot. Idempotent.
+- `sql/002_catalogue.sql` — `_fd.pbpk_models` (catalogue), `_fd.pbpk_thresholds`
+  (regulatory thresholds), and the `study_slug`/`compound`/`engine`/
+  `content_hash` columns on `_fd.pbpk_simulation_runs`, including the EFSA
+  2020 group-TWI seed values. Applied idempotently by the plugin loader.
+- `sql/003_ontology.sql` — `_fd.pbpk_iri_labels` (OLS4 label cache) and
+  `_fd.pbpk_cv_terms` (per-study SBML CV-term inventory). Populated by the
+  out-of-band `scripts/seed_ontology.py` step, not at boot.
 - `sql/pbpk_storage_policies.sql` — `storage.objects` RLS for the
   `pbpk-artifacts` bucket. **NOT** auto-applied; apply out of band via the
   Supabase dashboard / admin SQL. Until then only the service-role backend can

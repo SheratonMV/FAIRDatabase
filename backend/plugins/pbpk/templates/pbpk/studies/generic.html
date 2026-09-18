@@ -12,6 +12,17 @@
     across four breastfeeding exposure scenarios.
   </p>
 
+  <!-- ── Applicability domain notice ──────────────────────────────────────── -->
+  <div class="alert alert-warning alert-sm d-flex align-items-start mb-3 py-2" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2 mt-1 flex-shrink-0"></i>
+    <div class="small">
+      <strong>Applicability domain:</strong> Generic parameterisation not validated against a
+      specific cohort. Suitable for exploratory scenario analysis only; not for regulatory
+      submissions without re-parameterisation.
+      <a href="/model/catalogue/generic" class="alert-link">Full details →</a>
+    </div>
+  </div>
+
   <!-- ── Parameter form ─────────────────────────────────────────────────── -->
   <div class="card mb-4">
     <div class="card-header">Simulation parameters</div>
@@ -39,7 +50,7 @@
         <div class="col-md-3">
           <label for="Ratio_GFR" class="form-label">GFR scaling factor</label>
           <input type="number" id="Ratio_GFR" name="Ratio_GFR"
-                 class="form-control" value="1.0" min="0.01" step="0.05">
+                 class="form-control" value="{{ param_specs.Ratio_GFR.default }}" min="{{ param_specs.Ratio_GFR.min }}" step="{{ param_specs.Ratio_GFR.step }}">
         </div>
 
         <div class="col-12">
@@ -48,6 +59,12 @@
           </button>
         </div>
       </form>
+      <div id="domain-warning" class="alert alert-warning d-none mt-3 py-2 small" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-1" aria-hidden="true"></i>
+        <strong>Outside applicability domain:</strong>
+        <span id="domain-warning-text"></span>
+        Predictions are extrapolations — interpret with caution.
+      </div>
     </div>
   </div>
 
@@ -100,28 +117,113 @@
 
     <!-- ── Chart ──────────────────────────────────────────────────────────── -->
     <div class="card mb-4">
-      <div class="card-header">Maternal &amp; fetal PFAS concentration over time</div>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Maternal &amp; fetal PFAS concentration over time</span>
+        <div class="d-flex gap-2">
+          <button id="scale-toggle-btn" class="btn btn-outline-secondary btn-sm"
+                  title="Toggle log/linear Y axis">Linear</button>
+          <button id="export-png-btn" class="btn btn-outline-secondary btn-sm"
+                  title="Export chart as PNG">
+            <i class="bi bi-download me-1"></i>PNG
+          </button>
+        </div>
+      </div>
       <div class="card-body">
-        <canvas id="sim-chart" height="100"></canvas>
+        <div style="position:relative;height:320px">
+          <canvas id="sim-chart"></canvas>
+        </div>
       </div>
     </div>
 
-    <!-- ── Download ───────────────────────────────────────────────────────── -->
-    <button id="download-btn" class="btn btn-outline-secondary mb-4">
-      Download timeseries (CSV)
-    </button>
+    <!-- ── Download + results link ───────────────────────────────────────── -->
+    <div class="d-flex gap-2 mb-4">
+      <button id="download-btn" class="btn btn-outline-secondary">
+        Download timeseries (CSV)
+      </button>
+      <a id="results-link" href="#" class="btn btn-outline-primary d-none">
+        <i class="bi bi-graph-up me-1"></i>View full results &amp; provenance
+      </a>
+    </div>
   </div>
 </div>
 
-<!-- Chart.js (loaded from CDN; swap for a self-hosted copy if needed) -->
+<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 
 <script>
 (function () {
   "use strict";
 
+  /* Pre-fill form from catalogue query params (?compound=PFOS&scenario=bf_1yr…) */
+  new URLSearchParams(window.location.search).forEach((val, key) => {
+    const el = document.getElementById(key) || document.querySelector(`[name="${key}"]`);
+    if (el) el.value = val;
+  });
+
+  const THRESHOLDS = {{ thresholds | default([]) | tojson }};
+
+  const FONT    = "'Inter','Helvetica Neue',system-ui,-apple-system,sans-serif";
+  const PALETTE = ["#0072B2","#D55E00","#009E73","#CC79A7"];
+
+  /** Include threshold values when computing Y-axis ceiling. */
+  function yMax(dataSeries) {
+    const flat = [].concat(...dataSeries).filter(v => v != null && isFinite(v));
+    if (!flat.length) return 1;
+    const mx = flat.reduce((a, b) => (b > a ? b : a), -Infinity);
+    const threshVals = THRESHOLDS.map(t => t.value).filter(v => v <= mx * 2);
+    const tMax = threshVals.reduce((a, b) => (b > a ? b : a), 0);
+    return (Math.max(mx, tMax) * 1.18) || 1e-9;
+  }
+
+  function baseOpts(xLabel, yLabel, yMaxVal) {
+    const tf  = { family: FONT, size: 11 };
+    const ttf = { family: FONT, size: 12, weight: "500" };
+    return {
+      animation: false, responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: {
+          display: true, position: "bottom",
+          labels: { font: tf, color: "#374151", boxWidth: 22, boxHeight: 2,
+                    padding: 14, usePointStyle: true, pointStyleWidth: 18 },
+        },
+        tooltip: {
+          backgroundColor: "#fff", borderColor: "rgba(0,0,0,0.1)", borderWidth: 1,
+          titleColor: "#111827", bodyColor: "#374151",
+          titleFont: { family: FONT, size: 11, weight: "600" }, bodyFont: tf, padding: 8,
+          callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toExponential(3) : "—"}` },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false }, border: { color: "rgba(0,0,0,0.2)" },
+          ticks: { font: tf, color: "#6B7280", maxTicksLimit: 10 },
+          title: { display: true, text: xLabel, font: ttf, color: "#374151", padding: { top: 6 } },
+        },
+        y: {
+          type: "linear", min: 0, max: yMaxVal,
+          grid: { color: "rgba(0,0,0,0.06)", lineWidth: 1 }, border: { color: "rgba(0,0,0,0.2)" },
+          ticks: { font: tf, color: "#6B7280", maxTicksLimit: 8,
+                   callback: v => v === 0 ? "0" : (Math.abs(v) >= 0.1 ? +v.toPrecision(3) : v.toExponential(1)) },
+          title: { display: true, text: yLabel, font: ttf, color: "#374151", padding: { bottom: 6 } },
+        },
+      },
+    };
+  }
+
+  /** Regulatory threshold reference-line datasets. */
+  function thresholdDatasets(len) {
+    return THRESHOLDS.map(t => ({
+      label: `EFSA 2020 Σ4-PFAS serum benchmark (${t.value} ${t.units}) — group-sum limit`,
+      data: Array(len).fill(t.value),
+      borderColor: "#C0392B", backgroundColor: "transparent",
+      borderWidth: 1.2, borderDash: [5, 4], pointRadius: 0, clip: false,
+    }));
+  }
+
   let _lastResult = null;
   let _chart      = null;
+  let _logScale   = false;
 
   document.getElementById("sim-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -144,18 +246,19 @@
 
     try {
       const resp = await fetch("/model/studies/generic/run", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(payload),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
       const data = await resp.json();
-      if (!resp.ok) {
-        throw new Error(data.error || `HTTP ${resp.status}`);
-      }
+      if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
       _lastResult = data;
       renderSummary(data);
       renderChart(data);
       summary.classList.remove("d-none");
+      if (data.run_id) {
+        const link = document.getElementById("results-link");
+        if (link) { link.href = `/model/results/${data.run_id}`; link.classList.remove("d-none"); }
+      }
     } catch (err) {
       errBox.textContent = "Error: " + err.message;
       errBox.classList.remove("d-none");
@@ -165,9 +268,7 @@
     }
   });
 
-  function fmt(v) {
-    return v != null ? v.toExponential(3) : "—";
-  }
+  function fmt(v) { return v != null ? v.toExponential(3) : "—"; }
 
   function renderSummary(d) {
     document.getElementById("peak-ca-mat").textContent  = fmt(d.peak_CA_maternal_mgL);
@@ -178,44 +279,80 @@
 
   function renderChart(d) {
     const ts   = d.timeseries;
-    const ages = ts.map(r => r.age_child_yr != null ? r.age_child_yr.toFixed(3) : r.time_h);
+    const ages = ts.map(r => +(r.age_child_yr != null ? r.age_child_yr.toFixed(3) : r.time_h));
     const cMat = ts.map(r => r.CA_maternal_mgL);
     const cFet = ts.map(r => r.CA_fetal_mgL);
 
+    const datasets = [
+      { label: "Maternal plasma (mg/L)", data: cMat,
+        borderColor: PALETTE[0], backgroundColor: "transparent",
+        borderWidth: 1.75, pointRadius: 0, tension: 0.3 },
+      { label: "Fetal plasma (mg/L)", data: cFet,
+        borderColor: PALETTE[1], backgroundColor: "transparent",
+        borderWidth: 1.75, pointRadius: 0, tension: 0.3, borderDash: [5, 3] },
+      ...thresholdDatasets(ages.length),
+    ];
+
     if (_chart) _chart.destroy();
+    const opts = baseOpts("Age (years)", "Concentration (mg/L)", yMax([cMat, cFet]));
+    if (_logScale) {
+      opts.scales.y.type = "logarithmic";
+      delete opts.scales.y.min;
+    }
     _chart = new Chart(document.getElementById("sim-chart"), {
       type: "line",
-      data: {
-        labels: ages,
-        datasets: [
-          {
-            label:       "CA_maternal (mg/L)",
-            data:        cMat,
-            borderWidth: 1.5,
-            pointRadius: 0,
-            tension:     0.2,
-          },
-          {
-            label:       "CA_fetal (mg/L)",
-            data:        cFet,
-            borderWidth: 1.5,
-            pointRadius: 0,
-            tension:     0.2,
-            borderDash:  [4, 3],
-          },
-        ],
-      },
-      options: {
-        animation: false,
-        plugins: { legend: { display: true } },
-        scales: {
-          x: { title: { display: true, text: "Child age (years after birth)" } },
-          y: { title: { display: true, text: "Concentration (mg/L)" } },
-        },
-      },
+      data: { labels: ages, datasets },
+      options: opts,
     });
   }
 
+  // ── Applicability domain check ────────────────────────────────────────────
+  const DOMAIN = {{ domain_js | safe }};
+
+  function checkDomain() {
+    const form = document.getElementById("sim-form");
+    const warnings = [];
+    for (const [id, rule] of Object.entries(DOMAIN)) {
+      const el = form.elements[id];
+      if (!el) continue;
+      const v = parseFloat(el.value);
+      if (!isNaN(v) && (v < rule.min || v > rule.max))
+        warnings.push(`${rule.label} (${v}) outside [${rule.min}–${rule.max}]`);
+    }
+    const box = document.getElementById("domain-warning");
+    document.getElementById("domain-warning-text").textContent =
+      warnings.length ? warnings.join("; ") + ". " : "";
+    box.classList.toggle("d-none", warnings.length === 0);
+  }
+
+  document.getElementById("Ratio_GFR").addEventListener("input", checkDomain);
+  checkDomain();
+
+  // ── Log / linear scale toggle ─────────────────────────────────────────────
+  document.getElementById("scale-toggle-btn").addEventListener("click", () => {
+    if (!_chart) return;
+    _logScale = !_logScale;
+    document.getElementById("scale-toggle-btn").textContent = _logScale ? "Log" : "Linear";
+    if (_logScale) {
+      _chart.options.scales.y.type = "logarithmic";
+      delete _chart.options.scales.y.min;
+    } else {
+      _chart.options.scales.y.type = "linear";
+      _chart.options.scales.y.min = 0;
+    }
+    _chart.update();
+  });
+
+  // ── PNG export ────────────────────────────────────────────────────────────
+  document.getElementById("export-png-btn").addEventListener("click", () => {
+    if (!_chart) return;
+    const a = document.createElement("a");
+    a.href = _chart.toBase64Image("image/png", 1);
+    a.download = `generic_${(_lastResult && _lastResult.compound) || "pbpk"}_chart.png`;
+    a.click();
+  });
+
+  // ── CSV download ──────────────────────────────────────────────────────────
   document.getElementById("download-btn").addEventListener("click", () => {
     if (!_lastResult) return;
     const ts   = _lastResult.timeseries;
@@ -223,7 +360,7 @@
     const rows = [cols.join(",")].concat(ts.map(r => cols.map(c => r[c] ?? "").join(",")));
     const blob = new Blob([rows.join("\n")], { type: "text/csv" });
     const a    = Object.assign(document.createElement("a"), {
-      href:     URL.createObjectURL(blob),
+      href: URL.createObjectURL(blob),
       download: `generic_${_lastResult.compound}_${_lastResult.scenario}.csv`,
     });
     a.click();

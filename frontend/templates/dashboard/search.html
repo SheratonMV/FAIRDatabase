@@ -1,6 +1,7 @@
 {% extends "dashboard/layout.html" %}
 {% block title %}FAIRMicrobiome | Search{% endblock %}
 {% block content %}
+<div class="container mt-4">
 <form action="/dashboard/search" method="post" id="search">
    <div class="row">
       <div class="col-md-1"></div>
@@ -180,4 +181,5 @@
    </div>
    {% endif %}
 </form>
+</div>
 {% endblock %}

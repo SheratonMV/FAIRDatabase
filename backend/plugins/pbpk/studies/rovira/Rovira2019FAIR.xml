@@ -1483,7 +1483,7 @@
           </rdf:RDF>
         </annotation>
       </parameter>
-      <parameter id="PFOS_Free" name="PFOS free fraction" value="0.03" constant="true" units="dimensionless">
+      <parameter id="PFOS_Free" name="PFOS free fraction" value="0.025" constant="true" units="dimensionless">
         <annotation>
           <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
                    xmlns:bqbiol="http://biomodels.net/biology-qualifiers/">
@@ -1803,7 +1803,7 @@
           </rdf:RDF>
         </annotation>
       </parameter>
-      <parameter id="PFOA_Free" name="PFOA free fraction" value="0.03" constant="true" units="dimensionless">
+      <parameter id="PFOA_Free" name="PFOA free fraction" value="0.02" constant="true" units="dimensionless">
         <annotation>
           <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
                    xmlns:bqbiol="http://biomodels.net/biology-qualifiers/">
