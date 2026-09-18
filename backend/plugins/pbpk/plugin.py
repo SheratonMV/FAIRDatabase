@@ -35,8 +35,8 @@ PLUGIN = Plugin(
 
     # Importable module names — verified by the loader at boot. Installed via
     # ``plugins/pbpk/requirements.txt`` (pip dist names: ``scipy``,
-    # ``python-libsbml``).
-    required_packages=["scipy", "libsbml"],
+    # ``python-libsbml``, ``requests``).
+    required_packages=["scipy", "libsbml", "requests"],
 
     storage_buckets=[{
         "id": "pbpk-artifacts",            # MUST start with "<name>-"

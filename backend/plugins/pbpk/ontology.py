@@ -8,8 +8,11 @@ REST API. Results are stored in two DB tables:
   _fd.pbpk_iri_labels   — IRI → ontology + local_id + label  (shared cache)
   _fd.pbpk_cv_terms     — per-study element → IRI mappings
 
-Called once per process from catalogue.ensure_seeded(); subsequent boots skip
-the SBML parse and OLS calls because all IRIs are already in the DB.
+Called from the one-shot ``scripts/seed_ontology.py`` step, not from the
+request path — the sequential OLS4 lookups are too slow (and too dependent on
+an external service) to run inline on a user-facing request. Subsequent runs
+skip the SBML parse for studies already seeded, and ``retry_unresolved_labels``
+re-attempts any IRI left with ``label IS NULL`` after a prior OLS4 outage.
 """
 from __future__ import annotations
 
@@ -202,6 +205,48 @@ def resolve_labels_batch(conn, iris: list[str]) -> None:
             cur.close()
 
     log.info("OLS4 resolution complete: %d/%d labels resolved", resolved, len(to_resolve))
+
+
+def retry_unresolved_labels(conn) -> int:
+    """Re-attempt OLS4 resolution for every IRI stored with ``label IS NULL``.
+
+    ``resolve_labels_batch`` only revisits an IRI when it is passed in again
+    as part of seeding a *new* study, so an IRI left unresolved by a transient
+    OLS4 outage during the original seed would otherwise never be retried.
+    This scans the whole table instead. Returns the number of labels resolved.
+    """
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT iri FROM _fd.pbpk_iri_labels WHERE label IS NULL")
+        unresolved = [r[0] for r in cur.fetchall()]
+    finally:
+        cur.close()
+
+    if not unresolved:
+        return 0
+
+    log.info("Retrying %d unresolved IRI labels via OLS4 …", len(unresolved))
+    resolved = 0
+    for iri in unresolved:
+        label = _resolve_one(iri)
+        if not label:
+            continue
+        resolved += 1
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                "UPDATE _fd.pbpk_iri_labels SET label = %s, fetched_at = now() WHERE iri = %s",
+                (label, iri),
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            log.warning("DB error updating label for IRI %s", iri, exc_info=True)
+        finally:
+            cur.close()
+
+    log.info("Unresolved-label retry complete: %d/%d labels resolved", resolved, len(unresolved))
+    return resolved
 
 
 def seed_ontology_terms(slug: str, sbml_path: str, conn) -> int:
