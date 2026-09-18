@@ -19,7 +19,7 @@ from kernel.auth import login_required
 
 from . import studies as _studies
 from .catalogue import canonical_hash, create_study_run, find_cached_run, list_thresholds
-from .helpers import fetch_run, update_run
+from .helpers import fetch_run_checked, update_run
 
 
 def _meta(slug: str):
@@ -101,12 +101,15 @@ def register(routes):
         # Content-hash idempotency: return cached run if identical params were run before
         c_hash = canonical_hash(slug, payload)
         try:
-            cached_id = find_cached_run(c_hash)
+            cached_id = find_cached_run(c_hash, owner_id, g.role)
         except Exception:
             cached_id = None
 
         if cached_id is not None:
-            cached_run = fetch_run(cached_id)
+            try:
+                cached_run = fetch_run_checked(cached_id, owner_id, g.role)
+            except (FileNotFoundError, PermissionError):
+                cached_run = None
             if cached_run is not None:
                 cached_run["run_id"] = cached_id
                 cached_run["cache_hit"] = True

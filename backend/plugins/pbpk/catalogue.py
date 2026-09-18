@@ -193,11 +193,17 @@ _seeded = False
 
 
 def ensure_seeded() -> None:
-    """Upsert catalogue entries and ontology terms on first request per worker.
+    """Upsert catalogue entries on first request per worker.
 
     Uses a single SELECT instead of 4 blind UPSERTs on every cold-worker
     start. The process-level ``_seeded`` flag still short-circuits the
     SELECT on subsequent requests within the same worker lifetime.
+
+    Ontology CV-term/label seeding is NOT done here: it makes a sequential
+    OLS4 HTTP call per unique IRI (hundreds of them), which turned the first
+    ``/model/catalogue`` request against a fresh DB into a multi-minute,
+    OLS4-availability-dependent page load. That seeding is a one-shot step
+    run out of band — see ``scripts/seed_ontology.py``.
     """
     global _seeded
     if _seeded:
@@ -210,12 +216,15 @@ def ensure_seeded() -> None:
         cur.close()
     if count < len(_MODEL_SEEDS):
         seed_models()
-    _seed_ontology_terms()
     _seeded = True
 
 
-def _seed_ontology_terms() -> None:
-    """Seed CV terms for all models that have no rows yet in _fd.pbpk_cv_terms."""
+def seed_ontology_terms_for_all_models() -> None:
+    """Seed CV terms + OLS4 labels for all models with no rows yet in _fd.pbpk_cv_terms.
+
+    Not called from the request path (see ``ensure_seeded``) — run this as a
+    one-shot step via ``scripts/seed_ontology.py``.
+    """
     from .ontology import seed_ontology_terms  # local import avoids circular
 
     _plugin_dir = pathlib.Path(__file__).parent
@@ -414,17 +423,32 @@ def canonical_hash(slug: str, payload: dict) -> str:
     return _hashlib.sha256(data.encode()).hexdigest()
 
 
-def find_cached_run(content_hash: str) -> int | None:
-    """Return the id of a successful run with this hash, or None."""
+def find_cached_run(content_hash: str, user_id: str | None, role: str) -> int | None:
+    """Return the id of a successful run with this hash the caller may read, or None.
+
+    Scoped to the caller's own runs for non-admins so the content-hash cache
+    cannot be used to read back another user's run (matches the ownership
+    check ``assert_can_read_run``/``fetch_run_checked`` enforce elsewhere).
+    """
     cur = g.db.cursor()
-    cur.execute(
-        """
-        SELECT id FROM _fd.pbpk_simulation_runs
-        WHERE content_hash = %s AND status = 'done'
-        ORDER BY created_at DESC LIMIT 1
-        """,
-        (content_hash,),
-    )
+    if role == "admin":
+        cur.execute(
+            """
+            SELECT id FROM _fd.pbpk_simulation_runs
+            WHERE content_hash = %s AND status = 'done'
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            (content_hash,),
+        )
+    else:
+        cur.execute(
+            """
+            SELECT id FROM _fd.pbpk_simulation_runs
+            WHERE content_hash = %s AND status = 'done' AND owner_id = %s
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            (content_hash, user_id),
+        )
     row = cur.fetchone()
     cur.close()
     return row[0] if row else None
