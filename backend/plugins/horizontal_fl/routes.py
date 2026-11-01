@@ -30,7 +30,9 @@ from flask import (
 )
 
 from kernel import dp_budget
+from kernel import env as kernel_env
 from kernel.auth import login_required
+from kernel.rbac import assert_can_modify_dataset
 from kernel.crypto import decrypt_weights
 from kernel.privacy import (
     add_gaussian_noise_dp,
@@ -62,6 +64,14 @@ def _load_task_authorized(task_id):
     if g.role != "admin" and (owner is None or str(owner) != str(g.user)):
         return None, (jsonify({"error": "Forbidden"}), 403)
     return task, None
+
+
+def _internal_base_url():
+    """Base URL this app reaches itself on, for the cross-plugin export call.
+
+    Override with FAIRDB_INTERNAL_URL when Flask is not on 127.0.0.1:5000.
+    """
+    return kernel_env.get("FAIRDB_INTERNAL_URL", "http://127.0.0.1:5000").rstrip("/")
 
 
 # ── UI ─────────────────────────────────────────────────────────────────────────
@@ -118,6 +128,18 @@ def create_task():
             400,
         )
 
+    # A task spends the privacy budget of the dataset it is bound to, so the
+    # caller must own that dataset (or be admin).
+    dataset_id = payload.get("dataset_id")
+    if dataset_id is not None:
+        try:
+            with g.db.cursor() as cur:
+                assert_can_modify_dataset(cur, dataset_id, g.user, g.role)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        except PermissionError:
+            return jsonify({"error": "dataset not found"}), 404
+
     noise_mult = compute_noise_multiplier(
         epsilon=dp_epsilon, delta=dp_delta, rounds=rounds_total
     )
@@ -138,7 +160,7 @@ def create_task():
         created_by=g.user,
         # Bound at creation; submit_gradients reads it from the task, never
         # from the per-request payload (closes the budget-bypass vector).
-        dataset_id=payload.get("dataset_id"),
+        dataset_id=dataset_id,
     )
     return jsonify({"task_id": task_id, "dp_noise_mult": noise_mult}), 201
 
@@ -169,9 +191,10 @@ def list_tasks():
             if t.get("created_at"):
                 t["created_at"] = str(t["created_at"])
         return jsonify(tasks), 200
-    except Exception as exc:
+    except Exception:
         g.db.rollback()
-        return jsonify({"error": str(exc)}), 500
+        _log.exception("listing FL tasks failed")
+        return jsonify({"error": "could not list tasks"}), 500
 
 
 @routes.route("/tasks/<task_id>", methods=["GET"])
@@ -588,8 +611,11 @@ def export_params(task_id):
     )
 
     try:
+        # Fixed server-side base URL, not request.host_url: the Host header is
+        # client-controlled, and this call forwards the caller's session
+        # cookies to whatever host the URL names.
         resp = requests.post(
-            request.host_url.rstrip("/") + "/model/parameter-sets",
+            _internal_base_url() + "/model/parameter-sets",
             json={
                 "name": name,
                 "description": description,
@@ -599,8 +625,9 @@ def export_params(task_id):
             cookies=request.cookies,
             timeout=30,
         )
-    except requests.RequestException as exc:
-        return jsonify({"error": f"parameter-set export failed: {exc}"}), 502
+    except requests.RequestException:
+        _log.exception("parameter-set export call failed")
+        return jsonify({"error": "parameter-set export failed"}), 502
     if resp.status_code != 201:
         return jsonify({
             "error": "parameter-set export rejected by PBPK plugin",

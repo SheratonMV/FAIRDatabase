@@ -15,6 +15,41 @@
       <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
       <link href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/3.6.0/mdb.min.css" rel="stylesheet" />
       <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+      <!-- Anti-forgery token (src/csrf.py): attach it to every same-origin
+           fetch/XHR that changes something, so page scripts need no edits. -->
+      <meta name="csrf-token" content="{{ csrf_token() }}">
+      <script>
+        (function () {
+          var token = document.querySelector('meta[name="csrf-token"]').content;
+          var safe = /^(GET|HEAD|OPTIONS|TRACE)$/i;
+          function sameOrigin(url) {
+            try { return new URL(url, location.href).origin === location.origin; }
+            catch (e) { return false; }
+          }
+          var origFetch = window.fetch;
+          window.fetch = function (input, init) {
+            init = init || {};
+            var method = init.method || (input instanceof Request ? input.method : 'GET');
+            var url = input instanceof Request ? input.url : String(input);
+            if (!safe.test(method) && sameOrigin(url)) {
+              var headers = new Headers(init.headers || (input instanceof Request ? input.headers : undefined));
+              headers.set('X-CSRFToken', token);
+              init.headers = headers;
+            }
+            return origFetch.call(this, input, init);
+          };
+          var origOpen = XMLHttpRequest.prototype.open;
+          var origSend = XMLHttpRequest.prototype.send;
+          XMLHttpRequest.prototype.open = function (method, url) {
+            this._csrfNeeded = !safe.test(method) && sameOrigin(url);
+            return origOpen.apply(this, arguments);
+          };
+          XMLHttpRequest.prototype.send = function () {
+            if (this._csrfNeeded) this.setRequestHeader('X-CSRFToken', token);
+            return origSend.apply(this, arguments);
+          };
+        })();
+      </script>
    </head>
    <body class="d-flex flex-column" id="body">
 

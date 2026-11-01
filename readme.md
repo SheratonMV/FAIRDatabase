@@ -44,7 +44,7 @@ Steps to set up and use the Microbiome FAIR Database locally.
 
 ## Quick Start (Docker)
 
-Requires only [Docker](https://docs.docker.com/get-docker/) installed. Choose one of the two options below — **Option A** for a zero-config quickstart, **Option B** if you want to set your own passwords.
+Requires [Docker](https://docs.docker.com/get-docker/) (with Compose v2), plus `bash` and `openssl` for the setup script; both are standard on Linux and macOS. On Windows, run everything inside WSL2 (Ubuntu), with Docker Desktop's WSL integration turned on. Choose one of the two options below — **Option A** for a zero-config quickstart, **Option B** if you want to set your own passwords.
 
 ---
 
@@ -58,9 +58,11 @@ Requires only [Docker](https://docs.docker.com/get-docker/) installed. Choose on
 bash scripts/bootstrap.sh --auto
 ```
 
-> The generated passwords (including the Supabase Studio dashboard password) are printed to your terminal. Save them.
+> The Supabase Studio dashboard login is printed to your terminal. All generated passwords and keys are stored in `backend/.env`; keep that file safe and out of git (it is already git-ignored).
 
-> **Admin user:** `--auto` cannot guess who the admin is, so it leaves `ADMIN_EMAIL=` blank (it prints a `[WARN]`). To get an auto-promoted admin, set `ADMIN_EMAIL=<your-email>` in `backend/.env` after this step, then (re)start the stack. `_bootstrap_admin` promotes that account to `admin` on every boot, and the value is preserved across future `bootstrap.sh` re-runs — so you set it once. Without it, assign roles manually via `/admin/users`.
+> Run `--auto` **once**, on a fresh install. To re-run the setup later (e.g. after changing `ADMIN_EMAIL`), use `bash scripts/bootstrap.sh` without `--auto`: it reuses the passwords in `backend/.env`. `--auto` refuses to run once a database exists, because a new password would lock the stack out of its own database.
+
+> **Admin user:** `--auto` cannot guess who the admin is, so it leaves `ADMIN_EMAIL=` blank (it prints a `[WARN]`). To get an auto-promoted admin, set `ADMIN_EMAIL=<your-email>` in `backend/.env` after this step, then (re)start the stack. `_bootstrap_admin` promotes that account to `admin` on every boot, and the value is preserved across future `bootstrap.sh` re-runs — so you set it once. Without it, assign roles manually via `/admin/users`. See [When ADMIN_EMAIL is promoted](#when-admin_email-is-promoted) before exposing the app beyond your own machine.
 
 > **Plugin selection** Setup your plugins via the allowlist (FAIRDB_PLUGINS) or the reject list (FAIRDB_PLUGINS_DISABLED)
 #### Step 2 — Start the stack
@@ -70,7 +72,7 @@ cd backend
 docker compose up -d
 ```
 
-Wait ~30 seconds for services to become healthy:
+Wait about a minute for services to become healthy (on first start `realtime` shows `unhealthy` for up to a minute while it sets up its tables; that is normal):
 
 ```bash
 docker compose ps
@@ -109,10 +111,13 @@ Open `backend/.env` and change these three variables from `change-me` to values 
 
 - `POSTGRES_PASSWORD` — PostgreSQL database password.
 - `DASHBOARD_PASSWORD` — Password for the Supabase Studio dashboard (username is always `supabase`).
-- `SECRET_KEY` — Secret key for Flask session security. Use a long random string.
+- `SECRET_KEY` — Secret key for Flask session security. At least 16 characters; generate one with `openssl rand -base64 32`. `bootstrap.sh` rejects shorter keys and common placeholders, because the app refuses to start with them.
+
+Use letters and digits for `POSTGRES_PASSWORD` (e.g. `openssl rand -hex 24`): it is placed inside database connection URLs, where `@`, `/`, `:` or `#` break the connection.
 
 **Optional variables (leave as defaults unless needed):**
-- `ADMIN_EMAIL` — Email auto-promoted to `admin` on every boot. Set it now and it is preserved across `bootstrap.sh` re-runs. Leave empty to disable auto-promotion (assign roles manually via `/admin/users`).
+- `ADMIN_EMAIL` — Email auto-promoted to `admin` on every boot. Set it now and it is preserved across `bootstrap.sh` re-runs. Leave empty to disable auto-promotion (assign roles manually via `/admin/users`). See [When ADMIN_EMAIL is promoted](#when-admin_email-is-promoted).
+- `ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM` — `bootstrap.sh` sets it to `true`. Only matters while `ENABLE_EMAIL_AUTOCONFIRM=true`; see the same section.
 - `SITE_URL` — Where the app runs (default: `http://localhost:5000`).
 - `SMTP_*` — Email server settings. Leave blank if you don't need email sending.
 - `DISABLE_SIGNUP` — Set to `true` to prevent new user registrations.
@@ -127,7 +132,7 @@ cd backend
 docker compose up -d
 ```
 
-Wait ~30 seconds for services to become healthy:
+Wait about a minute for services to become healthy (on first start `realtime` shows `unhealthy` for up to a minute while it sets up its tables; that is normal):
 
 ```bash
 docker compose ps
@@ -161,22 +166,19 @@ cd backend
 docker compose up -d --scale flask-app=0     # Supabase + db-init only
 ```
 
-Then point host Flask at the published ports — change these three values in `backend/.env` (re-apply after every `bootstrap.sh` run, which overwrites them):
+No `.env` edits are needed: `run.sh` replaces the Docker-internal addresses in `backend/.env` (`db:5432`, `kong:8000`) with the ports Docker publishes on your machine (`127.0.0.1:5433`, `localhost:8000`) for the Flask process only. Do **not** change `POSTGRES_PORT` in `backend/.env`; it is also the port Postgres listens on inside Docker, and changing it breaks the whole stack.
 
-```
-POSTGRES_HOST=127.0.0.1
-POSTGRES_PORT=5433
-SUPABASE_URL=http://localhost:8000
-```
-
-And run the app from `backend/`:
+Run the app from `backend/`:
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+../scripts/install-plugin-deps.sh   # PBPK + FL plugins' packages (torch, libsbml); ~2 min
 ./run.sh
 ```
+
+Without the plugin packages the app still starts, but the PBPK and federated-learning pages are missing (the loader skips plugins whose packages are not installed).
 
 ---
 
@@ -187,8 +189,8 @@ Once everything is running:
 | Service | URL | Description |
 |---|---|---|
 | **Main Application** | http://localhost:5000 | The FAIRDatabase app — register and log in here. |
-| **Database Dashboard** | http://localhost:3000 | Supabase Studio — view and manage database tables. Login: username `supabase`, password = your `DASHBOARD_PASSWORD`. |
-| **API Endpoint** | http://localhost:8000 | Supabase API — used internally by the app. |
+| **Database Dashboard** | http://localhost:8000 | Supabase Studio — view and manage database tables. Your browser asks for a login: username `supabase`, password = your `DASHBOARD_PASSWORD`. Studio has no login of its own, so it is only reachable through this gateway (Kong), and only from this machine. From another computer, open a tunnel first: `ssh -L 8000:127.0.0.1:8000 you@server`, then browse to `http://localhost:8000`. |
+| **API Endpoint** | http://localhost:8000 (`/auth`, `/rest`, `/storage`, `/functions`) | Supabase API — used internally by the app. Same gateway as the dashboard. |
 
 ### Stopping and Resetting
 
@@ -199,15 +201,22 @@ cd backend
 
 # Stop all services but KEEP your data
 docker compose down
+```
 
-# Stop all services AND DELETE all data (factory reset)
+**Factory reset (deletes all data).** The database lives in the folder `backend/volumes/db/data`, not in a Docker volume, so `docker compose down -v` does **not** remove it. Postgres owns that folder, so deleting it needs `sudo`:
+
+```bash
+cd backend
 docker compose down -v
+sudo rm -rf volumes/db/data
+cd .. && bash scripts/bootstrap.sh --auto     # or without --auto to keep your .env passwords
+cd backend && docker compose up -d
 ```
 
 ### Selecting which plugins to load
 
-Feature plugins under `backend/plugins/` (currently **pbpk** and
-**horizontal_fl**) are auto-discovered and mounted at Flask boot. To run only a
+Feature plugins under `backend/plugins/` (currently **pbpk**,
+**horizontal_fl** and **vertical_fl**) are auto-discovered and mounted at Flask boot. To run only a
 subset, set these in `backend/.env` (both default to empty = load everything):
 
 ```bash
@@ -223,7 +232,7 @@ running). The loader logs each skipped plugin at startup
 (`docker compose logs flask-app | grep -i plugin`).
 
 Notes:
-- Names are the plugin **folder** names (`pbpk`, `horizontal_fl`).
+- Names are the plugin **folder** names (`pbpk`, `horizontal_fl`, `vertical_fl`).
 - This is a runtime switch — the image still contains all plugin code and its
   Python deps. A disabled plugin's routes, schema, and storage buckets are
   simply never mounted/applied; nothing else changes.
@@ -246,6 +255,7 @@ Application-level schemas are applied **automatically** on fresh DB init and on 
 **Plugin schemas** (each plugin owns its own; applied by the loader from its manifest's `sql_migrations`):
 - `backend/plugins/pbpk/sql/001_schema.sql` — PBPK parameter sets, runs, and run artifacts
 - `backend/plugins/horizontal_fl/sql/001_schema.sql` — FL tasks, rounds, clients, round submissions
+- `backend/plugins/vertical_fl/sql/001_schema.sql` — vertical FL tasks, parties, patient-ID matching (PSI), rounds
 
 **How it works:**
 - On a fresh `db` volume, only the **core** schemas are mounted into `/docker-entrypoint-initdb.d/migrations/` and run by Postgres at first init (in order: `100-fd-schema`, `101-fd-rbac`, `103-fd-demo`). Order matters: `rbac_schema.sql` defines `_fd.current_role()`, which plugin RLS policies depend on.
@@ -267,9 +277,9 @@ The `/model/runs/<run_id>/artifacts` endpoints accept binary outputs (jpg, png, 
   ```
   Until applied, the bucket is reachable only via the service-role client (the Flask backend), which is fine for the PoC — every browser read flows through `/model/runs/<id>/artifacts` and the backend issues short-lived signed URLs.
 - **Limits** — 200 MB per file; signed URL TTL 10 minutes. Allowed types: `image/jpeg`, `image/png`, `video/mp4`, and the `.vtk` / `.vtu` / `.vtp` mesh family (sent as `application/octet-stream`).
-- **Upload example**
+- **Upload example** — form posts need the session's CSRF token (see [Scripting the app with curl](#scripting-the-app-with-curl)):
   ```bash
-  curl -b cookies.txt -F "file=@conc_field.png" \
+  curl -b cookies.txt -H "X-CSRFToken: $CSRF" -F "file=@conc_field.png" \
        http://localhost:5000/model/runs/42/artifacts
   ```
 
@@ -290,7 +300,13 @@ Root cause: the `supabase/postgres` image only runs the SQL in `docker-entrypoin
     "ALTER USER postgres WITH PASSWORD '<value of POSTGRES_PASSWORD in backend/.env>';"
   docker compose up -d   # db-init then fixes the remaining roles
   ```
-- Never re-run `bootstrap.sh --auto` / `--rotate-secrets` against a volume that has data — it refuses by design (it would desync `JWT_SECRET`/`VAULT_ENC_KEY`). To intentionally start clean, delete `backend/volumes/db/data` first (**destroys all data**).
+- `bootstrap.sh --auto` and `--rotate-secrets` refuse to run while `backend/volumes/db/data` holds a database (new passwords/keys would lock the stack out of it). To intentionally start clean, follow the factory reset in [Stopping and Resetting](#stopping-and-resetting) (**destroys all data**).
+
+**`port is already allocated` / `address already in use`** on `docker compose up`.
+
+Another program already uses one of the ports the stack needs: 5000 (app), 8000 (Supabase gateway), 5433 (database), or 5432 / 6543 (connection pooler). The most common case is a Postgres installed directly on the computer, which holds 5432. Find the program with `sudo ss -ltnp | grep -E ':(5000|8000|5433|5432|6543) '`, then either stop it or change the **left-hand** number of that port in `backend/docker-compose.yml` (e.g. `127.0.0.1:5442:5432`). Moving 5000 or 8000 also means changing the URLs that `bootstrap.sh` writes into `backend/.env` (`SITE_URL`, `API_EXTERNAL_URL`), and a later `bootstrap.sh` run resets them, so for those two it is simpler to stop the other program.
+
+**`flask-app` keeps restarting with `SECRET_KEY is missing, too short`.** Put a key of at least 16 characters in `backend/.env` (`openssl rand -base64 32`), then `docker compose up -d`.
 
 **Editing a bind-mounted file then `docker restart`ing fails on WSL2** with `mount ... no such file or directory` (e.g. after editing `volumes/pooler/pooler.exs` or any `volumes/db/*`).
 
@@ -338,7 +354,14 @@ docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm edge-te
 
 ### Local tests (without Docker)
 
-Requires a running Supabase instance and Python venv:
+Requires a running Supabase stack and Python venv. First create the test config (once): copy the example and fill the empty values (`SECRET_KEY`, `SUPABASE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `POSTGRES_PASSWORD`) from `backend/.env` (`ANON_KEY` → `SUPABASE_KEY`, `SERVICE_ROLE_KEY` → `SUPABASE_SERVICE_ROLE_KEY`). `tests/.env.test` is git-ignored — never commit it.
+
+```bash
+cd backend
+cp tests/.env.test.example tests/.env.test   # then fill it in
+```
+
+Tests that need the database are **skipped**, not failed, when it is unreachable, so check the skip count. The plugin tests also need the plugins' packages: run `../scripts/install-plugin-deps.sh` once in the venv.
 
 ```bash
 cd backend
@@ -369,10 +392,10 @@ If you are a developer and prefer to run the Flask application directly on your 
     bash scripts/bootstrap.sh
     ```
 
-2. Start only the database and Supabase services (this will still run in Docker):
+2. Start only the database and Supabase services (this will still run in Docker; `--scale flask-app=0` keeps the app container off port 5000):
     ```bash
     cd backend
-    docker compose up -d
+    docker compose up -d --scale flask-app=0
     ```
 
 ### Flask setup
@@ -390,19 +413,13 @@ All commands below must be run from inside the `backend/` directory.
     source venv/bin/activate
     ```
 
-3. Install the required Python packages:
+3. Install the required Python packages, then the plugins' own packages (PBPK and federated learning need `libsbml` and `torch`; about 2 minutes):
     ```bash
     pip install -r requirements.txt
+    ../scripts/install-plugin-deps.sh
     ```
 
-4. Update your `backend/.env` file so the local Flask app knows how to connect to the Dockerized database. Change these values in your `.env` file:
-    ```
-    POSTGRES_HOST=127.0.0.1
-    POSTGRES_PORT=5433
-    SUPABASE_URL=http://localhost:8000
-    ```
-
-    > **Important:** `bootstrap.sh` generates `backend/.env` with Docker-internal hostnames (`POSTGRES_HOST=db`, `POSTGRES_PORT=5432`, `SUPABASE_URL=http://kong:8000`) that only work inside the Docker network. The three values above must be changed **every time you re-run `bootstrap.sh`** when running Flask locally. If you skip this step, login will fail silently.
+4. Leave `backend/.env` as `bootstrap.sh` wrote it. It holds Docker-internal addresses (`POSTGRES_HOST=db`, `POSTGRES_PORT=5432`, `SUPABASE_URL=http://kong:8000`); `run.sh` swaps them for the host-published ports (`127.0.0.1:5433`, `localhost:8000`) when it starts Flask. Do **not** edit `POSTGRES_PORT` in `.env`: the Supabase containers use it too.
 
 5. Start the Flask development server:
     ```bash
@@ -470,7 +487,7 @@ There are two patterns; pick whichever fits your institute:
 
 **Self-service (default).** Anyone can register at `http://localhost:5000/auth/register`. New accounts default to `visualizer` (catalog + aggregate stats only), so self-service is safe — they cannot reach raw data until an admin promotes them.
 
-**Closed registration.** Set `DISABLE_SIGNUP=true` in `backend/.env` and re-run `bash scripts/bootstrap.sh` then `docker compose up -d`. New users must then be created by an admin via Supabase Studio (`http://localhost:3000` → Authentication → Users → *Add user*). The dashboard password is whatever you set as `DASHBOARD_PASSWORD`.
+**Closed registration.** Set `DISABLE_SIGNUP=true` in `backend/.env` and re-run `bash scripts/bootstrap.sh` then `docker compose up -d`. New users must then be created by an admin via Supabase Studio (`http://localhost:8000` → Authentication → Users → *Add user*). The dashboard password is whatever you set as `DASHBOARD_PASSWORD`.
 
 Email verification is off by default (`ENABLE_EMAIL_AUTOCONFIRM=true`). Flip it to `false` if your institute requires email confirmation; then configure the `SMTP_*` variables.
 
@@ -484,13 +501,38 @@ Logged in as `admin`, go to `http://localhost:5000/admin/users`. The page lists 
 
 Every change writes a row to `_fd.role_audit` recording who changed whom, when, and from what to what.
 
-Programmatic alternative (admin only):
+Programmatic alternative (admin only; needs the CSRF token, see [Scripting the app with curl](#scripting-the-app-with-curl)):
 
 ```bash
 curl -X POST http://localhost:5000/admin/users/<user-uuid>/role \
-  --cookie "session=<your-flask-session-cookie>" \
+  -b cookies.txt -H "X-CSRFToken: $CSRF" \
   -d "role=curator"
 ```
+
+#### When ADMIN_EMAIL is promoted
+
+Promotion trusts that whoever registered `ADMIN_EMAIL` owns that inbox. With `ENABLE_EMAIL_AUTOCONFIRM=true` (the default) nobody's address is checked, so whoever registers that email first becomes admin. The app therefore promotes only when one of these holds:
+
+- `ENABLE_EMAIL_AUTOCONFIRM=false` (real e-mail confirmation; needs the `SMTP_*` settings), or
+- `ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM=true` — `bootstrap.sh` sets this so a local install works out of the box.
+
+Otherwise Flask logs `Not promoting ADMIN_EMAIL=...` at boot and nobody is promoted. On any machine other users can reach, either register the admin account yourself **before** opening the app to others, or set `ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM=false` and turn on e-mail confirmation.
+
+#### Scripting the app with curl
+
+Every form POST (`multipart/form-data` or `x-www-form-urlencoded`) must carry the session's CSRF token, or the app answers **400**. JSON requests (`Content-Type: application/json`) are exempt. To script form posts, keep one cookie jar and read the token from the login page:
+
+```bash
+# 1. Open the login page: starts a session and gives you its token.
+CSRF=$(curl -s -c cookies.txt http://localhost:5000/auth/login \
+       | grep -o 'name="csrf_token" value="[^"]*"' | cut -d'"' -f4)
+# 2. Log in with the same session; the token stays valid afterwards.
+curl -s -b cookies.txt -c cookies.txt -X POST http://localhost:5000/auth/login \
+     --data-urlencode "email=you@example.org" --data-urlencode "password=..." \
+     --data-urlencode "csrf_token=$CSRF" -o /dev/null
+```
+
+Logging out is a form POST too (`POST /auth/logout`); a plain link or GET no longer logs out.
 
 ### Step 4 — Grant Dataset Access
 
@@ -512,7 +554,7 @@ Two append-only audit tables capture every privileged action:
 | `_fd.role_audit`   | `user_id`, `old_role`, `new_role`, `changed_by`, `changed_at`                |
 | `_fd.grant_audit`  | `dataset_id`, `user_id`, `action` (`granted`/`revoked`), `changed_by`, `at`  |
 
-Inspect them via Supabase Studio (`http://localhost:3000` → Table Editor → `_fd` schema) or directly:
+Inspect them via Supabase Studio (`http://localhost:8000` → Table Editor → `_fd` schema) or directly:
 
 ```bash
 docker compose exec db psql -U postgres -c \
@@ -526,16 +568,18 @@ Both tables are written by the Flask handlers in `backend/src/admin/form.py`. Th
 | Port  | Service                | Bound by             | Used for                                                |
 |-------|------------------------|----------------------|---------------------------------------------------------|
 | 5000  | Flask app              | `flask-app` container | User-facing UI; admin console; auth routes              |
-| 3000  | Supabase Studio        | `studio` container   | DB inspection; manual user creation; viewing audit logs |
-| 8000  | Supabase Kong (API)    | `kong` container     | Auth + edge functions (called by the Flask app)         |
-| 5433  | PostgreSQL (host map)  | `db` container       | Local Flask → DB; `psql` from your machine              |
-| 5432  | PostgreSQL (in-network)| `db` container       | Service-to-service inside the Docker network only       |
+| 8000, 8443 | Supabase Kong (gateway)| `kong` container | Supabase API (auth, edge functions) **and** Studio at `/` (dashboard login). **This machine only** (`127.0.0.1`) |
+| 5433  | PostgreSQL (host map)  | `db` container       | Host Flask → DB; `psql` from your machine. **This machine only** (`127.0.0.1`) |
+| 5432, 6543 | Connection pooler (supavisor) | `supavisor` container | Pooled DB connections. **This machine only** (`127.0.0.1`) |
 
-If any of these collide with another service on the host, change the host-side port mapping in `backend/docker-compose.yml` (left side of `host:container`). Do **not** change the in-container ports — they are referenced by other Supabase services.
+Only the app (5000) is reachable from other machines. Studio (container port 3000) is deliberately **not** published: it has no login of its own, so it is reached only through Kong on 8000, which asks for the dashboard password. Kong and the database ports listen on `127.0.0.1` only; the app reaches them over the internal Docker network. To use Studio or `psql` from another computer, open an SSH tunnel (e.g. `ssh -L 8000:127.0.0.1:8000 -L 5433:127.0.0.1:5433 you@server`). The dashboard password travels as plain HTTP, which a tunnel encrypts; do not publish 8000 to the network without TLS in front.
+
+If any of these collide with another service on the host, change the host-side port mapping in `backend/docker-compose.yml` (left side of `host:container`). Do **not** change the in-container ports or `POSTGRES_PORT` in `.env` — they are referenced by other Supabase services.
 
 ### Operational Notes
 
-- **Defense in depth.** RBAC is enforced at three layers: the Flask `@login_required(*roles)` decorator, handler-side ownership/grant checks (`backend/src/dashboard/helpers.py`), and Postgres RLS policies (`backend/rbac_schema.sql`). The Flask DB user is currently a superuser, so RLS protects only direct DB / edge-function callers — layers 1 and 2 are load-bearing for the web app. See `CLAUDE.md` for how to tighten this if you want RLS to bite on the Flask path too.
+- **Defense in depth.** RBAC is enforced at three layers: the Flask `@login_required(*roles)` decorator, handler-side ownership/grant checks (`backend/src/dashboard/helpers.py`), and Postgres RLS policies (`backend/rbac_schema.sql`). Flask connects as `postgres`, which in the Supabase image is **not** a superuser but does bypass RLS (`BYPASSRLS`), so RLS protects only direct DB / edge-function callers — layers 1 and 2 are load-bearing for the web app.
+- **Who owns the app's tables.** On a brand-new database the core schemas are created by `supabase_admin`, which would leave the app unable to write its own tables. The `db-init` service fixes this on every `docker compose up` by handing everything in the `_fd` and `_demo` schemas to `postgres` (`backend/volumes/db/fd_ownership.sql`, generated by `bootstrap.sh`). If the app logs `must be owner of ...` or `permission denied for table user_roles`, re-run `bash scripts/bootstrap.sh` (without `--auto`) and `docker compose up -d`.
 - **Edge functions** at `/functions/v1/get-dataset-stats` and `/functions/v1/get-dataset-visualization` re-check role + ownership/grant via `supabase/functions/_shared/authz.ts`. They are safe to expose to first-party clients (e.g. an institute portal) using a user JWT.
 - **Schema migrations** for the RBAC tables live in `backend/rbac_schema.sql` and re-apply on every Flask boot. Safe to re-run; no destructive operations.
 - **Disabling auto-promotion.** Once your team is set up, you can leave `ADMIN_EMAIL` set (idempotent re-assertion) or clear it. Clearing has no effect on existing roles — it only stops the boot-time check.
@@ -546,16 +590,19 @@ If any of these collide with another service on the host, change the host-side p
 
 ### Authentication
 
-#### `/auth/login` (**POST**) – Logs in a user. Requires a JSON body with the following fields:
+#### `/auth/login` (**POST**) – Logs in a user. Form fields:
 
-- `username` (string)
+- `email` (string)
 - `password` (string)
+- `csrf_token` (string) — from the login page; see [Scripting the app with curl](#scripting-the-app-with-curl)
 
 #### Responses:
 - **200**: Redirect to dashboard upon successful login.
 - **400**: Missing username or password in the request.
 - **401**: Invalid username or password.
 - **429**: Too many requests (rate-limited).
+
+#### `/auth/logout` (**POST**) – Logs out and clears the session. Form field `csrf_token`. A GET returns 405.
 
 #### `/auth/register` (**POST**) – Registers a new user. Requires a JSON body with the following fields:
 - `email` (string)

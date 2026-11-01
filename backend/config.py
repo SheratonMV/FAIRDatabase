@@ -70,7 +70,21 @@ class Config:
     """
 
     ENV = os.getenv("ENV")
-    SECRET_KEY = os.getenv("SECRET_KEY", "supersecret")
+    # No fallback: the signed session cookie is the whole login state, so a
+    # guessable key lets anyone mint a session for any user id. create_app
+    # refuses to start without a usable key (see require_strong_secret_key).
+    SECRET_KEY = os.getenv("SECRET_KEY")
+    # Session cookie: no JavaScript access, not sent on cross-site POSTs
+    # (second guard next to src/csrf.py), and HTTPS-only when
+    # SESSION_COOKIE_SECURE=true (set it once the site is served over TLS;
+    # on plain-HTTP localhost the browser would drop a Secure cookie).
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
+    # How many reverse proxies sit in front of Flask. Only those may set
+    # X-Forwarded-For; with 0 (Flask reached directly) the header is ignored,
+    # so a client cannot fake its IP to dodge the login rate limit.
+    TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "0"))
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "./uploads")
     ALLOWED_EXTENSIONS = {"csv"}
     MAX_CONTENT_LENGTH = 16 * 1000 * 10000
@@ -243,6 +257,33 @@ def teardown_db(exception):
 
     if db is not None:
         db.close()
+
+
+# Placeholder values that have shipped in this repo's examples and defaults.
+_KNOWN_WEAK_SECRET_KEYS = {
+    "supersecret",
+    "change-me-in-production",
+    "your-flask-secret",
+    "dev",
+    "secret",
+}
+
+
+def require_strong_secret_key(app):
+    """Stop the app from starting with a missing or guessable SECRET_KEY.
+
+    Flask signs the session cookie with this key, and the cookie alone says
+    who is logged in. Anyone who knows the key can write a cookie claiming to
+    be any user (an admin included), so starting with a placeholder is never
+    safe, not even "just for now".
+    """
+    key = app.config.get("SECRET_KEY") or ""
+    if key.strip().lower() in _KNOWN_WEAK_SECRET_KEYS or len(key) < 16:
+        raise RuntimeError(
+            "SECRET_KEY is missing, too short (<16 chars) or a known placeholder. "
+            "Set a random value in backend/.env, e.g. "
+            "`openssl rand -base64 32`."
+        )
 
 
 def load_settings(app):

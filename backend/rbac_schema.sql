@@ -112,14 +112,17 @@ $$;
 
 -- ---------------------------------------------------------------------------
 -- RLS on metadata_tables
--- Catalog (SELECT) is visible to every authenticated user; mutations are
--- restricted by role + ownership.
+-- A direct database caller sees only catalog rows for datasets it may read
+-- (admin, owner, or grantee). The full catalog for visualizers is served by
+-- Flask, which connects as a superuser and is not limited by these rules.
+-- Showing every row here would hand out each dataset's owner_id, which is
+-- the user id needed to forge a session for that owner.
 -- ---------------------------------------------------------------------------
 ALTER TABLE _fd.metadata_tables ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS metadata_select ON _fd.metadata_tables;
 CREATE POLICY metadata_select ON _fd.metadata_tables FOR SELECT
-    USING (auth.uid() IS NOT NULL);
+    USING (_fd.can_read_dataset(id));
 
 DROP POLICY IF EXISTS metadata_insert ON _fd.metadata_tables;
 CREATE POLICY metadata_insert ON _fd.metadata_tables FOR INSERT
@@ -187,29 +190,9 @@ CREATE POLICY user_roles_write ON _fd.user_roles FOR ALL
     WITH CHECK (_fd.current_role() = 'admin');
 
 -- ---------------------------------------------------------------------------
--- Grants for the Supabase 'authenticated' role.
--- Flask currently uses a service-role connection (bypasses RLS) and enforces
--- access at the decorator + handler layer. These grants exist so that any
--- non-superuser caller -- Supabase edge functions, direct psql, future API
--- gateways -- can reach the schema and have RLS engage as defence-in-depth.
--- The DO block makes this a no-op on plain Postgres (no Supabase roles).
+-- Grants for 'anon' / 'authenticated' on _fd live in fd_lockdown.sql, which
+-- runs after the kernel and plugin SQL so it covers their tables too.
 -- ---------------------------------------------------------------------------
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
-        GRANT USAGE ON SCHEMA _fd TO authenticated;
-        GRANT SELECT, INSERT, UPDATE, DELETE
-            ON ALL TABLES IN SCHEMA _fd TO authenticated;
-        GRANT USAGE, SELECT
-            ON ALL SEQUENCES IN SCHEMA _fd TO authenticated;
-        -- Future tables (per-dataset uploads) created by the postgres role
-        -- inherit the same grants automatically.
-        ALTER DEFAULT PRIVILEGES IN SCHEMA _fd
-            GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO authenticated;
-        ALTER DEFAULT PRIVILEGES IN SCHEMA _fd
-            GRANT USAGE, SELECT ON SEQUENCES TO authenticated;
-    END IF;
-END $$;
 
 -- ---------------------------------------------------------------------------
 -- Auto-assign 'visualizer' role on new auth.users insertion.

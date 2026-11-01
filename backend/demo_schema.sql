@@ -33,17 +33,24 @@ ALTER TABLE _demo.datasets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE _demo.query_results ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Anyone can read demo data (read-only)
+DROP POLICY IF EXISTS demo_read_policy ON _demo.datasets;
 CREATE POLICY demo_read_policy ON _demo.datasets
     FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS demo_query_read_policy ON _demo.query_results;
 CREATE POLICY demo_query_read_policy ON _demo.query_results
     FOR SELECT USING (true);
 
--- Create read-only role for demo users
+-- Read-only role for the demo data. Nothing logs in as it (the public demo
+-- API reads through the app's own connection), so it gets no password and
+-- cannot log in. It used to be LOGIN with a password written in this file;
+-- the ALTER below takes that away on databases created before the change.
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'demo_role') THEN
-        CREATE ROLE demo_role WITH LOGIN PASSWORD 'demo_readonly';
+        CREATE ROLE demo_role NOLOGIN;
+    ELSE
+        ALTER ROLE demo_role NOLOGIN PASSWORD NULL;
     END IF;
 END
 $$;

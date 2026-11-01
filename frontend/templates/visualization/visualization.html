@@ -374,7 +374,7 @@
 
 <script>
    // Get stats data from the edge functions
-   const statsData = {{ stats_json | safe }};
+   const statsData = {{ stats_data | tojson }};
 
    if (statsData && statsData.tables) {
       // make data in right format
@@ -489,7 +489,7 @@
    // Render Beta Diversity Heatmap if data is available
    {% if viz_data and viz_data.success %}
    try {
-      const vizData = {{ viz_json | safe }};
+      const vizData = {{ viz_data | tojson }};
       console.log('Viz data loaded:', vizData);
 
       if (vizData && vizData.success && vizData.data) {
@@ -597,7 +597,7 @@
    // Render PCoA Plot if data is available
    {% if viz_data and viz_data.success and viz_data.data.pcoa_coordinates %}
    try {
-      const vizData = {{ viz_json | safe }};
+      const vizData = {{ viz_data | tojson }};
       console.log('PCoA data loaded:', vizData.data.pcoa_coordinates);
 
       if (vizData && vizData.success && vizData.data.pcoa_coordinates) {
@@ -615,7 +615,7 @@
             const explainedVar = vizData.data.explained_variance;
 
             // Get the metadata
-            const metadata = {{ metadata | safe }};
+            const metadata = {{ metadata | tojson }};
             const metadataFields = {{ metadata_fields | tojson }};
             const hasMetadata = {{ has_metadata | tojson }};
 

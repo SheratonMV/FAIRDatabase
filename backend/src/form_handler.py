@@ -7,6 +7,9 @@ import pandas as pd
 from flask import session
 from src.exceptions import GenericExceptionHandler
 
+import logging
+_log = logging.getLogger(__name__)
+
 
 class BaseHandler:
     """A base class for handling session-based data operations with robust error handling."""
@@ -74,9 +77,12 @@ class BaseHandler:
                 )
 
             df.to_csv(self._filepath, index=False)
-        except Exception as e:
+        except GenericExceptionHandler:
+            raise
+        except Exception:
+            _log.exception("saving DataFrame failed")
             raise GenericExceptionHandler(
-                f"Failed to save DataFrame: {str(e)}", status_code=500
+                "Failed to save the data file.", status_code=500
             )
 
     def _update_session(self, updates):
@@ -87,9 +93,10 @@ class BaseHandler:
             self._session.update(updates)
             if hasattr(self._session, "modified"):
                 self._session.modified = True
-        except Exception as e:
+        except Exception:
+            _log.exception("session update failed")
             raise GenericExceptionHandler(
-                f"Failed to update session: {str(e)}", status_code=500
+                "Failed to update session.", status_code=500
             )
 
     def _update_context(self, updates):

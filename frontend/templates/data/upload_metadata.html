@@ -28,7 +28,7 @@
                <h5><i class="fas fa-upload"></i> Upload Metadata CSV</h5>
             </div>
             <div class="card-body">
-               <form method="POST" enctype="multipart/form-data">
+               <form method="POST" enctype="multipart/form-data">{{ csrf_input() }}
                   <div class="mb-3">
                      <label for="metadata_file" class="form-label">Select CSV File</label>
                      <input type="file" class="form-control" id="metadata_file"

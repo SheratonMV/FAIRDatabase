@@ -11,6 +11,7 @@ from flask import (
 )
 
 from src.auth.decorators import login_required
+from src.dashboard.helpers import assert_can_modify_dataset
 from .form import DifferentialPrivacyHandler, PrivacyProcessingHandler
 from kernel import dp_budget as fl_db
 
@@ -74,6 +75,16 @@ def fl_budget(dataset_id):
     Budget consumption is tracked in _fd.fl_epsilon_budget and decremented
     after each FL round that uses this dataset.
     """
+    # Same owner-or-admin check as enrolment, so a curator cannot probe which
+    # of other users' datasets are enrolled (404 vs 200).
+    try:
+        with g.db.cursor() as cur:
+            assert_can_modify_dataset(cur, dataset_id, g.user, g.role)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except PermissionError:
+        return jsonify({"error": "Dataset not enrolled in FL"}), 404
+
     budget = fl_db.get_epsilon_budget(g.db, dataset_id)
     if budget is None:
         return jsonify({"error": "Dataset not enrolled in FL"}), 404

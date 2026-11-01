@@ -36,6 +36,7 @@ PROTECTED_ROUTES = [
     ("/dashboard/search",       "GET",  ("admin", "curator", "accessor")),
     ("/data/data_generalization", "GET", ("admin", "curator")),
     ("/admin/users",            "GET",  ("admin",)),
+    ("/visualization/dataset/some_table", "GET", ("admin", "curator", "accessor")),
 ]
 
 ALL_ROLES = ("admin", "curator", "accessor", "visualizer")
@@ -85,3 +86,25 @@ class TestRouteRoleMatrix:
             s.clear()
         resp = client.get("/admin/users", follow_redirects=False)
         assert resp.status_code in (301, 302)
+
+
+class TestDatasetVisualizationAccess:
+    """The per-dataset plot shows every sample of one dataset. A curator who
+    does not own it (stub DB: no ownership row) must be turned away before
+    the backend calls the edge function with the service key."""
+
+    def test_unowned_dataset_never_reaches_edge_function(
+        self, client, role_session, monkeypatch
+    ):
+        from src.visualization import routes as viz_routes
+
+        calls = []
+        monkeypatch.setattr(
+            viz_routes, "call_visualization_edge_function",
+            lambda *a, **kw: calls.append(a) or {"success": True},
+        )
+        monkeypatch.setattr(viz_routes, "validate_table_exists", lambda *a: True)
+        role_session("curator")
+        resp = client.get("/visualization/dataset/someone_elses_table")
+        assert resp.status_code == 302
+        assert calls == []

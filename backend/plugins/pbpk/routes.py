@@ -48,6 +48,9 @@ from .helpers import (
     update_run,
 )
 
+import logging
+_log = logging.getLogger(__name__)
+
 # ── Artifact upload config ────────────────────────────────────────────────────
 ARTIFACT_BUCKET = "pbpk-artifacts"        # keep in sync with plugin.py manifest
 ARTIFACT_MAX_BYTES = 200 * 1024 * 1024    # 200 MB
@@ -306,8 +309,9 @@ def upload_run_artifact(run_id):
         try:
             with open(tmp_path, "rb") as fh:
                 storage_path = upload_stream(ARTIFACT_BUCKET, object_key, fh, mime)
-        except Exception as exc:
-            return jsonify({"error": f"storage upload failed: {exc}"}), 502
+        except Exception:
+            _log.exception("artifact storage upload failed")
+            return jsonify({"error": "storage upload failed"}), 502
 
         try:
             artifact_id = insert_artifact(
@@ -319,10 +323,11 @@ def upload_run_artifact(run_id):
                 size_bytes=size,
                 original_name=safe_name,
             )
-        except Exception as exc:
+        except Exception:
+            _log.exception("artifact catalog insert failed")
             # Best-effort cleanup so we don't leak orphan blobs.
             delete_object(storage_path)
-            return jsonify({"error": f"catalog insert failed: {exc}"}), 500
+            return jsonify({"error": "catalog insert failed"}), 500
 
         return jsonify({
             "id": artifact_id,

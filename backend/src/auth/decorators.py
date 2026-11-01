@@ -8,12 +8,16 @@ DEFAULT_ROLE = "visualizer"
 
 
 def _load_role(user_id: str) -> str:
-    """Look up the caller's role from _fd.user_roles. Falls back to the default
-    role if the row is missing (e.g. the auth.users trigger has not yet fired).
+    """Look up the caller's role from _fd.user_roles.
+
+    A missing row means the auth.users trigger has not run yet, so the user
+    gets the least-privileged default role. A failed lookup (no connection,
+    missing table, query error) is different: we do not know who the caller
+    is, so we refuse the request (503) instead of guessing a role.
     """
     db = get_db()
     if db is None:
-        return DEFAULT_ROLE
+        abort(503, description="Role lookup unavailable.")
     try:
         with db.cursor() as cur:
             cur.execute(
@@ -21,12 +25,10 @@ def _load_role(user_id: str) -> str:
                 (user_id,),
             )
             row = cur.fetchone()
-            return row[0] if row else DEFAULT_ROLE
     except Exception:
-        # If the RBAC tables are not yet migrated, fail-open to default role
-        # rather than locking every authenticated user out of the app.
         db.rollback()
-        return DEFAULT_ROLE
+        abort(503, description="Role lookup unavailable.")
+    return row[0] if row else DEFAULT_ROLE
 
 
 def login_required(*allowed_roles):

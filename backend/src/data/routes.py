@@ -1,6 +1,7 @@
 """Flask routes managing data generalization workflow and
    p29 score calculation with user authentication."""
 
+import math
 import os
 
 from flask import (
@@ -18,11 +19,14 @@ from flask import (
 )
 
 from src.auth.decorators import login_required
-from src.dashboard.helpers import assert_can_modify_table
+from src.dashboard.helpers import assert_can_modify_dataset, assert_can_modify_table
 from .form import DataGeneralizationHandler, DataP29ScoreHandler
 from kernel import dp_budget as fl_db
 
 import asyncio
+
+import logging
+_log = logging.getLogger(__name__)
 
 routes = Blueprint("data_generalization_routes", __name__)
 
@@ -253,8 +257,9 @@ def upload_metadata(table_name):
             store_metadata(df, table_name, conn)
             flash(f"Metadata uploaded successfully for {table_name}!", "success")
             return redirect(url_for('visualization_routes.visualization'))
-        except Exception as e:
-            flash(f"Error storing metadata: {str(e)}", "danger")
+        except Exception:
+            _log.exception("storing sample metadata failed")
+            flash("Error storing metadata.", "danger")
             return redirect(request.url)
 
     return render_template("/data/upload_metadata.html",
@@ -271,16 +276,32 @@ def fl_enroll(dataset_id):
     Only datasets that have completed data generalisation should be enrolled.
     """
     payload = request.get_json(silent=True) or {}
-    total_budget = float(payload.get("total_budget", 10.0))
+    try:
+        total_budget = float(payload.get("total_budget", 10.0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "total_budget must be a number"}), 400
 
-    if total_budget <= 0:
-        return jsonify({"error": "total_budget must be positive"}), 400
+    # isfinite: JSON "Infinity" parses to float('inf'), which would be an
+    # unlimited privacy budget. NaN also fails here.
+    if not math.isfinite(total_budget) or total_budget <= 0:
+        return jsonify({"error": "total_budget must be a positive finite number"}), 400
+
+    # Enrolling sets (or resets) the dataset's privacy budget, so only its
+    # owner or an admin may do it.
+    try:
+        with g.db.cursor() as cur:
+            assert_can_modify_dataset(cur, dataset_id, g.user, g.role)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except PermissionError:
+        return jsonify({"error": "dataset not found"}), 404
 
     try:
         fl_db.enroll_dataset(g.db, dataset_id, total_budget)
-    except Exception as exc:
+    except Exception:
         g.db.rollback()
-        return jsonify({"error": str(exc)}), 500
+        _log.exception("FL enrolment failed")
+        return jsonify({"error": "enrolment failed"}), 500
 
     return jsonify({
         "dataset_id": dataset_id,

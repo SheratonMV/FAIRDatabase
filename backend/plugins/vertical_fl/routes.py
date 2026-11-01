@@ -17,6 +17,7 @@ plugin. UI is served by the horizontal_fl dashboard (/fl/ui).
 from flask import Blueprint, g, jsonify, request
 
 from kernel.auth import login_required
+from kernel.rbac import assert_can_modify_dataset
 
 from . import db as vfl_db
 
@@ -72,9 +73,16 @@ def create_task():
     dp_delta = float(payload.get("dp_delta", 1e-5))
     rounds_total = int(payload["rounds_total"])
 
-    # Reject a dataset_id the caller can't spend DP budget against.
+    # Reject a dataset_id the caller doesn't own or that has no DP budget.
     dataset_id = payload.get("dataset_id")
     if dataset_id is not None:
+        try:
+            with g.db.cursor() as cur:
+                assert_can_modify_dataset(cur, dataset_id, g.user, g.role)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        except PermissionError:
+            return jsonify({"error": "dataset not found"}), 404
         from kernel import dp_budget
         if dp_budget.get_epsilon_budget(g.db, dataset_id) is None:
             return jsonify({"error": "dataset_id is not FL-eligible"}), 400
@@ -170,6 +178,10 @@ def submit_psi(task_id):
     task, err = _load_task_authorized(task_id)
     if err:
         return err
+    # The hashed IDs are deleted once the cohort is aligned, so a late
+    # submission would start a new, never-completing PSI round.
+    if task.get("psi_status") == "aligned":
+        return jsonify({"error": "PSI already aligned for this task"}), 409
     payload = request.get_json(silent=True) or {}
     missing = {"site_id", "hashed_ids"} - set(payload)
     if missing:

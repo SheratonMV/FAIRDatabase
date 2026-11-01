@@ -38,6 +38,9 @@ import os
 import zipfile
 import pandas as pd
 
+import logging
+_log = logging.getLogger(__name__)
+
 routes = Blueprint("dashboard_routes", __name__)
 
 
@@ -161,10 +164,10 @@ def upload():
             # show that it is uploaded succesfully
             return jsonify({"status": "success", "message": f"Dataset '{main_table}' uploaded successfully! {len(chunks)} table(s) created."}), 200
 
-        except Exception as e:
+        except Exception:
             conn.rollback()
-            print(e)
-            return jsonify({"status": "error", "message": f"Upload failed: {str(e)}"}), 400
+            _log.exception("dataset upload failed")
+            return jsonify({"status": "error", "message": "Upload failed. Check that the file is a valid CSV and try again."}), 400
 
     return render_template("/dashboard/upload.html", user_email=user_email)
 
@@ -226,10 +229,11 @@ def display():
                 matching_tables = filter_readable_tables(
                     cur, matching_tables, g.user, g.role
                 )
-        except Error as e:
+        except Error:
             conn.rollback()
+            _log.exception("schema query failed")
             raise GenericExceptionHandler(
-                f"Schema query failed: {str(e)}", status_code=500
+                "Schema query failed.", status_code=500
             )
 
         results = {}
@@ -270,10 +274,11 @@ def display():
                 total_rows += len(rows)
                 total_columns += len(columns)
 
-            except Error as e:
+            except Error:
                 conn.rollback()
+                _log.exception("schema query failed")
                 raise GenericExceptionHandler(
-                    f"Schema query failed: {str(e)}", status_code=500
+                    "Schema query failed.", status_code=500
                 )
 
         if not results:
@@ -402,10 +407,11 @@ def search():
                     cur, table_names, g.user, g.role
                 )
 
-        except Error as e:
+        except Error:
             conn.rollback()
+            _log.exception("search row fetch failed")
             raise GenericExceptionHandler(
-                f"Failed to fetch rows: {str(e)}", status_code=500
+                "Failed to fetch rows.", status_code=500
             )
 
         manageable = _manageable_datasets(conn)
@@ -449,21 +455,37 @@ def update():
         column_name = request.form.get("column_name")
         new_value = request.form.get("new_value")
 
+        if not column_name or not row_id:
+            raise GenericExceptionHandler(
+                "Row id and column name are required", status_code=400
+            )
+
         with conn.cursor() as cur:
+            # Only uploaded datasets (rows in metadata_tables) that have both
+            # the exact column named and a rowid column. The old lookup was a
+            # substring match over every _fd table, app tables (roles,
+            # grants, audit) included, and then wrote to the typed name.
             try:
                 cur.execute(
                     """
-                    SELECT DISTINCT table_name
-                    FROM information_schema.columns
-                    WHERE column_name ILIKE %s
-                    AND table_schema = '_fd';
+                    SELECT DISTINCT c.table_name
+                    FROM information_schema.columns c
+                    JOIN _fd.metadata_tables m ON m.table_name = c.table_name
+                    WHERE c.table_schema = '_fd'
+                      AND c.column_name = %s
+                      AND EXISTS (
+                          SELECT 1 FROM information_schema.columns r
+                          WHERE r.table_schema = '_fd'
+                            AND r.table_name = c.table_name
+                            AND r.column_name = 'rowid');
                     """,
-                    (f"%{column_name}%",),
+                    (column_name,),
                 )
-            except Error as e:
-                conn.rolback()
+            except Error:
+                conn.rollback()
+                _log.exception("update: column lookup failed")
                 raise GenericExceptionHandler(
-                    f"Failed to select rows: {str(e)}", status_code=500
+                    "Failed to look up the column", status_code=500
                 )
 
             tables = [row[0] for row in cur.fetchall()]
@@ -485,10 +507,11 @@ def update():
                         (new_value, row_id),
                     )
 
-            except Error as e:
+            except Error:
                 conn.rollback()
+                _log.exception("update: row update failed")
                 raise GenericExceptionHandler(
-                    f"Failed to update rows: {str(e)}", status_code=500
+                    "Failed to update rows", status_code=500
                 )
 
         conn.commit()
@@ -560,10 +583,11 @@ def table_preview():
 
             res = cur.fetchone()
 
-    except Error as e:
+    except Error:
         conn.rollback()
+        _log.exception("table information query failed")
         raise GenericExceptionHandler(
-            message=f"Error fetching table information: {str(e)}",
+            message="Error fetching table information.",
             status_code=500,
         )
 
@@ -594,10 +618,11 @@ def table_preview():
             )
             rows = cur.fetchall()
 
-        except Error as e:
+        except Error:
             conn.rollback()
+            _log.exception("table preview select failed")
             raise GenericExceptionHandler(
-                message=f"Error selecting data: {str(e)}",
+                message="Error selecting data.",
                 status_code=500,
             )
 

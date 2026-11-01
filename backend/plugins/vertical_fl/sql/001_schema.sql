@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS _fd.vfl_tasks (
     sim_n_clients   INT NOT NULL DEFAULT 3,
     sim_alpha       FLOAT NOT NULL DEFAULT 0.5,
     model_arch      JSONB NOT NULL DEFAULT '{}'::jsonb,
-    dataset_id      UUID,
+    dataset_id      INTEGER,  -- _fd.metadata_tables.id
     created_by      UUID,
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
@@ -69,3 +69,21 @@ ALTER TABLE _fd.vfl_rounds ADD COLUMN IF NOT EXISTS gradients JSONB;
 CREATE INDEX IF NOT EXISTS vfl_parties_task_idx ON _fd.vfl_parties (task_id);
 CREATE INDEX IF NOT EXISTS vfl_psi_task_idx     ON _fd.vfl_psi     (task_id);
 CREATE INDEX IF NOT EXISTS vfl_rounds_task_idx  ON _fd.vfl_rounds  (task_id);
+
+-- dataset_id points at _fd.metadata_tables.id, which is an integer. It used
+-- to be declared UUID, so no real dataset could ever be enrolled or bound,
+-- and nothing tied a budget/task to a dataset its caller owns. Convert in
+-- place when the column holds no dataset ids yet; otherwise leave it and
+-- say so, because converting would throw those ids away.
+DO $$
+BEGIN
+    IF (SELECT data_type FROM information_schema.columns
+         WHERE table_schema = '_fd' AND table_name = 'vfl_tasks'
+           AND column_name = 'dataset_id') = 'uuid' THEN
+        IF EXISTS (SELECT 1 FROM _fd.vfl_tasks WHERE dataset_id IS NOT NULL) THEN
+            RAISE NOTICE '_fd.vfl_tasks.dataset_id is UUID and holds rows; not converted';
+        ELSE
+            ALTER TABLE _fd.vfl_tasks ALTER COLUMN dataset_id TYPE INTEGER USING NULL;
+        END IF;
+    END IF;
+END $$;

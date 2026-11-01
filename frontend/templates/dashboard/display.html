@@ -12,7 +12,7 @@
 <div class="topnav">
     <a href="/dashboard/dashboard">Dashboard</a>
     <a href="/dashboard/search">Database Search</a>
-    <a href="/auth/logout">Logout</a>
+    <form action="/auth/logout" method="post" style="display:inline">{{ csrf_input() }}<button type="submit">Logout</button></form>
 </div>
 <body>
     {% if search_term %}
@@ -27,7 +27,7 @@
             {% endfor %}
         </ul>
         
-    <form action="/dashboard/display" method="post">
+    <form action="/dashboard/display" method="post">{{ csrf_input() }}
         <button type="submit">Download Results</button>
     </form>
     {% endif %}    

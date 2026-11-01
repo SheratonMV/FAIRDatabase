@@ -3,6 +3,7 @@ Handlers for data generalization and P29 score calculation.
 """
 
 import os
+import uuid
 
 from flask import request, session, current_app
 from werkzeug.utils import secure_filename
@@ -88,7 +89,10 @@ class DataGeneralizationHandler(BaseHandler):
                 description: File upload failed
         """
         self._validate_file(file)
-        filename = secure_filename(file.filename)
+        # Unique per upload: the upload folder is shared by all users, so a
+        # plain filename would let two curators overwrite each other's
+        # in-progress file (and /download_generalized would then serve it).
+        filename = f"{uuid.uuid4().hex}_{secure_filename(file.filename)}"
         self._filepath = os.path.join(
             current_app.config["UPLOAD_FOLDER"], filename)
 

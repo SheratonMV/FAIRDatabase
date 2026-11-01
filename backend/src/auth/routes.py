@@ -16,8 +16,15 @@ from .form import LoginHandler, RegisterHandler
 routes = Blueprint("auth_routes", __name__)
 
 
+def _login_email_key():
+    """Rate-limit bucket per target account, so password guessing against
+    one e-mail is capped no matter how many addresses the guesser uses."""
+    return "login-email:" + (request.form.get("email") or "").strip().lower()
+
+
 @routes.route("/login", methods=["GET", "POST"])
 @limiter.limit("5 per minute")
+@limiter.limit("20 per hour", key_func=_login_email_key, methods=["POST"])
 def login():
     """
     Authenticate user and start a session.
@@ -55,7 +62,7 @@ def login():
         return handle.handle_auth()
 
 
-@routes.route("/logout")
+@routes.route("/logout", methods=["POST"])
 def logout():
     """
     Log out the current user and reset session state.
@@ -67,9 +74,14 @@ def logout():
     responses:
       302:
         description: Redirect to the home page after successful logout.
+      400:
+        description: Missing or invalid CSRF token.
     """
-    session.pop("user", None)
-    session.pop("uploaded_filepath", None)
+    # POST-only with the CSRF token, so another site cannot log a user out by
+    # embedding the URL in an <img> tag. Clear everything (email, CSRF token,
+    # file paths) rather than picking keys, then re-seed the workflow flags
+    # that other pages read with session["..."].
+    session.clear()
     uploaded = False
     columns_dropped = False
     missing_values_reviewed = False

@@ -13,7 +13,10 @@ task-stratified Gaussian DP on embedding gradients, and Rényi DP accounting per
   here and in `model_arch`, never hardcoded in the engine.
 - **PSI** (`_fd.vfl_psi`) — parties submit SHA-256-hashed patient IDs; the server
   computes the hash-set intersection once all parties have submitted and stores the
-  aligned cohort size on `vfl_tasks`. Honest-but-curious threat model.
+  aligned cohort size on `vfl_tasks`, then deletes the submitted hashes (later
+  submissions get 409). Sites should hash IDs with a shared secret key
+  (HMAC-SHA256), not plain SHA-256: plain hashes of guessable patient IDs can be
+  reversed by hashing candidates. Honest-but-curious threat model.
 - **Embedding submission + aggregation** — each party POSTs its LSTM-encoded
   embedding slice for a round; when all `n_parties` have submitted, the server
   concatenates them, runs the top-model forward + backward pass, applies
