@@ -9,6 +9,9 @@ from flask import g, session
 
 from config import get_db, supabase_extension
 
+import logging
+_log = logging.getLogger(__name__)
+
 
 ALLOWED_ROLES = ("admin", "curator", "accessor", "visualizer")
 
@@ -157,7 +160,8 @@ class RoleAssignHandler:
             return True, f"Role updated to {self.new_role}."
         except Exception as exc:
             db.rollback()
-            return False, f"Role update failed: {exc}"
+            _log.exception("role update failed")
+            return False, "Role update failed."
 
 
 class GrantsHandler:
@@ -272,7 +276,8 @@ class GrantsHandler:
             return True, "Access granted."
         except Exception as exc:
             db.rollback()
-            return False, f"Grant failed: {exc}"
+            _log.exception("grant failed")
+            return False, "Grant failed."
 
     def revoke(self, target_user_id):
         target_user_id = str(target_user_id or "").strip()
@@ -302,7 +307,8 @@ class GrantsHandler:
             return True, "Access revoked."
         except Exception as exc:
             db.rollback()
-            return False, f"Revoke failed: {exc}"
+            _log.exception("revoke failed")
+            return False, "Revoke failed."
 
     @property
     def ctx(self):

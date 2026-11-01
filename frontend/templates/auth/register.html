@@ -23,7 +23,7 @@
                            </div>
                         {% endif %}
                      {% endwith %}
-                     <form id="register-form" method="post" action="{{ url_for('auth_routes.register') }}">
+                     <form id="register-form" method="post" action="{{ url_for('auth_routes.register') }}">{{ csrf_input() }}
                         <div class="form-group">
                            <label for="email">Email:</label><br>
                            <input class="form-control" type="email" name="email" required style="width: 80%;" id="email">

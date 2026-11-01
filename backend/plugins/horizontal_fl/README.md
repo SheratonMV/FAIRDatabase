@@ -40,7 +40,9 @@ Mounted at `url_prefix=/fl`. The dashboard UI is at `/fl/ui` (was
 
 `POST /fl/tasks/<id>/export-params` writes a PBPK parameter set by calling the
 PBPK plugin's HTTP API (`POST /model/parameter-sets`), forwarding the caller's
-session cookie — never by importing PBPK code (guide §3).
+session cookie — never by importing PBPK code (guide §3). The target is
+`FAIRDB_INTERNAL_URL` (default `http://127.0.0.1:5000`), not the request's
+`Host` header, so a client cannot redirect the forwarded cookies elsewhere.
 
 ## Schema
 

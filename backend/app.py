@@ -17,6 +17,7 @@ from kernel.loader import (
     bootstrap_plugin_buckets,
 )
 from src.exceptions import GenericExceptionHandler
+from src.csrf import init_csrf
 from src.auth.routes import routes as auth_routes
 from src.dashboard.routes import routes as dashboard_routes
 from src.data.routes import routes as data_routes
@@ -26,7 +27,7 @@ from src.visualization.routes import routes as visualization_routes
 from src.admin.routes import routes as admin_routes
 from src.demo.routes import routes as demo_routes
 
-from config import load_settings
+from config import load_settings, require_strong_secret_key
 
 
 def _bootstrap_admin(app):
@@ -39,6 +40,27 @@ def _bootstrap_admin(app):
     """
     admin_email = (os.getenv("ADMIN_EMAIL") or "").strip().lower()
     if not admin_email:
+        return
+
+    # Promotion trusts "this address is confirmed". With e-mail auto-confirm
+    # on, Supabase marks every signup confirmed without sending anything, so
+    # a stranger who registers ADMIN_EMAIL first would become admin. Refuse
+    # unless auto-confirm is visibly off. If the setting is missing, Flask
+    # cannot tell, so refuse as well. An existing admin keeps the role either
+    # way; this only blocks new promotions. For a local machine nobody else
+    # can reach, ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM=true lifts the refusal.
+    autoconfirm = (os.getenv("ENABLE_EMAIL_AUTOCONFIRM") or "").strip().lower()
+    allow_local = (
+        os.getenv("ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM", "").strip().lower() == "true"
+    )
+    if autoconfirm != "false" and not allow_local:
+        app.logger.warning(
+            "Not promoting ADMIN_EMAIL=%s: ENABLE_EMAIL_AUTOCONFIRM is %r, so "
+            "Supabase does not verify that the address belongs to whoever "
+            "registered it. Set ENABLE_EMAIL_AUTOCONFIRM=false (needs SMTP), "
+            "or ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM=true on a local-only setup.",
+            admin_email, autoconfirm or "unset",
+        )
         return
 
     url = app.config.get("SUPABASE_URL")
@@ -58,6 +80,17 @@ def _bootstrap_admin(app):
         if not user_id:
             app.logger.info(
                 "ADMIN_EMAIL=%s not yet registered; skipping admin promotion",
+                admin_email,
+            )
+            return
+
+        # Anyone can sign up with any address. Promote only once the address
+        # is confirmed (meaningful because auto-confirm was ruled out above).
+        auth_user = client.auth.admin.get_user_by_id(user_id).user
+        if not getattr(auth_user, "email_confirmed_at", None):
+            app.logger.warning(
+                "ADMIN_EMAIL=%s is registered but not confirmed; "
+                "skipping admin promotion",
                 admin_email,
             )
             return
@@ -95,7 +128,7 @@ def _bootstrap_admin(app):
         app.logger.warning("Admin bootstrap failed: %s", exc)
 
 
-def _apply_schema(app):
+def _apply_schema(app, order=None):
     """Idempotently apply the core SQL schema files at boot.
 
     Every file is written with ``CREATE ... IF NOT EXISTS`` / ``ADD COLUMN
@@ -110,7 +143,7 @@ def _apply_schema(app):
     (its plugin-dependent tail ALTERs moved into the owning plugin/kernel SQL).
     """
     base = os.path.dirname(os.path.abspath(__file__))
-    order = [
+    order = order or [
         "migrate_schema.sql",
         "rbac_schema.sql",
         "demo_schema.sql",
@@ -156,10 +189,15 @@ def create_app(db_name=None):
         static_folder=os.path.join(_base, "../static"),
     )
     app.config.from_object(Config)
-    # Trust one layer of reverse proxy so request.remote_addr (and thus the
-    # rate limiter's per-client key) reflects the real client IP via
-    # X-Forwarded-For instead of collapsing every caller to the proxy IP.
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+    require_strong_secret_key(app)
+    # Believe X-Forwarded-* only from the configured number of reverse
+    # proxies. Trusting it while Flask is reachable directly would let any
+    # client pick its own IP and slip past the per-IP rate limits.
+    n_proxies = app.config.get("TRUSTED_PROXY_COUNT", 0)
+    if n_proxies > 0:
+        app.wsgi_app = ProxyFix(
+            app.wsgi_app, x_for=n_proxies, x_proto=n_proxies, x_host=n_proxies
+        )
     if db_name is not None:
         app.config["POSTGRES_DB_NAME"] = db_name
 
@@ -210,10 +248,14 @@ def create_app(db_name=None):
         # Kernel SQL + each plugin's migrations. After _apply_schema so the
         # _fd schema exists; idempotent.
         apply_plugin_schema(app, plugins)
+        # Last, so it also covers kernel + plugin tables: take back the
+        # blanket _fd grants and switch row rules on everywhere.
+        _apply_schema(app, ["fd_lockdown.sql"])
         _bootstrap_admin(app)
         bootstrap_plugin_buckets(app, plugins)
 
     app.teardown_appcontext(teardown_db)
+    init_csrf(app)
 
     @app.before_request
     def before_request():
@@ -247,4 +289,7 @@ if __name__ == "__main__":
     # threaded=True so a plugin can make an in-process HTTP call to another
     # plugin's route (e.g. horizontal_fl → POST /model/parameter-sets) without
     # the single-threaded dev server deadlocking on the self-request.
-    app.run(debug=True, threaded=True)
+    # The interactive debugger runs arbitrary Python from the browser, so it
+    # is opt-in (FLASK_DEBUG=1) and never on by default.
+    debug = os.getenv("FLASK_DEBUG", "0").lower() in ("1", "true")
+    app.run(debug=debug, threaded=True)

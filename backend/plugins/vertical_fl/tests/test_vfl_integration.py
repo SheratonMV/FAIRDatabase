@@ -189,15 +189,45 @@ def test_dataset_epsilon_for_round_telescopes_to_cumulative():
 
 # ── DB-dependent tests (require live services) ────────────────────────────────
 
-def test_simulate_charges_kernel_epsilon_ledger(app, curator_user, vfl_task_cleanup):
-    """Simulation on a budgeted dataset spends the ledger and 403s when exhausted."""
+def _make_dataset(app, owner_id):
+    """Insert a catalog row owned by ``owner_id``; return its integer id."""
     import uuid
 
     from app import get_db
+
+    with app.app_context():
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute(
+                "INSERT INTO _fd.metadata_tables (table_name, main_table, owner_id) "
+                "VALUES (%s, %s, %s) RETURNING id",
+                (f"vfl_test_{uuid.uuid4().hex[:8]}", "vfl_test", str(owner_id)),
+            )
+            ds_id = cur.fetchone()[0]
+        db.commit()
+    return ds_id
+
+
+def _drop_dataset(app, ds_id):
+    from app import get_db
+
+    with app.app_context():
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute(
+                "DELETE FROM _fd.fl_epsilon_budget WHERE dataset_id = %s", (ds_id,)
+            )
+            cur.execute("DELETE FROM _fd.metadata_tables WHERE id = %s", (ds_id,))
+        db.commit()
+
+
+def test_simulate_charges_kernel_epsilon_ledger(app, curator_user, vfl_task_cleanup):
+    """Simulation on a budgeted dataset spends the ledger and 403s when exhausted."""
+    from app import get_db
     from kernel import dp_budget
 
-    client, _ = curator_user
-    dataset_id = str(uuid.uuid4())
+    client, user = curator_user
+    dataset_id = _make_dataset(app, user.id)
 
     with app.app_context():
         db = get_db()
@@ -223,26 +253,47 @@ def test_simulate_charges_kernel_epsilon_ledger(app, curator_user, vfl_task_clea
             budget = dp_budget.get_epsilon_budget(get_db(), dataset_id)
         assert 0 < budget["spent"] <= budget["total_budget"]
     finally:
-        with app.app_context():
-            db = get_db()
-            with db.cursor() as cur:
-                cur.execute(
-                    "DELETE FROM _fd.fl_epsilon_budget WHERE dataset_id = %s",
-                    (dataset_id,),
-                )
-            db.commit()
+        _drop_dataset(app, dataset_id)
 
 
-def test_create_task_rejects_unenrolled_dataset(curator_user):
-    """create_task refuses a dataset_id with no epsilon-budget row."""
+def test_create_task_rejects_unenrolled_dataset(app, curator_user):
+    """create_task refuses an owned dataset that has no epsilon-budget row."""
+    client, user = curator_user
+    dataset_id = _make_dataset(app, user.id)
+    try:
+        resp = client.post("/vfl/tasks", json={
+            "dp_epsilon": 1.0, "rounds_total": 5, "dataset_id": dataset_id,
+        })
+        assert resp.status_code == 400
+    finally:
+        _drop_dataset(app, dataset_id)
+
+
+def test_create_task_rejects_someone_elses_dataset(app, curator_user):
+    """A curator cannot bind a task to (and spend the budget of) a dataset
+    owned by another user, even when that dataset is enrolled."""
     import uuid
 
+    from app import get_db
+
     client, _ = curator_user
-    resp = client.post("/vfl/tasks", json={
-        "dp_epsilon": 1.0, "rounds_total": 5,
-        "dataset_id": str(uuid.uuid4()),
-    })
-    assert resp.status_code == 400
+    dataset_id = _make_dataset(app, uuid.uuid4())
+    with app.app_context():
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute(
+                "INSERT INTO _fd.fl_epsilon_budget (dataset_id, total_budget) "
+                "VALUES (%s, 10.0)",
+                (dataset_id,),
+            )
+        db.commit()
+    try:
+        resp = client.post("/vfl/tasks", json={
+            "dp_epsilon": 1.0, "rounds_total": 5, "dataset_id": dataset_id,
+        })
+        assert resp.status_code == 404
+    finally:
+        _drop_dataset(app, dataset_id)
 
 
 @pytest.mark.skip(reason="requires live DB — run with services up")

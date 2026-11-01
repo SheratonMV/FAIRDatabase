@@ -48,7 +48,7 @@
           <tbody>
           {% for b in budgets %}
           <tr class="{% if b.remaining <= 0 %}table-danger{% elif b.remaining < b.total_budget * 0.2 %}table-warning{% endif %}">
-            <td>{{ b.table_name or b.dataset_id[:8] }}</td>
+            <td>{{ b.table_name or b.dataset_id }}</td>
             <td>{{ '%.3f'|format(b.total_budget) }}</td>
             <td>{{ '%.3f'|format(b.spent) }}</td>
             <td>{{ '%.3f'|format(b.remaining) }}</td>

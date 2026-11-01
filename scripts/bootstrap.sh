@@ -35,8 +35,33 @@ done
 # (Supavisor vault, issued JWTs) and crash-loop services on next `up`.
 DB_DATA_DIR="$BACKEND_DIR/volumes/db/data"
 DB_VOLUME_EXISTS=false
-if [[ -f "$DB_DATA_DIR/PG_VERSION" ]]; then
-    DB_VOLUME_EXISTS=true
+# Postgres makes this folder private to its own container user, so on a real
+# install we usually cannot look inside (testing for PG_VERSION silently
+# fails). Treat "exists but unreadable" or "not empty" as an existing
+# database; only a missing or empty folder (as this script creates it) is new.
+if [[ -d "$DB_DATA_DIR" ]]; then
+    if [[ ! -r "$DB_DATA_DIR" || ! -x "$DB_DATA_DIR" ]] \
+        || [[ -n "$(ls -A "$DB_DATA_DIR" 2>/dev/null)" ]]; then
+        DB_VOLUME_EXISTS=true
+    fi
+fi
+RESET_HINT="cd '$BACKEND_DIR' && docker compose down && sudo rm -rf '$DB_DATA_DIR'"
+
+# --auto invents a new POSTGRES_PASSWORD. An existing database still expects
+# the old one, so every Supabase service would fail to log in and restart
+# forever. Stop before writing anything.
+if [[ "$AUTO_MODE" == true && "$DB_VOLUME_EXISTS" == true ]]; then
+    echo ""
+    echo "[ERROR] --auto refused: a database already exists at"
+    echo "        $DB_DATA_DIR"
+    echo "  --auto would generate a new database password that the existing"
+    echo "  database does not know, and the stack would stop working."
+    echo "  Either:"
+    echo "    - re-run WITHOUT --auto (reuses the passwords in backend/.env):"
+    echo "        bash scripts/bootstrap.sh"
+    echo "    - or start from scratch (DELETES ALL DATA):"
+    echo "        $RESET_HINT"
+    exit 1
 fi
 
 # --- Helper functions ---
@@ -95,9 +120,12 @@ if [[ "$AUTO_MODE" == true ]]; then
     DISABLE_SIGNUP="false"
     ENABLE_EMAIL_AUTOCONFIRM="true"
     FED_API_BASE="http://host.docker.internal:7070"
-    ADMIN_EMAIL=""
-    FAIRDB_PLUGINS=""
-    FAIRDB_PLUGINS_DISABLED=""
+    # Settings the operator chose by hand survive an --auto re-run.
+    ADMIN_EMAIL=$(read_env_var "ADMIN_EMAIL")
+    ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM=$(read_env_var "ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM")
+    ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM=${ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM:-true}
+    FAIRDB_PLUGINS=$(read_env_var "FAIRDB_PLUGINS")
+    FAIRDB_PLUGINS_DISABLED=$(read_env_var "FAIRDB_PLUGINS_DISABLED")
 elif [[ -f "$ENV_FILE" ]]; then
     echo "[READ] Reading admin passwords from $ENV_FILE ..."
 
@@ -118,6 +146,7 @@ elif [[ -f "$ENV_FILE" ]]; then
     # admin user. Must be preserved across re-runs or the admin silently
     # loses their role.
     ADMIN_EMAIL=$(read_env_var "ADMIN_EMAIL")
+    ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM=$(read_env_var "ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM")
     # Plugin selection — preserved across re-runs so an operator's choice of
     # which plugins to load isn't silently reset on every bootstrap.
     FAIRDB_PLUGINS=$(read_env_var "FAIRDB_PLUGINS")
@@ -134,6 +163,22 @@ elif [[ -f "$ENV_FILE" ]]; then
         echo ""
         echo "  Or run with --auto to generate random passwords:"
         echo "    bash scripts/bootstrap.sh --auto"
+        exit 1
+    fi
+
+    # Same rule the app applies at startup (config.require_strong_secret_key).
+    # Checking here stops a weak key before the app container starts and
+    # restarts in a loop.
+    case "$(echo "$FLASK_SECRET_KEY" | tr '[:upper:]' '[:lower:]')" in
+        supersecret|change-me-in-production|your-flask-secret|dev|secret) WEAK_KEY=true ;;
+        *) WEAK_KEY=false ;;
+    esac
+    if [[ "$WEAK_KEY" == true || ${#FLASK_SECRET_KEY} -lt 16 ]]; then
+        echo ""
+        echo "[ERROR] SECRET_KEY in $ENV_FILE is too short (under 16 characters)"
+        echo "        or a well-known placeholder. The app refuses to start with it."
+        echo "  Generate one and paste it into backend/.env:"
+        echo "    openssl rand -base64 32"
         exit 1
     fi
 
@@ -179,7 +224,7 @@ if [[ "$ROTATE_SECRETS" == true && "$DB_VOLUME_EXISTS" == true ]]; then
     echo "        $DB_DATA_DIR"
     echo "  Rotating JWT_SECRET / VAULT_ENC_KEY against existing internal-role"
     echo "  passwords will crash-loop Supabase. Either:"
-    echo "    - wipe the volume (DESTROYS DATA): rm -rf '$DB_DATA_DIR' && re-run, or"
+    echo "    - wipe the volume (DESTROYS DATA): $RESET_HINT && re-run, or"
     echo "    - follow the existing-volume repair path in readme.md."
     exit 1
 fi
@@ -230,6 +275,8 @@ DASHBOARD_PASSWORD=$DASHBOARD_PASSWORD
 
 # --- PostgreSQL ---
 POSTGRES_HOST=db
+# Port Postgres listens on INSIDE Docker. Do not change: every Supabase
+# service uses it. Flask on the host gets 127.0.0.1:5433 from run.sh.
 POSTGRES_PORT=5432
 POSTGRES_DB=postgres
 
@@ -280,7 +327,9 @@ KONG_HTTP_PORT=8000
 KONG_HTTPS_PORT=8443
 
 # --- PostgREST ---
-PGRST_DB_SCHEMAS=public,_fd,storage,graphql_public
+# _fd is deliberately absent: the app never reads it over REST, and listing it
+# lets any signed-up user query app tables directly through Kong.
+PGRST_DB_SCHEMAS=public,storage,graphql_public
 
 # --- Supabase Realtime (auto-generated) ---
 SECRET_KEY_BASE=$SECRET_KEY_BASE
@@ -313,6 +362,7 @@ ALLOWED_EXTENSIONS=csv
 # Auto-promoted to admin on every Flask boot (_bootstrap_admin). Preserved
 # across bootstrap re-runs; leave blank to skip admin auto-promotion.
 ADMIN_EMAIL=$ADMIN_EMAIL
+ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM=${ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM:-true}
 
 # Plugin selection (loader auto-discovers backend/plugins/* otherwise).
 #   FAIRDB_PLUGINS          — allowlist; ONLY these load (empty = all).
@@ -342,6 +392,19 @@ if [[ -z "$ADMIN_EMAIL" ]]; then
     echo "         admin user. Set ADMIN_EMAIL in $ENV_FILE and restart Flask."
 else
     echo "  Admin (auto-promoted on boot): $ADMIN_EMAIL"
+    if [[ "${ENABLE_EMAIL_AUTOCONFIRM:-true}" != "false" ]]; then
+        if [[ "${ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM:-true}" == "true" ]]; then
+            echo "  [WARN] Signups are not e-mail-verified, and $ADMIN_EMAIL is"
+            echo "         promoted anyway (ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM=true)."
+            echo "         Whoever registers that address first becomes admin:"
+            echo "         register it yourself right after the stack is up."
+        else
+            echo "  [WARN] Signups are not e-mail-verified, so Flask will NOT"
+            echo "         promote $ADMIN_EMAIL. Either configure SMTP_* and set"
+            echo "         ENABLE_EMAIL_AUTOCONFIRM=false, or set"
+            echo "         ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM=true in $ENV_FILE."
+        fi
+    fi
 fi
 
 # --- Step 2: Create volumes directory structure ---
@@ -356,6 +419,9 @@ _format_version: '1.1'
 
 consumers:
   - username: DASHBOARD
+    basicauth_credentials:
+      - username: $DASHBOARD_USERNAME
+        password: $DASHBOARD_PASSWORD
   - username: anon
     keyauth_credentials:
       - key: ${SUPABASE_ANON_KEY}
@@ -645,6 +711,85 @@ BEGIN
 END $$;
 SQLEOF
 
+# Idempotent _fd/_demo ownership repair. On a fresh volume Postgres runs the
+# mounted core schemas (migrate/rbac/demo) as supabase_admin, so those _fd
+# tables, types and functions belong to supabase_admin. Flask logs in as
+# `postgres`, which is NOT a superuser in this image, so it could not write
+# _fd.user_roles (admin promotion), _fd.metadata_tables (uploads) or re-apply
+# the schemas at boot ("must be owner of ..."). Hand everything in _fd and
+# _demo that supabase_admin owns to postgres. Touches only those two schemas;
+# safe to run every boot.
+cat > "$VOLUMES_DIR/db/fd_ownership.sql" << 'SQLEOF'
+DO $$
+DECLARE
+  sch text;
+  r record;
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'postgres') THEN
+    RETURN;
+  END IF;
+
+  -- The app's own schemas: _fd (datasets, roles, grants, plugins) and
+  -- _demo (public demo API). Nothing else is touched.
+  FOREACH sch IN ARRAY ARRAY['_fd', '_demo'] LOOP
+    CONTINUE WHEN NOT EXISTS (SELECT FROM pg_namespace WHERE nspname = sch);
+
+    IF (SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = sch)
+       = 'supabase_admin' THEN
+      EXECUTE format('ALTER SCHEMA %I OWNER TO postgres', sch);
+    END IF;
+
+    -- Tables, views, materialized views. A table's own sequences (serial /
+    -- identity columns) move with it.
+    FOR r IN
+      SELECT c.oid::regclass AS obj, c.relkind
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = sch
+        AND pg_get_userbyid(c.relowner) = 'supabase_admin'
+        AND c.relkind IN ('r', 'p', 'v', 'm')
+    LOOP
+      EXECUTE format('ALTER %s %s OWNER TO postgres',
+        CASE r.relkind WHEN 'v' THEN 'VIEW'
+                       WHEN 'm' THEN 'MATERIALIZED VIEW'
+                       ELSE 'TABLE' END,
+        r.obj);
+    END LOOP;
+
+    -- Stand-alone sequences not tied to a table.
+    FOR r IN
+      SELECT c.oid::regclass AS obj
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = sch AND c.relkind = 'S'
+        AND pg_get_userbyid(c.relowner) = 'supabase_admin'
+    LOOP
+      EXECUTE format('ALTER SEQUENCE %s OWNER TO postgres', r.obj);
+    END LOOP;
+
+    -- Enum and domain types (e.g. _fd.user_role).
+    FOR r IN
+      SELECT t.oid::regtype AS obj
+      FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+      WHERE n.nspname = sch
+        AND pg_get_userbyid(t.typowner) = 'supabase_admin'
+        AND t.typtype IN ('e', 'd')
+    LOOP
+      EXECUTE format('ALTER TYPE %s OWNER TO postgres', r.obj);
+    END LOOP;
+
+    -- Functions (current_role, handle_new_auth_user, ...). The SECURITY
+    -- DEFINER ones then run as postgres instead of the superuser.
+    FOR r IN
+      SELECT p.oid::regprocedure AS obj
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = sch
+        AND pg_get_userbyid(p.proowner) = 'supabase_admin'
+    LOOP
+      EXECUTE format('ALTER ROUTINE %s OWNER TO postgres', r.obj);
+    END LOOP;
+  END LOOP;
+END $$;
+SQLEOF
+
 # One-shot idempotent repair script run by the `db-init` compose service on
 # every `up`, before realtime/auth/supavisor/flask start. Generated (not
 # inline in compose) so Docker Compose does not $-interpolate $f / $$.
@@ -700,6 +845,14 @@ if [ -f /init/auth_ownership.sql ]; then
   echo "[db-init] repairing auth schema/function ownership (as supabase_admin)"
   psql -U supabase_admin -v ON_ERROR_STOP=0 -f /init/auth_ownership.sql \
     || echo "[db-init] WARN auth ownership"
+fi
+
+if [ -f /init/fd_ownership.sql ]; then
+  # Changing an owner away from supabase_admin needs supabase_admin (or a
+  # superuser), so connect as it, like the auth repair above.
+  echo "[db-init] handing _fd/_demo schema objects to postgres (as supabase_admin)"
+  psql -U supabase_admin -v ON_ERROR_STOP=0 -f /init/fd_ownership.sql \
+    || echo "[db-init] WARN _fd ownership"
 fi
 
 echo "[db-init] done"
@@ -874,7 +1027,7 @@ echo ""
 echo "Files created:"
 echo "  $ENV_FILE"
 echo "  $VOLUMES_DIR/api/kong.yml"
-echo "  $VOLUMES_DIR/db/{roles,jwt,realtime,webhooks,_supabase,logs,pooler,auth_ownership}.sql"
+echo "  $VOLUMES_DIR/db/{roles,jwt,realtime,webhooks,_supabase,logs,pooler,auth_ownership,fd_ownership}.sql"
 echo "  $VOLUMES_DIR/db/db-init.sh"
 echo "  $VOLUMES_DIR/logs/vector.yml"
 echo "  $VOLUMES_DIR/pooler/pooler.exs"
@@ -888,5 +1041,5 @@ echo "  docker compose ps             # Check service health"
 echo ""
 echo "Access:"
 echo "  Flask app:       http://localhost:5000"
-echo "  Supabase Studio: http://localhost:3000"
+echo "  Supabase Studio: http://localhost:${KONG_HTTP_PORT:-8000} (via Kong, dashboard login)"
 echo "  Supabase API:    http://localhost:8000"

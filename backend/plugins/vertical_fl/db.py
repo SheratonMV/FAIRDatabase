@@ -157,6 +157,11 @@ def submit_psi(conn, *, task_id: str, site_id: str,
             "WHERE id = %s",
             (cohort_size, task_id),
         )
+        # Only the cohort size is kept. The hashed patient IDs are dropped
+        # once used: unsalted hashes of known IDs can be reversed by hashing
+        # candidate IDs, so keeping them would tell anyone with DB access who
+        # is in each site's data.
+        cur.execute("DELETE FROM _fd.vfl_psi WHERE task_id = %s", (task_id,))
     conn.commit()
     return cohort_size
 

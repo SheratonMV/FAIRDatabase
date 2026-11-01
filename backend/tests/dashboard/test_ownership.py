@@ -108,3 +108,55 @@ class TestAssertCanModify:
     def test_accessor_cannot_modify(self):
         with pytest.raises(PermissionError):
             assert_can_modify_table(self.cur, "alice_t1", self.alice, "accessor")
+
+
+class _OwnerByIdCursor:
+    """Answers ``SELECT owner_id FROM _fd.metadata_tables WHERE id = %s``."""
+
+    def __init__(self, owners):
+        self._owners = owners  # {dataset_id: owner_id}
+        self._row = None
+
+    def execute(self, sql, params=()):
+        (ds_id,) = params
+        owner = self._owners.get(ds_id)
+        self._row = (owner,) if owner is not None else None
+
+    def fetchone(self):
+        return self._row
+
+
+class TestAssertCanModifyDataset:
+    """FL enrolment and FL task binding spend a dataset's privacy budget, so
+    only its owner (or an admin) may do either."""
+
+    def setup_method(self):
+        from src.dashboard.helpers import assert_can_modify_dataset
+        self.check = assert_can_modify_dataset
+        self.alice = str(uuid.uuid4())
+        self.bob = str(uuid.uuid4())
+        self.cur = _OwnerByIdCursor({1: self.alice, 2: self.bob})
+
+    def test_owner_passes(self):
+        self.check(self.cur, "1", self.alice, "curator")
+
+    def test_other_curator_refused(self):
+        with pytest.raises(PermissionError):
+            self.check(self.cur, 2, self.alice, "curator")
+
+    def test_admin_passes_on_any_existing_dataset(self):
+        self.check(self.cur, 2, self.alice, "admin")
+
+    def test_missing_dataset_refused_like_foreign_one(self):
+        with pytest.raises(PermissionError):
+            self.check(self.cur, 99, self.alice, "admin")
+
+    @pytest.mark.parametrize("role", ["accessor", "visualizer", None])
+    def test_non_curator_roles_refused(self, role):
+        with pytest.raises(PermissionError):
+            self.check(self.cur, 1, self.alice, role)
+
+    @pytest.mark.parametrize("bad", ["abc", None, "1; drop", str(uuid.uuid4())])
+    def test_non_integer_id_rejected(self, bad):
+        with pytest.raises(ValueError):
+            self.check(self.cur, bad, self.alice, "curator")

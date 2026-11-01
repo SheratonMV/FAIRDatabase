@@ -9,6 +9,9 @@ from AnonyBiome.anonymization.p_29 import P_29_score
 from .helpers import add_noise_to_df, validate_column_selection
 from src.exceptions import GenericExceptionHandler
 
+import logging
+_log = logging.getLogger(__name__)
+
 
 class PrivacyProcessingHandler(BaseHandler):
     """
@@ -68,9 +71,12 @@ class PrivacyProcessingHandler(BaseHandler):
             self._save_dataframe(filtered_df)
             self._evaluate_and_update_context(df, quasi_idents, sens_attr)
 
-        except Exception as e:
+        except GenericExceptionHandler:
+            raise
+        except Exception:
+            _log.exception("p_29 privacy filtering failed")
             raise GenericExceptionHandler(
-                f"Failed to handle p_29 score: {str(e)}", status_code=500
+                "Failed to apply the privacy thresholds.", status_code=500
             )
 
     def _get_privacy_params(self):
@@ -261,9 +267,12 @@ class DifferentialPrivacyHandler(BaseHandler):
 
             self._update_context({"selected_columns": True})
 
-        except Exception as e:
+        except GenericExceptionHandler:
+            raise
+        except Exception:
+            _log.exception("noise addition failed")
             raise GenericExceptionHandler(
-                f"Noise addition failed: {str(e)}", status_code=500
+                "Noise addition failed.", status_code=500
             )
 
     def _get_quasi_and_sensitive(self):

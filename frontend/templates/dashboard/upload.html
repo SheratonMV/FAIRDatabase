@@ -8,7 +8,7 @@
          <div class="card-body">
             <h1 class="display-3">Upload</h1>
             <br>
-            <form method="POST" enctype="multipart/form-data" id="upload-form">
+            <form method="POST" enctype="multipart/form-data" id="upload-form">{{ csrf_input() }}
                <div class="input-group mb-3">
                   <div class="input-group-prepend">
                      <span class="input-group-text" id="basic-addon1">Reference</span>

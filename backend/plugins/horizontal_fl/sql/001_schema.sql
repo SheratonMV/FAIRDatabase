@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS _fd.fl_tasks (
     sim_alpha       FLOAT NOT NULL DEFAULT 0.5,
     sim_n_clients   INT NOT NULL DEFAULT 5,
     model_arch      JSONB NOT NULL DEFAULT '{}',
-    dataset_id      UUID,
+    dataset_id      INTEGER,  -- _fd.metadata_tables.id
     created_by      UUID,
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS _fd.fl_clients (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     task_id         UUID NOT NULL REFERENCES _fd.fl_tasks(id) ON DELETE CASCADE,
     site_id         TEXT NOT NULL,
-    dataset_id      UUID,
+    dataset_id      INTEGER,  -- _fd.metadata_tables.id
     registered_at   TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (task_id, site_id)
 );
@@ -59,3 +59,39 @@ CREATE TABLE IF NOT EXISTS _fd.fl_round_submissions (
     submitted_at    TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (task_id, round_n, client_key)
 );
+
+-- dataset_id points at _fd.metadata_tables.id, which is an integer. It used
+-- to be declared UUID, so no real dataset could ever be enrolled or bound,
+-- and nothing tied a budget/task to a dataset its caller owns. Convert in
+-- place when the column holds no dataset ids yet; otherwise leave it and
+-- say so, because converting would throw those ids away.
+DO $$
+BEGIN
+    IF (SELECT data_type FROM information_schema.columns
+         WHERE table_schema = '_fd' AND table_name = 'fl_tasks'
+           AND column_name = 'dataset_id') = 'uuid' THEN
+        IF EXISTS (SELECT 1 FROM _fd.fl_tasks WHERE dataset_id IS NOT NULL) THEN
+            RAISE NOTICE '_fd.fl_tasks.dataset_id is UUID and holds rows; not converted';
+        ELSE
+            ALTER TABLE _fd.fl_tasks ALTER COLUMN dataset_id TYPE INTEGER USING NULL;
+        END IF;
+    END IF;
+END $$;
+
+-- dataset_id points at _fd.metadata_tables.id, which is an integer. It used
+-- to be declared UUID, so no real dataset could ever be enrolled or bound,
+-- and nothing tied a budget/task to a dataset its caller owns. Convert in
+-- place when the column holds no dataset ids yet; otherwise leave it and
+-- say so, because converting would throw those ids away.
+DO $$
+BEGIN
+    IF (SELECT data_type FROM information_schema.columns
+         WHERE table_schema = '_fd' AND table_name = 'fl_clients'
+           AND column_name = 'dataset_id') = 'uuid' THEN
+        IF EXISTS (SELECT 1 FROM _fd.fl_clients WHERE dataset_id IS NOT NULL) THEN
+            RAISE NOTICE '_fd.fl_clients.dataset_id is UUID and holds rows; not converted';
+        ELSE
+            ALTER TABLE _fd.fl_clients ALTER COLUMN dataset_id TYPE INTEGER USING NULL;
+        END IF;
+    END IF;
+END $$;

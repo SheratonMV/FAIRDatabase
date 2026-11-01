@@ -222,3 +222,6 @@ backend/scripts/
 .worktrees/
 docs/
 .claude/
+
+# Local test credentials (template: backend/tests/.env.test.example)
+backend/tests/.env.test

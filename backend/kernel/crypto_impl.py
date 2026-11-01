@@ -21,15 +21,23 @@ def _resolve_secret(secret_key):
     """Return ``secret_key`` if given, else the Flask app's ``SECRET_KEY``.
 
     Lets kernel callers omit the secret entirely. Falls back to the env var
-    when no app context is active (e.g. unit tests of the crypto layer).
+    when no app context is active (e.g. unit tests of the crypto layer). With
+    neither available we raise: a built-in default key would be public, so
+    anything encrypted under it would be readable by anyone.
     """
     if secret_key is not None:
         return secret_key
     try:
         from flask import current_app
-        return current_app.config["SECRET_KEY"]
+        key = current_app.config["SECRET_KEY"]
     except Exception:
-        return os.environ.get("SECRET_KEY", "dev-secret")
+        key = os.environ.get("SECRET_KEY")
+    if not key:
+        raise RuntimeError(
+            "No SECRET_KEY available for gradient encryption "
+            "(no Flask app context and SECRET_KEY env var unset)."
+        )
+    return key
 
 
 def _derive_task_key(task_id: str, secret_key: str) -> bytes:

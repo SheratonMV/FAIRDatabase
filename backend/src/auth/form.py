@@ -14,6 +14,9 @@ from flask import (
 )
 from config import supabase_extension, get_db
 
+import logging
+_log = logging.getLogger(__name__)
+
 
 def _ensure_default_role(user_id: str) -> None:
     """Idempotent fallback for the auth.users → user_roles trigger.
@@ -178,8 +181,9 @@ class RegisterHandler:
         except AuthRetryableError:
             flash("Temporary issue with signup. Please try again shortly.", "error")
             return render_template("auth/register.html", email=self.email), 503
-        except Exception as e:
-            flash(f"An unexpected error occurred during registration: {e}", "error")
+        except Exception:
+            _log.exception("registration failed")
+            flash("An unexpected error occurred during registration.", "error")
             return render_template("auth/register.html", email=self.email), 500
 
         if signup_resp is None:

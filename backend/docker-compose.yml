@@ -13,8 +13,8 @@ services:
     container_name: supabase-studio
     image: supabase/studio:20250224-d10db0f
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    # No host port: Studio has no auth of its own. Reach it through Kong
+    # (port 8000), which puts the DASHBOARD_USERNAME/PASSWORD login in front.
     healthcheck:
       test:
         [
@@ -56,8 +56,11 @@ services:
     image: kong:2.8.1
     restart: unless-stopped
     ports:
-      - ${KONG_HTTP_PORT}:8000/tcp
-      - ${KONG_HTTPS_PORT}:8443/tcp
+      # Loopback only: Kong fronts Studio (a full database admin tool) and the
+      # Supabase API, and only Flask calls it (over the Docker network). Remote
+      # admins reach Studio with an SSH tunnel: ssh -L 8000:127.0.0.1:8000 host
+      - 127.0.0.1:${KONG_HTTP_PORT}:8000/tcp
+      - 127.0.0.1:${KONG_HTTPS_PORT}:8443/tcp
     volumes:
       # https://github.com/supabase/supabase/issues/12661
       - ./volumes/api/kong.yml:/home/kong/temp.yml:ro
@@ -428,8 +431,9 @@ services:
       # (plugin_audit, dp_budget) are applied by the loader, not mounted here.
       - ./rbac_schema.sql:/docker-entrypoint-initdb.d/migrations/101-fd-rbac.sql:Z
       - ./demo_schema.sql:/docker-entrypoint-initdb.d/migrations/103-fd-demo.sql:Z
+    # Loopback only, so Postgres is not reachable from other machines.
     ports:
-    - "5433:5432"
+    - "127.0.0.1:5433:5432"
     healthcheck:
       test:
         [
@@ -499,8 +503,8 @@ services:
     image: supabase/supavisor:2.3.9
     restart: unless-stopped
     ports:
-      - ${POSTGRES_PORT}:5432
-      - ${POOLER_PROXY_PORT_TRANSACTION}:6543
+      - 127.0.0.1:${POSTGRES_PORT}:5432
+      - 127.0.0.1:${POOLER_PROXY_PORT_TRANSACTION}:6543
     volumes:
       - ./volumes/pooler/pooler.exs:/etc/pooler/pooler.exs:ro
     healthcheck:
@@ -597,7 +601,7 @@ services:
       - ./uploads:/app/backend/uploads
     environment:
       ENV: development
-      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in .env (openssl rand -base64 32)}
       UPLOAD_FOLDER: ./uploads
       ALLOWED_EXTENSIONS: csv
 
@@ -613,8 +617,17 @@ services:
       SUPABASE_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
 
-      # Auto-promoted to admin on every Flask boot (_bootstrap_admin)
+      # Auto-promoted to admin on every Flask boot (_bootstrap_admin), but
+      # only when e-mail auto-confirm is off, since otherwise anyone could
+      # register that address. The flag below lifts that for local-only use.
       ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ENABLE_EMAIL_AUTOCONFIRM: ${ENABLE_EMAIL_AUTOCONFIRM}
+      ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM: ${ADMIN_BOOTSTRAP_ALLOW_AUTOCONFIRM:-false}
+
+      # Set true once the site is served over HTTPS (session cookie Secure flag).
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      # Reverse proxies in front of Flask allowed to set X-Forwarded-For (0 = none).
+      TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-0}
 
       # Plugin selection (loader auto-discovers plugins/* otherwise).
       #   FAIRDB_PLUGINS           — allowlist; only these load (empty = all)

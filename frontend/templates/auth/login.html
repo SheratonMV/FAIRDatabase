@@ -22,7 +22,7 @@
                         {% endif %}
                      {% endwith %}
 
-                     <form action="/auth/login" method="POST" style="width: 80%;">
+                     <form action="/auth/login" method="POST" style="width: 80%;">{{ csrf_input() }}
                         <div class="row mb-3">
                            <label for="email" class="col-sm-3 col-form-label">Email</label>
                            <div class="col-sm-9">

@@ -7,6 +7,7 @@ from flask import g
 from psycopg2 import sql
 
 from src.dashboard.helpers import (
+    assert_can_modify_dataset,
     assert_can_modify_table,
     assert_can_read_table,
     filter_owned_tables,
@@ -16,6 +17,7 @@ from src.dashboard.helpers import (
 __all__ = [
     "assert_can_read_table",
     "assert_can_modify_table",
+    "assert_can_modify_dataset",
     "filter_readable_tables",
     "filter_owned_tables",
     "assert_owns",

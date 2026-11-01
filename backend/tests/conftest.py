@@ -1,5 +1,10 @@
 import pytest
 import os
+import secrets
+
+# The app refuses to start without a strong SECRET_KEY (config.py). CI has no
+# .env, so give the test run a random one before config is imported.
+os.environ.setdefault("SECRET_KEY", secrets.token_urlsafe(32))
 
 from app import create_app, get_db
 from config import supabase_extension
@@ -299,7 +304,7 @@ def logout_user(client):
       302:
         description: Logout successful (user redirected).
     """
-    response = client.get("/auth/logout")
+    response = client.post("/auth/logout")
 
     assert response.status_code == 204
     yield response

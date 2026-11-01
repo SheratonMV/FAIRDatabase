@@ -34,7 +34,7 @@
             <h5 class="card-title">Grant access</h5>
             <form method="post"
                   action="{{ url_for('admin_routes.grant_user', dataset_id=dataset.id) }}"
-                  class="d-flex gap-2 align-items-center">
+                  class="d-flex gap-2 align-items-center">{{ csrf_input() }}
                <select class="form-select" name="user_id" required>
                   <option value="" disabled selected>Select user…</option>
                   {% for u in candidate_users %}
@@ -67,7 +67,7 @@
                      <td>
                         <form method="post"
                               action="{{ url_for('admin_routes.revoke_user', dataset_id=dataset.id, user_id=grant.user_id) }}"
-                              class="mb-0">
+                              class="mb-0">{{ csrf_input() }}
                            <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
                         </form>
                      </td>

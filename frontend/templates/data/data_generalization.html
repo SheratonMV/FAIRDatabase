@@ -31,7 +31,7 @@
             Personal identification information (PII) must be removed or generalized to ensure compliance with the General Data Protection Regulation (GDPR).<br>
             Start by importing a .csv file.
          </p>
-         <form method="post" enctype="multipart/form-data">
+         <form method="post" enctype="multipart/form-data">{{ csrf_input() }}
             <div class="form-group">
                <input class="form-control" type="file" name="file" id="file" style="background-color: white; margin-bottom: 0.5cm;" accept=".csv" required>
             </div>
@@ -45,7 +45,7 @@
       <h3>Select direct identifiers to drop</h3>
       <p>Direct identifiers are attributes that can directly identify an individual without the need for additional information, such as name and passport number.</p>
    </div>
-   <form method="post">
+   <form method="post">{{ csrf_input() }}
       {% for col in column_names %}
       <div class="form-check">
          <input class="form-check-input" type="checkbox" id="column_{{ loop.index }}" name="columns_to_drop" value="{{ col }}">
@@ -72,7 +72,7 @@
          </div>
       </div>
    </form>
-   <form action="{{ url_for('data_generalization_routes.consolidated_return')}}" method="post">
+   <form action="{{ url_for('data_generalization_routes.consolidated_return')}}" method="post">{{ csrf_input() }}
       <input type="text" name="state" value="1" style="display: none;">
       <button type="submit" class="btn btn-cancel-custom">Back</button>
    </form>
@@ -86,7 +86,7 @@
          Please identify and select the columns with missing values to be excluded.
       </p>
    </div>
-   <form method="post">
+   <form method="post">{{ csrf_input() }}
       {% for col, percentage in missing_percentages.items() %}
       <div class="form-check">
          <input class="form-check-input" type="checkbox" id="column_{{ loop.index }}" name="columns_to_drop" value="{{ col }}">
@@ -113,7 +113,7 @@
          </div>
       </div>
    </form>
-   <form action="{{ url_for('data_generalization_routes.consolidated_return')}}" method="post">
+   <form action="{{ url_for('data_generalization_routes.consolidated_return')}}" method="post">{{ csrf_input() }}
       <input type="text" name="state" value="2" style="display: none;">
       <button type="submit" class="btn btn-cancel-custom">Back</button>
    </form>
@@ -126,7 +126,7 @@
          Quasi-identifiers are attributes in a dataset that, while not uniquely identifying on their own, can be combined with other publicly available information to re-identify individuals.
       </p>
    </div>
-   <form method="post">
+   <form method="post">{{ csrf_input() }}
       {% for col in column_names %}
       <div class="form-check">
          <input class="form-check-input" type="checkbox" id="quasi_identifier_{{ loop.index }}" name="quasi_identifiers" value="{{ col }}">
@@ -136,14 +136,14 @@
       <br>
       <button type="submit" name="submit_button" value="submit_quasi_identifiers"  class="btn btn-primary-custom" style="margin-bottom: 0.5cm;">Continue</button>
    </form>
-   <form action="{{ url_for('data_generalization_routes.consolidated_return')}}" method="post">
+   <form action="{{ url_for('data_generalization_routes.consolidated_return')}}" method="post">{{ csrf_input() }}
       <input type="text" name="state" value="3" style="display: none;">
       <button type="submit" class="btn btn-cancel-custom">Back</button>
    </form>
    <p id="selected-count" style="visibility: hidden;">0 checkboxes selected</p>
    {% endif %}
    {% if quasi_identifiers_selected and current_quasi_identifier %}
-   <form method="post">
+   <form method="post">{{ csrf_input() }}
       <h3>Distinct values and percentages for '{{ current_quasi_identifier }}':</h3>
       <ul>
          {% for value, percentage in quasi_identifier_values[current_quasi_identifier] %}
@@ -177,7 +177,7 @@
          </div>
       </div>
    </form>
-   <form action="{{ url_for('data_generalization_routes.consolidated_return') }}" method="post">
+   <form action="{{ url_for('data_generalization_routes.consolidated_return') }}" method="post">{{ csrf_input() }}
       <input type="text" name="state" value="4" style="display: none;">
       <button type="submit" class="btn btn-cancel-custom">Back</button>
    </form>

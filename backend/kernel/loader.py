@@ -197,8 +197,8 @@ def register_plugins(app, plugins):
             )
             continue
         try:
-            _attach_plugin_hooks(m)
             app.register_blueprint(m.blueprint, url_prefix=m.url_prefix)
+            _attach_plugin_hooks(app, m)
         except Exception as exc:  # noqa: BLE001
             app.logger.warning("Plugin %r blueprint mount failed: %s", m.name, exc)
             continue
@@ -229,15 +229,25 @@ def register_plugins(app, plugins):
 
 # ── per-plugin before_request hook ────────────────────────────────────────────
 
-def _attach_plugin_hooks(manifest):
-    """Wire ``before_request`` on the plugin blueprint so every request handled
-    by it stamps the plugin name onto ``g`` for ``kernel.storage`` to read."""
-    name = manifest.name
-    bp = manifest.blueprint
+def _attach_plugin_hooks(app, manifest):
+    """Stamp the plugin name onto ``g`` for every request the plugin's
+    blueprint handles, so ``kernel.storage`` can scope bucket access.
 
-    @bp.before_request
+    The hook is registered on the *app*, scoped to the blueprint's name (the
+    same table Flask fills from ``@bp.before_request``), rather than on the
+    blueprint. Blueprints are module-level objects shared by every app built
+    in the process, and Flask refuses changes to a blueprint once it has been
+    registered anywhere, so decorating the blueprint made every app after the
+    first (e.g. one per test) fail to mount its plugins.
+    """
+    name = manifest.name
+
     def _stamp_plugin():
         set_current_plugin(name)
+
+    app.before_request_funcs.setdefault(manifest.blueprint.name, []).append(
+        _stamp_plugin
+    )
 
 
 # ── SQL prefix guard ──────────────────────────────────────────────────────────

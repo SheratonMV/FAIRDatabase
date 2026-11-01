@@ -41,7 +41,7 @@
                      <td>
                         <form method="post"
                               action="{{ url_for('admin_routes.assign_role', user_id=u.id) }}"
-                              class="d-flex align-items-center gap-2 mb-0">
+                              class="d-flex align-items-center gap-2 mb-0">{{ csrf_input() }}
                            <select class="form-select form-select-sm" name="role"
                                    {% if u.id == current_user_id %}disabled{% endif %}>
                               {% for r in allowed_roles %}

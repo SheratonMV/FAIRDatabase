@@ -13,6 +13,7 @@ from werkzeug.utils import secure_filename
 from flask import current_app
 from psycopg2 import sql
 
+import secrets
 import time
 import os
 import csv
@@ -60,6 +61,28 @@ def assert_can_modify_table(cur, table_name, user_id, role):
         (table_name, user_id),
     )
     if cur.fetchone() is None:
+        raise PermissionError("forbidden")
+
+
+def assert_can_modify_dataset(cur, dataset_id, user_id, role):
+    """Same rule as ``assert_can_modify_table`` but keyed by
+    ``metadata_tables.id``, which is what the FL routes receive.
+
+    Raises ``ValueError`` for an id that is not an integer and
+    ``PermissionError`` when the dataset is missing or not the caller's, so
+    a refused id and an unknown id look the same to the caller.
+    """
+    try:
+        ds_id = int(dataset_id)
+    except (TypeError, ValueError):
+        raise ValueError("dataset_id must be an integer")
+    if role not in ("admin", "curator") or not user_id:
+        raise PermissionError("forbidden")
+    cur.execute("SELECT owner_id FROM _fd.metadata_tables WHERE id = %s", (ds_id,))
+    row = cur.fetchone()
+    if row is None:
+        raise PermissionError("forbidden")
+    if role != "admin" and str(row[0]) != str(user_id):
         raise PermissionError("forbidden")
 
 
@@ -297,6 +320,17 @@ def pg_create_data_table(cur, schema, table_name, columns, patient_col):
         ).format(policy=write_policy, schema=schema_id, table=table_id),
         (table_name,),
     )
+    # _fd no longer hands every new table to 'authenticated' automatically
+    # (rbac_schema.sql); grant this one explicitly since its row rules above
+    # decide who sees what. Skipped on plain Postgres without Supabase roles.
+    cur.execute("SELECT 1 FROM pg_roles WHERE rolname = 'authenticated'")
+    if cur.fetchone():
+        cur.execute(
+            sql.SQL(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON {schema}.{table} "
+                "TO authenticated;"
+            ).format(schema=schema_id, table=table_id)
+        )
 
 
 def pg_insert_metadata(cur, schema, table_name, main_table, description, origin, owner_id=None):
@@ -475,7 +509,13 @@ def file_save_and_read(file):
     """
     filename = secure_filename(file.filename)
     extension = filename.rsplit(".", 1)[-1].lower()
-    timestamped = f"{filename.rsplit('.', 1)[0]}_{int(time.time())}.{extension}"
+    # Timestamp plus a short random tag: the stem becomes the dataset's table
+    # name, and two uploads of the same file in the same second must not land
+    # in (and merge into) the same tables.
+    timestamped = (
+        f"{filename.rsplit('.', 1)[0]}_{int(time.time())}_{secrets.token_hex(3)}"
+        f".{extension}"
+    )
     path = os.path.join(current_app.config["UPLOAD_FOLDER"], timestamped)
     file.save(path)
 
