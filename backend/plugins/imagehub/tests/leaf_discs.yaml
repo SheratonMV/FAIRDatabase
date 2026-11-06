@@ -1,0 +1,116 @@
+# An invented second dataset, for tests only: leaf discs photographed over a few
+# days. It shares nothing with the spheroid example: no plates, no wells, no VID,
+# no annotations, one key column, its own file names and its own export columns.
+# tests/leaf.py makes matching synthetic data. Not loaded by the app: it is not in
+# datasets/.
+id: leaf_discs
+title: Leaf disc imaging (invented test dataset)
+example: true
+
+metadata:
+  source: leaves.xlsx
+  required: [sample_id]
+  fields:
+    sample_id: {header: Sample ID, strip: true}
+    plot: {header: Plot, strip: true}
+    species: {header: Species}
+    fertiliser: {header: Fertiliser, strip: true}
+    dose:
+      header_regex: '^Dose\s*\((?P<unit>[^)]+)\)$'
+      unit_field: dose_unit
+  derived:
+    species_norm:
+      from: species
+      steps: [strip, lower, {synonyms: {q. robur: oak, quercus robur: oak}}]
+
+images:
+  extensions: [.png]
+  # One folder per trial; the folder name is the image's group.
+  archives:
+    - {zip: leaves.zip, folder_level: 1}
+  filename:
+    pattern: '^(?P<sample>LEAF-\d{4})_day(?P<day>\d+)_(?P<side>top|bottom)\.png$'
+    fields:
+      sample_id: {groups: [sample]}
+      day: {groups: [day], type: int}
+      minutes: {sum: {day: 1440}}
+      side: {groups: [side]}
+  match:
+    keys:
+      - {image: sample_id, sample: sample_id}
+
+ui:
+  group_name: trial
+  sample_name: leaf disc
+  filters:
+    - {param: trial, field: group, type: select, label: Trial}
+    - {param: species, field: sample.species_norm, type: select, label: Species}
+    - {param: plot, field: sample.plot, type: select, label: Plot}
+    - {param: side, field: image.side, type: select, label: Side}
+    - field: image.minutes
+      type: range
+      params: [from_day, to_day]
+      labels: [From day, To day]
+      scale: 1440
+  sort: [image.sample_id, image.day, image.side]
+  columns:
+    - {label: Trial, field: group}
+    - {label: Sample, field: image.sample_id}
+    - {label: Day, field: image.day}
+    - {label: Side, field: image.side}
+    - {label: Species, field: sample.species_norm}
+    - {label: Dose, field: sample.dose, unit: sample.dose_unit}
+  image_details:
+    - {label: Sample / day / side, fields: [image.sample_id, image.day, image.side]}
+  sample_details:
+    - {label: Plot, field: sample.plot}
+    - {label: Species, field: sample.species_norm, raw: sample.species}
+    - {label: Fertiliser, field: sample.fertiliser}
+    - {label: Dose, field: sample.dose, unit: sample.dose_unit}
+
+export:
+  name: Leaf disc export
+  file_prefix: leaf_export
+  contents: {group: trial, sample: leaf disc, label: annotator}
+  # Who grew the plant is a person's name: never in an export.
+  exclude: [Grower]
+  sheet_columns:
+    other: Other sheet columns
+  sections:
+    - title: Image
+      columns:
+        - {name: image_file, description: "Path of the image in this zip"}
+        - {name: original_name, description: "File name as on the disk"}
+        - {name: trial, from: group, description: "Trial folder"}
+        - {name: sample_id, from: image.sample_id, description: "Leaf disc"}
+        - {name: day, from: image.day, description: "Day of the photo"}
+        - {name: minutes, from: image.minutes, description: "Day in minutes, for the time series"}
+        - {name: side, from: image.side, description: "top or bottom of the disc"}
+        - {name: match_status, description: "matched or unmatched"}
+    - title: Sample
+      columns:
+        - {name: plot, from: sample.plot, description: "Field plot"}
+        - {name: species, from: sample.species_norm, description: "Species, one name per species"}
+        - {name: fertiliser, from: sample.fertiliser, description: "Fertiliser given"}
+        - {name: dose, from: sample.dose, description: "Dose of fertiliser"}
+        - {name: dose_unit, from: sample.dose_unit, description: "Unit of dose"}
+    - sheet_columns: true
+    - title: Source
+      columns:
+        - {name: file_status, description: "included or missing"}
+        - {name: source_zip, description: "Zip on the disk"}
+        - {name: source_member, description: "Path inside the zip"}
+
+dashboard:
+  title: Leaf disc dashboard
+  group: trial
+  key: [sample_id]
+  label: "{sample_id}"
+  sample_fields: {sample_id: sample.sample_id}
+  time: [minutes, day]
+  caption: {title: sample_id, text: [species, side]}
+  expected: [trial, sample_id, species, dose]
+  colour_by: [species, fertiliser]
+  compare_by: [fertiliser, species]
+  values: [Chlorophyll (SPAD)]
+  tabs: {flow: Values per group, scatter: Image vs values}
