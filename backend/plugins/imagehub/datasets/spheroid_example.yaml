@@ -1,0 +1,353 @@
+# Example dataset config: spheroid images linked to the wells of lab sheets.
+# Every name here is invented. The synthetic test data (tests/synthetic.py) follows
+# this file, so the example is tested end to end.
+#
+# Copy this file to datasets/local/<your id>.yaml (not in git) and change it for
+# your own data. See config.py for how the active dataset is chosen.
+
+id: spheroid_example
+title: Spheroid imaging (example)
+example: true                  # never chosen as the default dataset
+
+metadata:
+  # Read by import-metadata without --source: a workbook, csv, folder or zip on the disk.
+  source: Metadata.zip
+  # A sheet with this name holds column descriptions, not samples.
+  legend_sheet: Legend
+  # Rows without these fields are skipped and listed in the report.
+  required: [vid]
+  # A row with only this field filled is an empty plate position.
+  position: well
+  # Flag skipped rows that still hold data: one of these filled, or this many cells.
+  flag_skipped_with_data: {any_of: [treatment_raw], min_filled: 5}
+  # Count imported rows where these fields are empty.
+  report_missing: [well, experiment]
+  # metadata_long.csv: the fields that name a row, then the fields listed per row
+  # (all other sheet columns follow). Default: the required fields, then all others.
+  long_report:
+    key: [experiment, vid, well]
+    values: [volgnummer, treatment_raw, concentration, concentration_unit, tissue, stimulation]
+  # Workbook "Family - anything.xlsx" belongs to group "Family".
+  workbook_group_separator: " - "
+
+  # Field -> sheet header. Headers are compared without surrounding spaces. Every
+  # other column is kept as it is, under its own header.
+  fields:
+    experiment: {header: Experiment, strip: true}
+    vid: {header: VID, strip: true}
+    well: {header: Well, strip: true}
+    volgnummer: {header: Volgnummer}
+    treatment_raw: {header: Treatment}
+    tissue: {header: Tissue}
+    stimulation: {header: Stimulation}
+    # The unit is part of the header and differs between sheets: "Concentration (nM)".
+    concentration:
+      header_regex: '^Concentration\s*\((?P<unit>.+)\)$'
+      label: Concentration
+      unit_field: concentration_unit
+
+  # Cleaned copies of fields. Steps: split, strip, lower, upper, synonyms,
+  # split_off_prefix, drop_empty, dedupe. The raw field is always kept.
+  derived:
+    vids: {from: vid, steps: [{split: ";"}, strip, drop_empty]}
+    treatment_norm:
+      from: treatment_raw
+      steps: [{split: ";"}, strip, lower, {synonyms: {abt-199: venetoclax}}, drop_empty, dedupe]
+    stimulation_norm:
+      from: stimulation
+      steps:
+        - {split: ";"}
+        - strip
+        - lower
+        - split_off_prefix:
+            canonical: il-2/15/21/cpg
+            variants: [il-2/15/21/cpg, il2/il15/il21/cpg]
+            separator: /
+        - drop_empty
+        - dedupe
+
+images:
+  extensions: [.jpg, .jpeg, .tif, .tiff, .png]
+  # Zips on the data disk. folder_level: which folder in a path names the group
+  # (here: the experiment). 2 means "NK/<experiment>/...".
+  archives:
+    - {zip: Btk.zip, group: Example family B, folder_level: 2}
+    - {zip: NK.zip, group: Example family A, folder_level: 2}
+    - {zip: Single experiment.zip, group: Example family A, folder_level: 1}
+  # Folders that are copies of another zip and must not be listed twice.
+  skip:
+    - {zip: NK.zip, folder: Copy of Single experiment}
+  # A zip with annotation sets. Zips inside it are opened only under the prefix.
+  annotation_archive:
+    zip: Annotation.zip
+    nested_prefix: Annotation/Shared annotation set/
+    # Nested zip -> experiment, for images whose names do not say it.
+    nested_groups:
+      SET10_AA.zip: Example experiment 10
+      SET10_BB.zip: Example experiment 10
+
+  # How a file name becomes fields. Named groups of the pattern feed the fields.
+  filename:
+    pattern: '^(?:(?:VID(?P<vid>\d+)|(?P<bd>BD\d+))_)?(?:(?P<channel>Phase|BF|Brightfield|PC)_)?(?P<well>[A-Pa-p]\d{1,2})_(?P<field>\d+)_(?P<d>\d+)d(?P<h>\d+)h(?P<m>\d+)m(?:-(?P<copy>\d+L?))?(?:_(?P<variant>[^.]+))?\.(?:jpe?g|tiff?|png)$'
+    ignore_case: true
+    fields:
+      vid: {groups: [vid, bd]}             # first group that is filled
+      well: {groups: [well], upper: true}
+      field: {groups: [field], type: int}
+      timepoint_minutes: {sum: {d: 1440, h: 60, m: 1}}
+      channel: {groups: [channel], else_extension: {jpeg: jpg, tiff: tif}}
+      channel_norm: {copy: channel, synonyms: {Brightfield: BF, Phase: PC}}
+      variant: {groups: [variant, copy]}
+
+  # Linking images to sample rows.
+  match:
+    # An image and a sample row belong together when all of these are equal. A
+    # sample field that holds a list (vids) matches on any of its values.
+    keys:
+      - {image: vid, sample: vids}
+      - {image: well, sample: well, upper: true}
+    # The sample field that an image's experiment folder names. Matching then
+    # looks inside that experiment only.
+    group_field: experiment
+    # Removed before comparing a folder name with an experiment name.
+    ignore_in_names: '\(AA\)'
+    # Lab codes; a folder and an experiment sharing one are proposed as a pair.
+    lab_tokens: 'EXP\d+|BD\d+'
+    # Folder -> experiment, where the names differ by more than punctuation.
+    aliases:
+      Example folder 1: Example experiment 1
+    # Images without a VID take the experiment's one VID, in these experiments only.
+    infer_single:
+      field: vid
+      groups:
+        - Example experiment 10
+
+annotations:
+  format: via
+  # Annotator initials as a file name suffix: set_AA.json.
+  annotator_pattern: '_(?P<label>AA|BB)\.json$'
+  unknown_label: unknown
+  # Nested zip -> annotator, for files whose names do not end in the initials.
+  nested_annotators: {SET10_AA.zip: AA, SET10_BB.zip: BB}
+  # Nested zip -> folder of the images it annotates, when they are copies.
+  nested_image_folders:
+    SET10_BB.zip: SET10_AA.zip!/SET
+
+# The query page and the image page. A field is "group" (the image's experiment,
+# or its folder), image.<field> (from the file name) or sample.<field> (from the
+# sheet). Filters, sorting and display only read these fields.
+ui:
+  group_name: experiment
+  sample_name: well
+  note: Concentrations are in the unit of their own sheet.
+  filters:
+    - {param: experiment, field: group, type: select, label: Experiment}
+    - {param: treatment, field: sample.treatment_norm, type: select, label: Treatment}
+    - {param: concentration, field: sample.concentration, type: text, label: Concentration}
+    - {param: tissue, field: sample.tissue, type: select, label: Tissue}
+    - {param: channel_norm, field: image.channel_norm, type: select, label: Channel}
+    # The raw channel can be filtered on (API, export), but is not in the form.
+    - {param: channel, field: image.channel, type: select, label: Channel (raw), form: false}
+    # Days in the form, minutes in the data.
+    - field: image.timepoint_minutes
+      type: range
+      params: [from_day, to_day]
+      labels: [From day, To day]
+      scale: 1440
+  sort: [group, image.vid, image.well, image.timepoint_minutes]
+  columns:
+    - {label: Experiment, field: group}
+    - {label: VID, field: image.vid}
+    - {label: Well, field: image.well}
+    - {label: Time, field: image.timepoint_minutes, format: minutes}
+    - {label: Channel, field: image.channel_norm}
+    - {label: Channel (raw), field: image.channel}
+    - {label: Treatment, field: sample.treatment_norm}
+    - {label: Concentration, field: sample.concentration, unit: sample.concentration_unit}
+    - {label: Tissue, field: sample.tissue}
+  image_details:
+    - {label: Experiment, field: group}
+    - {label: VID / well / field, fields: [image.vid, image.well, image.field]}
+    - {label: Time, field: image.timepoint_minutes, format: minutes}
+    - {label: Channel / raw, fields: [image.channel_norm, image.channel], optional: true}
+    - {label: Variant, field: image.variant, optional: true}
+  sample_details:
+    - {label: VID, field: sample.vid}
+    - {label: Volgnummer, field: sample.volgnummer}
+    - {label: Treatment, field: sample.treatment_norm, raw: sample.treatment_raw}
+    - {label: Concentration, field: sample.concentration, unit: sample.concentration_unit}
+    - {label: Tissue, field: sample.tissue}
+    - {label: Stimulation, field: sample.stimulation_norm, raw: sample.stimulation}
+
+# The export zip: metadata.csv and README.txt. Columns and README sections follow
+# the order of sections; a column takes a field ("from", or a built-in column of
+# the same name) and can change it with the same steps as metadata.derived.
+export:
+  name: Spheroid imaging export
+  file_prefix: spheroid_export
+  # Words in the README for one group, one sample row and an annotator's label.
+  contents: {group: experiment, sample: well, label: initials}
+  # Sheet columns that are not listed above, as written in the workbooks.
+  sheet_columns:
+    intro:
+      - Sheet-specific columns follow, as written in the workbooks. Sheets differ, so many
+      - are empty for part of the rows. A repeated header in a sheet has the suffix _2.
+      - Headers that differ only in spelling or capitals between sheets share one column
+      - "here, for example 'Specific Lysis (%)' and 'Specific lysis (%)'."
+      - Descriptions come from the Legend sheet in the lab's workbooks.
+    # Headers that differ only in spelling or capitals -> the one column they share.
+    merge:
+      "% Dividing cells (CD4)": "%Dividing cells (CD4)"
+      "% Dividing cells (CD8)": "%Dividing cells (CD8)"
+      "% Dividing cells (CLL)": "%Dividing cells (CLL)"
+      "Proliferation index (CD4)": "proliferation index (CD4)"
+      "Proliferation index (CD8)": "proliferation index (CD8)"
+      "Proliferation index (CLL)": "proliferation index (CLL)"
+      "Specific Lysis (%)": "Specific lysis (%)"
+      "Notch1": "NOTCH1"
+    # A header goes to the first group it matches (from its start, any capitals),
+    # unless it contains the exclude pattern; else to "other".
+    groups:
+      - title: Flow and well results
+        match: '^(%\s*(CD|CXCR4|Dividing)|gMFI|Viability|Specific lysis|Proliferation index|E:T ratio|Incubation time|Time point|NK enrichment|T enrichment|Target)'
+        # "(biobank)" values describe the sample, not the well.
+        exclude: '\(biobank\)'
+    other: Patient and clinical
+  # Columns that never leave the database: not in metadata.csv, README.txt or the
+  # dashboard, whatever sheet they come from. Compared without case. Here: invented
+  # personal columns of the synthetic sheets.
+  exclude: [Age, Sex]
+  # Free text in a cell where a value belongs moves to the note column.
+  notes:
+    min_words: 3
+    # Holds real lists, such as "JAK1/2/3, TYK2, ACVR1".
+    except: [Target]
+  sections:
+    - title: Identifiers
+      columns:
+        - name: image_file
+          description: "Path of the image in this zip; empty if it is listed in MISSING.txt"
+        - name: original_name
+          description: "File name as on the disk"
+        - name: experiment
+          from: group
+          description: "Experiment name from the metadata workbook, or else the folder name"
+        - name: vid
+          from: image.vid
+          description: "Video ID. For match_status 'inferred', taken from the experiment"
+        - name: well
+          from: image.well
+          description: "Plate position"
+        - name: field
+          from: image.field
+          description: "Field number from the file name"
+    - title: Time and image
+      columns:
+        - name: timepoint_minutes
+          from: image.timepoint_minutes
+          description: "Elapsed time from the file name, in minutes"
+        - name: day
+          from: image.timepoint_minutes
+          divide: 1440
+          round: 4
+          description: "timepoint_minutes / 1440"
+        - name: channel
+          from: image.channel
+          description: "Prefix in the file name (BF, Brightfield, PC, Phase), or else the file type"
+        - name: channel_norm
+          from: image.channel_norm
+          description: "channel with one name per channel: Brightfield is BF, Phase is PC"
+        - name: variant
+          from: image.variant
+          description: "Suffix in the file name, for example masks"
+        - name: match_status
+          description: "matched, inferred (VID taken from the experiment), unmatched or ambiguous"
+    - annotations: Annotations
+    - title: Treatment
+      columns:
+        - name: treatment_raw
+          from: sample.treatment_raw
+          description: "Treatment as written in the workbook"
+        - name: treatment_norm
+          from: sample.treatment_raw
+          steps:
+          - {split: ";"}
+          - strip
+          - drop_empty
+          # Same compound under two names, whatever the capitals.
+          - {synonyms_any_case: {abt-199: venetoclax}}
+          # One spelling for a name written with a capital (Ibrutinib -> ibrutinib).
+          - {lower_capitalised: {keep: [Bay]}}
+          - dedupe
+          description: "Normalised treatment; combinations separated by ';'. ABT-199 is written as venetoclax"
+        - name: concentration
+          from: sample.concentration
+          description: "As written in the workbook; combinations follow the treatment order"
+        - name: concentration_unit
+          from: sample.concentration_unit
+          only_if: sample.concentration
+          description: "Unit of the concentration; differs between sheets. Empty without a concentration"
+        - name: stimulation
+          from: sample.stimulation
+          description: "Stimulation as written in the workbook"
+        - name: stimulation_norm
+          from: sample.stimulation_norm
+          # The normalised values, written the way the lab writes them.
+          steps:
+          - {synonyms: {il-2/15/21/cpg: IL-2/15/21/CpG}}
+          - {replace: {pattern: '^acd3/acd(\d+)$', with: 'aCD3/aCD\1'}}
+          - {replace: {pattern: '^3t40', with: 3T40}}
+          description: "Normalised stimulation; combinations separated by ';'"
+        - name: tissue
+          from: sample.tissue
+          description: "Tissue"
+    - sheet_columns: true
+    - notes: Note
+    - title: Technical
+      columns:
+        - name: file_status
+          description: "included, or why the file could not be read"
+        - name: source_zip
+          description: "Zip on the disk"
+        - name: source_member
+          description: "Path inside that zip"
+        - name: source_workbook
+          description: "Metadata workbook of the well; empty if the image has no well"
+        - name: source_sheet
+          description: "Sheet in that workbook"
+        - name: source_row
+          description: "Row in that sheet"
+        - name: volgnummer
+          from: sample.volgnummer
+          description: "Coded patient / blood-draw number"
+
+# The dashboard in an export. Names are metadata.csv columns.
+dashboard:
+  title: Spheroid imaging dashboard
+  # Counts per group on the overview and the annotation tab.
+  group: experiment
+  # The columns that together name one sample row, and how it is shown.
+  key: [experiment, vid, well]
+  label: "{experiment} · VID {vid} · {well}"
+  # Sample rows without images have no image fields: take these from the sheet.
+  sample_fields: {experiment: sample.experiment, vid: sample.vid, well: sample.well}
+  # Elapsed time in minutes first; the others are the same time in another unit.
+  time: [timepoint_minutes, day]
+  # The first one that is filled.
+  channel: [channel_norm, channel]
+  # A value is shown with its unit: the same number means something else on another sheet.
+  units: {concentration: concentration_unit}
+  caption: {title: well, text: [treatment_norm, concentration]}
+  expected: [experiment, vid, well, treatment_norm, concentration, tissue]
+  # Identifiers hold numbers but are not measurements.
+  not_measured: [vid, well, field, source_row, volgnummer, image_file]
+  # Unique per image or technical: no use as a colour or a group.
+  not_grouped: [image_file, original_name, source_member, source_zip, file_status, well_note, day, timepoint_minutes]
+  # Defaults, first one found: colour on the time series and scatter, groups on the
+  # values tab, and the value plotted.
+  colour_by: [treatment_norm, experiment]
+  compare_by: [treatment_norm, concentration]
+  values: ["Viability (%)", "Specific lysis (%)"]
+  # Whose region count is shown first: a total counts overlapping regions twice.
+  annotator: AA
+  tabs: {flow: Flow endpoints, scatter: Image vs flow}

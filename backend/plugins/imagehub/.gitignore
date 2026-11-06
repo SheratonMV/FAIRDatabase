@@ -1,0 +1,15 @@
+# Repo rule: real data never goes in git (images, workbooks, VIA json, reports).
+*.xlsx
+*.xls
+*.csv
+*.json
+*.jpg
+*.jpeg
+*.tif
+*.tiff
+*.png
+*.zip
+*.fcs
+reports/
+# Your own dataset configs name real experiments and people: keep them local.
+datasets/local/

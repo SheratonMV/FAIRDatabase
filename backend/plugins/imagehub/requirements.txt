@@ -1,0 +1,5 @@
+# imagehub plugin runtime dependencies. Installed at image build time by the
+# project Dockerfile; import names are listed in plugin.py `required_packages`.
+openpyxl>=3.1,<4
+Pillow>=10
+PyYAML>=6,<7

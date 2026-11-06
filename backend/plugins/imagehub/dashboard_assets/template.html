@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Blocks every network request: the page only runs its own inline code and shows inline images.
+     A file you open is read inside this browser and never leaves this computer. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Imaging dashboard</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10); --none: #ecebe6;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --other: #b5b3ab; --warn: #8a5a00;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --none: #262624;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    --other: #6b6a64; --warn: #fab219;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --none: #262624;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+  --other: #6b6a64; --warn: #fab219;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 16px 24px; background: var(--surface); border-bottom: 1px solid var(--ring); }
+header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+.privacy { color: var(--ink2); font-size: 12.5px; }
+.grow { flex: 1; }
+button, select, .filebtn { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--axis); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+select { max-width: 280px; }
+.filebtn.primary { background: var(--s1); color: #fff; border-color: transparent; font-weight: 600; }
+nav { display: flex; gap: 4px; padding: 0 24px; background: var(--surface); border-bottom: 1px solid var(--ring); overflow-x: auto; }
+nav button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 10px 14px; color: var(--ink2); white-space: nowrap; }
+nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); font-weight: 600; }
+main { padding: 20px 24px 60px; max-width: 1500px; margin: 0 auto; }
+.intro { margin: 4px 2px 18px; }
+.intro h2 { margin: 0; font-size: 22px; font-weight: 600; }
+.intro p { margin: 4px 0 0; color: var(--ink2); }
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 14px; padding: 18px 20px 14px; min-width: 0; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 14px rgba(0,0,0,.035); }
+.card h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.card .sub { color: var(--ink2); font-size: 12.5px; margin: 2px 0 10px; }
+.note { color: var(--muted); font-size: 12px; margin-top: 8px; }
+.warn { color: var(--warn); font-size: 12.5px; margin-top: 6px; }
+.missingcol { color: var(--ink2); background: var(--none); border-radius: 6px; padding: 14px; font-size: 13px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 0 0 12px; font-size: 12.5px; color: var(--ink2); }
+.controls label { display: inline-flex; gap: 6px; align-items: center; }
+.controls input[type="range"] { width: 260px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink2); margin: 0 0 6px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+svg.chart { display: block; width: 100%; height: auto; overflow: visible; }
+svg.chart text { fill: var(--ink2); font-size: 11px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+svg.chart text.mut { fill: var(--muted); }
+svg.chart [data-tip]:hover { opacity: .8; }
+svg.chart [data-key] { cursor: pointer; }
+table.t { border-collapse: collapse; width: 100%; font-size: 12.5px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+table.t th, table.t td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+table.t th { color: var(--ink2); font-weight: 600; }
+table.t .n { text-align: right; }
+details { margin-top: 8px; font-size: 12.5px; color: var(--ink2); }
+details .wrap { max-height: 360px; overflow: auto; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.tile .lab { color: var(--ink2); font-size: 13px; }
+.tile .v { font-size: 30px; font-weight: 600; line-height: 1.2; }
+.bar { display: flex; gap: 2px; height: 14px; min-width: 120px; }
+.bar i { display: block; height: 100%; border-radius: 4px; }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.thumb { border: 1px solid var(--ring); border-radius: 10px; overflow: hidden; background: var(--none); }
+.thumb .pic { position: relative; line-height: 0; }
+.thumb img { width: 100%; height: auto; display: block; }
+.thumb svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.thumb .cap { padding: 6px 8px; font-size: 12px; color: var(--ink2); background: var(--surface); }
+.thumb .cap b { color: var(--ink); font-weight: 600; }
+.ok { color: var(--s6); } .bad { color: var(--s8); }
+.empty { text-align: center; padding: 70px 20px; color: var(--ink2); }
+.empty h2 { color: var(--ink); font-weight: 600; }
+.drop { border: 2px dashed var(--axis); border-radius: 12px; padding: 40px; max-width: 560px; margin: 24px auto; }
+.drop.over { border-color: var(--s1); }
+#tip { position: fixed; pointer-events: none; z-index: 10; background: var(--surface); color: var(--ink); border: 1px solid var(--ring); box-shadow: 0 4px 14px rgba(0,0,0,.18); border-radius: 8px; padding: 6px 10px; font-size: 12px; max-width: 340px; white-space: pre-line; display: none; }
+@media print { header button, header label, nav, .controls { display: none !important; } .card { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Imaging dashboard</h1>
+  <span class="privacy">Everything stays in this browser. This page cannot connect to the internet.</span>
+  <span class="grow"></span>
+  <span id="fileinfo" class="privacy"></span>
+  <button id="theme" type="button" title="Switch between automatic, light and dark">Theme: auto</button>
+  <label class="filebtn primary">Open file…<input id="file" type="file" accept=".csv,.xlsx,.xlsm,.xls" hidden></label>
+</header>
+<nav id="tabs" role="tablist"></nav>
+<main id="main"></main>
+<div id="tip"></div>
+
+<script id="embedded" type="application/json">__IMAGEHUB_DATA__</script>
+<script>/*__SHEETJS__*/</script>
+<script id="app">
+"use strict";
+// Tab labels; the dataset's config can rename them.
+const TABS = [
+  ["overview", "Overview"], ["images", "Images"], ["time", "Time series"],
+  ["flow", "Values per group"], ["scatter", "Image vs values"], ["annot", "Annotation status"],
+];
+// Columns of every export, whatever the dataset: never a measurement, never a group.
+const BUILTIN_NOT_MEASURED = ["image_file", "source_row"];
+const BUILTIN_NOT_GROUPED = ["image_file", "original_name", "source_member", "source_zip", "file_status"];
+const SERIES = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6", "--s7", "--s8"];
+const LABEL_GAP = 18;
+const MAX_CATEGORIES = 30, MAX_THUMBS = 96, MAX_TABLE_ROWS = 300;
+
+const S = { data: null, tab: "overview", ui: {}, picked: null, error: null };
+
+const esc = v => String(v == null ? "" : v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const num = v => {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  const t = String(v == null ? "" : v).trim();
+  return /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(t) ? parseFloat(t) : null;
+};
+const median = xs => {
+  if (!xs.length) return null;
+  const s = [...xs].sort((a, b) => a - b), m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+const fmt = v => {
+  if (v == null) return "";
+  const a = Math.abs(v);
+  return a >= 1000 ? Math.round(v).toLocaleString("en") : a >= 10 ? String(+v.toFixed(1)) : String(+v.toPrecision(3));
+};
+const has = c => S.data.columns.includes(c);
+const capital = t => t.charAt(0).toUpperCase() + t.slice(1);
+
+// What the dataset's config says about the columns (export.dashboard_layout). Without
+// one, every row is its own sample and there are no defaults.
+function layoutOf(raw) {
+  const l = raw || {}, words = l.words || {}, time = l.time || [];
+  return {
+    raw: l, title: l.title || "Imaging dashboard", group: l.group || "", key: l.key || [],
+    label: l.label || "", time: time[0] || "", timeAlso: time.slice(1), channel: l.channel || [],
+    units: l.units || {}, caption: l.caption || {}, expected: l.expected || [],
+    notMeasured: new Set([...BUILTIN_NOT_MEASURED, ...(l.not_measured || [])]),
+    notGrouped: new Set([...BUILTIN_NOT_GROUPED, ...(l.not_grouped || [])]),
+    colourBy: l.colour_by || [], compareBy: l.compare_by || [], values: l.values || [],
+    annotator: l.annotator || "", tabs: l.tabs || {},
+    group1: words.group || "group", sample1: words.sample || "sample row",
+  };
+}
+const L = () => S.data.layout;
+// The dataset's words for one sample row and one group, singular or plural.
+const sample = (n = 1) => (n === 1 ? L().sample1 : `${L().sample1}s`);
+const groupWord = (n = 1) => (n === 1 ? L().group1 : `${L().group1}s`);
+const groupOf = r => (L().group ? r[L().group] || "" : "");
+const noGroup = () => `(no ${groupWord()})`;
+const withUnit = (row, column) => {
+  const unit = L().units[column];
+  return row[column] && unit && row[unit] ? `${row[column]} ${row[unit]}` : (row[column] || "");
+};
+const unitColumns = () => Object.keys(L().units).filter(has);
+const tabLabel = ([key, label]) => (S.data && L().tabs[key]) || label;
+
+// ── Data ─────────────────────────────────────────────────────────────────────
+function load(payload) {
+  const columns = payload.columns.map(String);
+  const rows = payload.rows.map(r => {
+    const o = {};
+    columns.forEach((c, i) => { o[c] = r[i] == null ? "" : String(r[i]); });
+    return o;
+  });
+  const layout = layoutOf(payload.layout);
+  const keyed = layout.key.some(c => columns.includes(c));
+  const units = Object.entries(layout.units);
+  const groups = new Map();
+  rows.forEach((row, index) => {
+    const key = keyed ? layout.key.map(c => row[c] || "").join("|") : `row ${index + 1}`;
+    row.__key = key;
+    // Shown with its unit: the same number means something else on another sheet.
+    units.forEach(([c, unit]) => { row[`__${c}`] = row[c] && row[unit] ? `${row[c]} ${row[unit]}` : (row[c] || ""); });
+    if (!groups.has(key)) groups.set(key, { key, rows: [] });
+    groups.get(key).rows.push(row);
+  });
+  const numeric = [], categorical = [];
+  columns.forEach(c => {
+    const filled = rows.filter(r => r[c] !== "");
+    if (!filled.length) return;
+    const numbers = filled.filter(r => num(r[c]) !== null).length;
+    // Mostly numbers is enough: the charts leave the rest out and say how many.
+    const mostlyNumbers = numbers / filled.length >= 0.5;
+    if (mostlyNumbers && !layout.notMeasured.has(c)) numeric.push(c);
+    const distinct = new Set(filled.map(r => r[c])).size;
+    if (distinct <= 40 && !mostlyNumbers && !layout.notGrouped.has(c)) categorical.push(c);
+  });
+  S.data = {
+    columns, rows, numeric, categorical, wells: [...groups.values()],
+    regionColumns: columns.filter(c => c.startsWith("regions_")),
+    images: payload.images || {}, annotations: payload.annotations || {},
+    wellsWithout: payload.wells_without_images || null,
+    info: payload.info || {}, name: payload.name || "", layout,
+    colours: {},
+  };
+  S.picked = null;
+  S.ui = {};
+}
+
+// One colour per value, from the whole file, so a filter never repaints a value.
+function colourMap(column) {
+  const known = S.data.colours[column];
+  if (known) return known;
+  const counts = new Map();
+  S.data.rows.forEach(r => { if (r[column] !== "") counts.set(r[column], (counts.get(r[column]) || 0) + 1); });
+  const order = [...counts.entries()].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0]))).map(e => e[0]);
+  const map = new Map();
+  order.slice(0, SERIES.length).forEach((v, i) => map.set(v, `var(${SERIES[i]})`));
+  return (S.data.colours[column] = map);
+}
+const colourOf = (column, value) => (column && value !== "" && colourMap(column).get(value)) || "var(--other)";
+const nameOf = (column, value) => (value === "" ? "(empty)" : colourMap(column).has(value) ? value : "Other");
+
+function legend(column, values) {
+  if (!column) return "";
+  const names = [...new Set(values.map(v => nameOf(column, v)))].sort((a, b) => {
+    const rank = n => { const i = [...colourMap(column).keys()].indexOf(n); return i < 0 ? 99 : i; };
+    return rank(a) - rank(b);
+  });
+  if (names.length < 2) return "";
+  return `<div class="legend">${names.map(n => `<span><i style="background:${n === "Other" || n === "(empty)" ? "var(--other)" : colourMap(column).get(n)}"></i>${esc(n)}</span>`).join("")}</div>`;
+}
+
+// A well's value: flow values repeat on every image of a well, region counts differ.
+function wellValue(well, column) {
+  const values = well.rows.map(r => num(r[column])).filter(v => v !== null);
+  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+}
+const wellText = (well, column) => {
+  const row = well.rows.find(r => r[column] !== "");
+  return row ? row[column] : "";
+};
+const wellGroup = (well, column) => {
+  const value = wellText(well, column), unitColumn = L().units[column];
+  if (!unitColumn || !value) return value;
+  const unit = wellText(well, unitColumn);
+  return unit ? `${value} ${unit}` : value;
+};
+const wellName = well => (L().label && L().key.some(has)
+  ? L().label.replace(/\{([^{}]+)\}/g, (_, c) => well.rows[0][c] || "") : well.key);
+
+// ── Charts ───────────────────────────────────────────────────────────────────
+function ticks(lo, hi, count = 5) {
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const raw = (hi - lo) / count, mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map(f => f * mag).find(s => s >= raw);
+  const out = [], start = Math.floor(lo / step) * step, end = Math.ceil(hi / step) * step;
+  for (let t = start; t <= end + step / 2; t += step) out.push(+t.toFixed(10));
+  return out;
+}
+const scale = (domain, range) => v => range[0] + (v - domain[0]) / (domain[1] - domain[0] || 1) * (range[1] - range[0]);
+
+function frame(xTicks, yTicks, x, y, box, xLabel, yLabel) {
+  const grid = yTicks.map(t => `<line x1="${box.l}" x2="${box.r}" y1="${y(t)}" y2="${y(t)}" stroke="var(--grid)"/><text x="${box.l - 8}" y="${y(t) + 4}" text-anchor="end">${fmt(t)}</text>`).join("");
+  const xs = xTicks.map(t => `<line x1="${x(t)}" x2="${x(t)}" y1="${box.b}" y2="${box.b + 4}" stroke="var(--axis)"/><text x="${x(t)}" y="${box.b + 18}" text-anchor="middle">${fmt(t)}</text>`).join("");
+  return `${grid}<line x1="${box.l}" x2="${box.r}" y1="${box.b}" y2="${box.b}" stroke="var(--axis)"/>${xs}
+    <text x="${(box.l + box.r) / 2}" y="${box.b + 36}" text-anchor="middle" class="mut">${esc(xLabel)}</text>
+    <text transform="rotate(-90)" x="${-(box.t + box.b) / 2}" y="14" text-anchor="middle" class="mut">${esc(yLabel)}</text>`;
+}
+const dot = (x, y, colour, tip, key) => `<circle cx="${x}" cy="${y}" r="5" fill="${colour}" stroke="var(--surface)" stroke-width="2" data-tip="${esc(tip)}"${key ? ` data-key="${esc(key)}"` : ""}/>`;
+
+function scatterChart(points, xLabel, yLabel) {
+  const W = 900, H = 460, box = { l: 70, r: W - 20, t: 12, b: H - 52 };
+  const xt = ticks(Math.min(...points.map(p => p.x)), Math.max(...points.map(p => p.x)));
+  const yt = ticks(Math.min(...points.map(p => p.y)), Math.max(...points.map(p => p.y)));
+  const x = scale([xt[0], xt[xt.length - 1]], [box.l, box.r]), y = scale([yt[0], yt[yt.length - 1]], [box.b, box.t]);
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(yLabel)} against ${esc(xLabel)}">${frame(xt, yt, x, y, box, xLabel, yLabel)}${points.map(p => dot(x(p.x), y(p.y), p.colour, p.tip, p.key)).join("")}</svg>`;
+}
+
+// Moves label heights apart by at least `gap`, as little as possible, inside lo..hi.
+function dodgeLabels(ys, gap, lo, hi) {
+  const order = ys.map((y, i) => i).sort((a, b) => ys[a] - ys[b]);
+  const placed = order.map(i => ys[i]);
+  placed.forEach((y, i) => { placed[i] = Math.max(y, lo, i ? placed[i - 1] + gap : lo); });
+  for (let i = placed.length - 1; i >= 0; i--) {
+    placed[i] = Math.min(placed[i], i === placed.length - 1 ? hi : placed[i + 1] - gap);
+  }
+  const out = [];
+  order.forEach((index, i) => { out[index] = placed[i]; });
+  return out;
+}
+
+function lineChart(series, xLabel, yLabel) {
+  const W = 900, H = 460, all = series.flatMap(s => s.points), labelled = series.length <= 4;
+  const box = { l: 70, r: W - (labelled && series.length > 1 ? 130 : 20), t: 12, b: H - 52 };
+  const xt = ticks(Math.min(...all.map(p => p.x)), Math.max(...all.map(p => p.x)));
+  const yt = ticks(Math.min(...all.map(p => p.y)), Math.max(...all.map(p => p.y)));
+  const x = scale([xt[0], xt[xt.length - 1]], [box.l, box.r]), y = scale([yt[0], yt[yt.length - 1]], [box.b, box.t]);
+  const ends = series.map(s => s.points[s.points.length - 1]);
+  // Text is 11 units high: 18 apart leaves clear space, also when lines end at one value.
+  const labelYs = dodgeLabels(ends.map(p => y(p.y)), LABEL_GAP, box.t + 4, box.b);
+  const marks = series.map((s, i) => {
+    const d = s.points.map((p, j) => `${j ? "L" : "M"}${x(p.x)} ${y(p.y)}`).join(" ");
+    const name = s.name.length > 20 ? `${s.name.slice(0, 19)}…` : s.name;
+    // Labels sit in a column on the right; a thin line leads to where the series ends.
+    const label = labelled && series.length > 1
+      ? `<path d="M${x(ends[i].x) + 7} ${y(ends[i].y)}L${box.r + 6} ${labelYs[i]}" fill="none" stroke="var(--axis)"/><text x="${box.r + 9}" y="${labelYs[i] + 4}" data-tip="${esc(s.name)}">${esc(name)}</text>`
+      : "";
+    return `<path d="${d}" fill="none" stroke="${s.colour}" stroke-width="2" stroke-linejoin="round"/>${s.points.map(p => dot(x(p.x), y(p.y), s.colour, p.tip)).join("")}${label}`;
+  }).join("");
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(yLabel)} over ${esc(xLabel)}">${frame(xt, yt, x, y, box, xLabel, yLabel)}${marks}</svg>`;
+}
+
+function stripChart(groups, yLabel, xLabel) {
+  const W = Math.max(900, groups.length * 44), H = 500, box = { l: 70, r: W - 20, t: 12, b: H - 128 };
+  const all = groups.flatMap(g => g.points.map(p => p.y));
+  const yt = ticks(Math.min(...all), Math.max(...all));
+  const y = scale([yt[0], yt[yt.length - 1]], [box.b, box.t]);
+  const band = (box.r - box.l) / groups.length;
+  const body = groups.map((g, i) => {
+    const cx = box.l + band * (i + .5), width = Math.min(band * .6, 60);
+    // Fixed spread per point, so the picture does not change between renders.
+    const dots = g.points.map((p, j) => dot(cx + ((j * 7) % 11 - 5) / 5 * width / 2, y(p.y), p.colour, p.tip, p.key)).join("");
+    const m = median(g.points.map(p => p.y));
+    return `${dots}<line x1="${cx - width / 2 - 4}" x2="${cx + width / 2 + 4}" y1="${y(m)}" y2="${y(m)}" stroke="var(--ink)" stroke-width="2" data-tip="${esc(`${g.name}\nmedian ${fmt(m)} (${g.points.length} ${sample(g.points.length)})`)}"/>
+      <text transform="translate(${cx + 3} ${box.b + 12}) rotate(-40)" text-anchor="end">${esc(g.name.length > 24 ? g.name.slice(0, 23) + "…" : g.name)}</text>`;
+  }).join("");
+  const grid = yt.map(t => `<line x1="${box.l}" x2="${box.r}" y1="${y(t)}" y2="${y(t)}" stroke="var(--grid)"/><text x="${box.l - 8}" y="${y(t) + 4}" text-anchor="end">${fmt(t)}</text>`).join("");
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(yLabel)} by ${esc(xLabel)}">${grid}<line x1="${box.l}" x2="${box.r}" y1="${box.b}" y2="${box.b}" stroke="var(--axis)"/>
+    <text transform="rotate(-90)" x="${-(box.t + box.b) / 2}" y="14" text-anchor="middle" class="mut">${esc(yLabel)}</text>${body}</svg>`;
+}
+
+function dataTable(header, rows) {
+  const shown = rows.slice(0, MAX_TABLE_ROWS);
+  return `<details><summary>Show as a table (${rows.length} rows${rows.length > shown.length ? `, first ${shown.length} shown` : ""})</summary><div class="wrap"><table class="t"><thead><tr>${header.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${shown.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></details>`;
+}
+const missingColumn = (what) => `<div class="missingcol">${esc(what)}</div>`;
+
+// ── Controls ─────────────────────────────────────────────────────────────────
+const ui = (key, fallback) => (S.ui[key] !== undefined ? S.ui[key] : fallback);
+const select = (key, label, options, current) => `<label>${esc(label)} <select data-ui="${key}">${options.map(([v, l]) => `<option value="${esc(v)}"${v === current ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
+const columnOptions = (columns, none) => [...(none ? [["", none]] : []), ...columns.map(c => [c, c])];
+const firstOf = (wanted, pool, fallback = "") => wanted.find(c => pool.includes(c)) || pool[0] || fallback;
+
+// One annotator's count by default: a total counts overlapping clusters twice.
+function defaultRegionColumn() {
+  const annotators = S.data.regionColumns.filter(c => c !== "regions_total");
+  const preferred = `regions_${L().annotator}`;
+  if (L().annotator && annotators.includes(preferred)) return preferred;
+  return annotators[0] || S.data.regionColumns[0] || "";
+}
+const REGIONS_NOTE = "regions_total adds annotators together, so a cluster marked by two annotators counts twice.";
+const regionsNote = () => (has("regions_total") ? `<div class="note">${REGIONS_NOTE}</div>` : "");
+
+// ── Images ───────────────────────────────────────────────────────────────────
+const imageKey = row => row.image_file || row.original_name || "";
+const timeOf = row => (L().time ? row[L().time] : "");
+const channelOf = row => L().channel.map(c => row[c]).find(v => v) || "";
+const timeText = minutes => {
+  const m = num(minutes);
+  return m === null ? "" : `${Math.floor(m / 1440)}d ${Math.floor(m % 1440 / 60)}h ${m % 60}m`;
+};
+const labelColour = label => {
+  const labels = [...new Set(Object.values(S.data.annotations).flat().map(a => a.label))].sort();
+  return `var(${SERIES[labels.indexOf(label) % SERIES.length]})`;
+};
+function shapeMarkup(shape) {
+  const [tag, attrs] = shape;
+  if (!["polygon", "polyline", "ellipse", "circle", "rect"].includes(tag)) return "";
+  return `<${tag} vector-effect="non-scaling-stroke" ${Object.entries(attrs).map(([k, v]) => `${esc(k)}="${esc(v)}"`).join(" ")}></${tag}>`;
+}
+function thumbnail(row, hidden) {
+  const image = S.data.images[imageKey(row)];
+  if (!image) return "";
+  const notes = (S.data.annotations[imageKey(row)] || []).filter(a => !hidden.has(a.label));
+  const overlay = notes.map(a => `<g fill="none" stroke="${labelColour(a.label)}" stroke-width="1.5">${a.shapes.map(shapeMarkup).join("")}</g>`).join("");
+  return `<div class="thumb"><div class="pic"><img src="${esc(image.src)}" alt="${esc(row.original_name)}">${overlay ? `<svg viewBox="0 0 ${image.w} ${image.h}" preserveAspectRatio="none">${overlay}</svg>` : ""}</div>
+    <div class="cap"><b>${esc(L().caption.title ? row[L().caption.title] : "")}</b> · ${esc(timeText(timeOf(row)))}<br>${esc((L().caption.text || []).map(c => withUnit(row, c)).filter(v => v).join(" "))}</div></div>`;
+}
+function annotatorControls() {
+  const labels = [...new Set(Object.values(S.data.annotations).flat().map(a => a.label))].sort();
+  const hidden = ui("hidden", []);
+  return labels.map(l => `<label><input type="checkbox" data-annotator="${esc(l)}"${hidden.includes(l) ? "" : " checked"}> <span style="color:${labelColour(l)}">■</span> ${esc(l)}</label>`).join("");
+}
+function pickedPanel() {
+  if (!S.picked) return "";
+  const well = S.data.wells.find(w => w.key === S.picked);
+  if (!well) return "";
+  const hidden = new Set(ui("hidden", []));
+  const rows = [...well.rows].sort((a, b) => (num(timeOf(a)) || 0) - (num(timeOf(b)) || 0)).filter(r => S.data.images[imageKey(r)]);
+  return `<section class="card"><h3>${esc(wellName(well))}</h3><div class="sub">${rows.length} images with a thumbnail, of ${well.rows.length} in this file.</div>
+    ${rows.length ? `<div class="thumbs">${rows.slice(0, 24).map(r => thumbnail(r, hidden)).join("")}</div>` : missingColumn(`No thumbnails for this ${sample()} in this file.`)}</section>`;
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+function renderOverview() {
+  const d = S.data, annotated = r => d.regionColumns.some(c => r[c] !== "");
+  const byExperiment = new Map();
+  d.rows.forEach(r => {
+    const e = groupOf(r) || noGroup();
+    if (!byExperiment.has(e)) byExperiment.set(e, { wells: new Set(), images: 0, annotated: 0 });
+    const x = byExperiment.get(e); x.wells.add(r.__key); x.images++; if (annotated(r)) x.annotated++;
+  });
+  const without = d.wellsWithout;
+  const counts = e => (without ? without.filter(w => (L().group ? w[L().group] || "" : "") === e).length : "");
+  const miss = d.columns.map(c => {
+    const filled = d.rows.filter(r => r[c] !== "").length;
+    return { c, filled, empty: d.rows.length - filled };
+  });
+  const expected = L().expected, others = d.columns.filter(c => !expected.includes(c));
+  return `<div class="intro"><h2>Overview</h2><p>${esc(d.name)}${d.info.created ? ` · created ${esc(d.info.created)}` : ""}${d.info.filter ? ` · filter ${esc(d.info.filter)}` : ""}</p></div>
+  ${d.info.thumbnails ? `<div class="warn">${esc(d.info.thumbnails)}</div>` : ""}
+  <div class="tiles">${[[capital(sample(2)), d.wells.length], ["Images", d.rows.length], ["Annotated images", d.rows.filter(annotated).length], [capital(groupWord(2)), byExperiment.size]].map(([l, v]) => `<section class="card tile"><div class="lab">${l}</div><div class="v">${v.toLocaleString("en")}</div></section>`).join("")}</div>
+  <section class="card"><h3>Per ${esc(groupWord())}</h3><div class="sub">${esc(capital(sample(2)))} that have at least one image in this file, images, and annotated images.${without ? "" : ` ${esc(capital(sample(2)))} without images are only known in a dashboard made by the plugin.`}</div>
+    <table class="t"><thead><tr><th>${esc(capital(groupWord()))}</th><th class="n">${esc(capital(sample(2)))}</th><th class="n">Images</th><th class="n">Annotated</th>${without ? `<th class="n">${esc(capital(sample(2)))} without images</th>` : ""}</tr></thead><tbody>
+    ${[...byExperiment.entries()].map(([e, x]) => `<tr><td>${esc(e)}</td><td class="n">${x.wells.size}</td><td class="n">${x.images}</td><td class="n">${x.annotated}</td>${without ? `<td class="n">${counts(e)}</td>` : ""}</tr>`).join("")}</tbody></table></section>
+  ${expected.length ? `<section class="card"><h3>Expected columns</h3><div class="sub">Filled = rows with a value.</div>
+    <table class="t"><thead><tr><th>Column</th><th>Found</th><th class="n">Filled</th></tr></thead><tbody>${expected.map(c => { const f = has(c); return `<tr><td>${esc(c)}</td><td class="${f ? "ok" : "bad"}">${f ? "✓ found" : "✕ missing"}</td><td class="n">${f ? miss.find(m => m.c === c).filled : ""}</td></tr>`; }).join("")}</tbody></table></section>` : ""}
+  <section class="card"><h3>Missing values per column</h3><div class="sub">Sheets differ, so many columns are empty for part of the rows. Most empty first.</div>
+    ${dataTable(["Column", "Filled", "Empty"], [...miss].sort((a, b) => b.empty - a.empty).map(m => [m.c, m.filled, m.empty]))}</section>
+  <section class="card"><h3>Other columns in the file</h3><div class="sub">Not needed for the checks above, but you can pick them in the charts.</div><div class="note">${others.map(esc).join(" · ") || "None."}</div></section>`;
+}
+
+function renderImages() {
+  const d = S.data;
+  if (!Object.keys(d.images).length) {
+    return `<div class="intro"><h2>Images</h2><p>Thumbnails per ${esc(sample())}, with annotations drawn over them.</p></div><section class="card">${missingColumn(d.info.thumbnails || "This file has no thumbnails. They are only in a dashboard made by the plugin; the images themselves are in the images folder of the export.")}</section>`;
+  }
+  const withThumb = d.rows.filter(r => d.images[imageKey(r)]);
+  const experiments = [...new Set(withThumb.map(groupOf))].sort();
+  const experiment = ui("imgExperiment", experiments[0]);
+  const inExperiment = withThumb.filter(r => groupOf(r) === experiment);
+  const channels = [...new Set(inExperiment.map(channelOf))].sort();
+  const channel = ui("imgChannel", channels.includes(ui("imgChannel")) ? ui("imgChannel") : channels[0]);
+  const rows = inExperiment.filter(r => channelOf(r) === channel);
+  const times = [...new Set(rows.map(r => num(timeOf(r))).filter(v => v !== null))].sort((a, b) => a - b);
+  const index = Math.min(+ui("imgTime", times.length - 1), Math.max(times.length - 1, 0));
+  const target = times[index];
+  const perWell = new Map();
+  rows.forEach(r => {
+    const delta = Math.abs((num(timeOf(r)) ?? 0) - (target ?? 0));
+    const best = perWell.get(r.__key);
+    if (!best || delta < best.delta) perWell.set(r.__key, { row: r, delta });
+  });
+  const hidden = new Set(ui("hidden", []));
+  const cards = [...perWell.values()].sort((a, b) => a.row.__key.localeCompare(b.row.__key, "en", { numeric: true }));
+  return `<div class="intro"><h2>Images</h2><p>One thumbnail per ${esc(sample())}, closest to the chosen time. Full-resolution files are in the images folder of the export.</p></div>
+  <section class="card"><div class="controls">
+    ${select("imgExperiment", capital(groupWord()), experiments.map(e => [e, e]), experiment)}
+    ${select("imgChannel", "Channel", channels.map(c => [c, c]), channel)}
+    <label>Time <input type="range" data-ui="imgTime" min="0" max="${Math.max(times.length - 1, 0)}" value="${index}"> <b>${esc(timeText(target))}</b></label>
+    ${annotatorControls()}
+  </div>
+  <div class="thumbs">${cards.slice(0, MAX_THUMBS).map(c => thumbnail(c.row, hidden)).join("")}</div>
+  ${cards.length > MAX_THUMBS ? `<div class="note">First ${MAX_THUMBS} of ${cards.length} ${esc(sample(2))}.</div>` : ""}</section>`;
+}
+
+function renderTime() {
+  const d = S.data;
+  const counted = !d.regionColumns.length;
+  const y = counted ? "" : ui("timeY", defaultRegionColumn());
+  const group = ui("timeGroup", firstOf(L().colourBy, d.categorical));
+  const head = `<div class="intro"><h2>${esc(tabLabel(TABS[2]))}</h2><p>${counted ? `This file has no value measured on the images, so this shows images per ${esc(sample())} over time.` : "Median per condition and time, of a value measured on the images. Only annotated images have one."}</p></div>`;
+  if (!L().time) return `${head}<section class="card">${missingColumn("This dataset has no time column.")}</section>`;
+  if (!has(L().time)) return `${head}<section class="card">${missingColumn(`Column ${L().time} is not in this file.`)}</section>`;
+  const buckets = new Map();
+  d.rows.forEach(r => {
+    const minutes = num(r[L().time]);
+    if (minutes === null) return;
+    const value = counted ? 1 : num(r[y]);
+    if (value === null) return;
+    const name = group ? nameOf(group, r[group]) : "All";
+    const key = `${name}|${minutes}`;
+    if (!buckets.has(key)) buckets.set(key, { name, minutes, values: [], raw: r[group] || "", wells: new Set() });
+    const b = buckets.get(key); b.values.push(value); b.wells.add(r.__key);
+  });
+  const series = new Map();
+  buckets.forEach(b => {
+    if (!series.has(b.name)) series.set(b.name, { name: b.name, colour: group ? (b.name === "Other" || b.name === "(empty)" ? "var(--other)" : colourOf(group, b.name)) : "var(--s1)", points: [] });
+    const value = counted ? b.values.length / b.wells.size : median(b.values);
+    series.get(b.name).points.push({ x: b.minutes / 1440, y: value, tip: `${b.name}\nday ${fmt(b.minutes / 1440)}\n${counted ? `images per ${sample()}` : y}: ${fmt(value)}\n${b.values.length} images, ${b.wells.size} ${sample(b.wells.size)}` });
+  });
+  const list = [...series.values()];
+  list.forEach(s => s.points.sort((a, b) => a.x - b.x));
+  const yLabel = counted ? `Images per ${sample()}` : y;
+  const controls = `<div class="controls">${counted ? "" : select("timeY", "Y", columnOptions(d.regionColumns), y)}${select("timeGroup", "Colour", columnOptions(d.categorical, "None"), group)}</div>`;
+  if (!list.length) return `${head}<section class="card">${controls}${missingColumn("No values to plot.")}</section>`;
+  return `${head}<section class="card"><h3>${esc(yLabel)} over time</h3><div class="sub">X axis in days. Hover a point for its counts.</div>${controls}${regionsNote()}
+    ${list.length > 1 ? legend(group, d.rows.map(r => r[group]).filter(v => series.has(nameOf(group, v)))) : ""}${lineChart(list, "Day", yLabel)}
+    ${dataTable([group || "All", "Day", yLabel], list.flatMap(s => s.points.map(p => [s.name, fmt(p.x), fmt(p.y)])))}</section>`;
+}
+
+function renderFlow() {
+  const d = S.data;
+  const times = [L().time, ...L().timeAlso];
+  const pool = d.numeric.filter(c => !d.regionColumns.includes(c) && !times.includes(c));
+  const y = ui("flowY", firstOf(L().values, pool));
+  const groupable = [...new Set([...d.categorical, ...unitColumns()])];
+  const group = ui("flowGroup", firstOf(L().compareBy, groupable));
+  const colour = ui("flowColour", "");
+  const colourColumn = L().units[colour] ? `__${colour}` : colour;
+  const colourChoices = groupable;
+  const withUnits = unitColumns().length ? ` Values of ${unitColumns().join(", ")} are shown with their own unit.` : "";
+  const head = `<div class="intro"><h2>${esc(tabLabel(TABS[3]))}</h2><p>One dot per ${esc(sample())}, with the median per group.${esc(withUnits)}</p></div>`;
+  if (!y || !group) return `${head}<section class="card">${missingColumn("This file has no numeric column and grouping column to plot.")}</section>`;
+  const groups = new Map();
+  let skipped = 0;
+  d.wells.forEach(w => {
+    const value = wellValue(w, y);
+    if (value === null) { if (wellText(w, y) !== "") skipped++; return; }
+    const name = wellGroup(w, group) || "(empty)";
+    if (!groups.has(name)) groups.set(name, { name, points: [] });
+    const colourValue = colour ? wellText(w, colourColumn) : "";
+    groups.get(name).points.push({ y: value, key: w.key, colour: colour ? colourOf(colourColumn, colourValue) : "var(--s1)", tip: `${wellName(w)}\n${name}\n${y}: ${fmt(value)}${colour ? `\n${colour}: ${colourValue}` : ""}` });
+  });
+  const list = [...groups.values()].sort((a, b) => a.name.localeCompare(b.name, "en", { numeric: true }));
+  const shown = list.slice(0, MAX_CATEGORIES);
+  const controls = `<div class="controls">${select("flowY", "Y", columnOptions(pool), y)}${select("flowGroup", "X", columnOptions(groupable), group)}${select("flowColour", "Colour", columnOptions(colourChoices, "None"), colour)}</div>`;
+  if (!shown.length) return `${head}<section class="card">${controls}${missingColumn(`No ${sample(2)} with a value in ${y}.`)}</section>`;
+  return `${head}<section class="card"><h3>${esc(y)} by ${esc(group)}</h3><div class="sub">Click a dot to see that ${esc(sample())}'s images.</div>${controls}
+    ${legend(colourColumn, colour ? d.rows.map(r => r[colourColumn]) : [])}${stripChart(shown, y, group)}
+    ${list.length > shown.length ? `<div class="note">First ${shown.length} of ${list.length} groups.</div>` : ""}${skipped ? `<div class="warn">${skipped} ${esc(sample(2))} left out: their value is not a number.</div>` : ""}
+    ${dataTable([group, capital(sample(2)), `Median ${y}`], list.map(g => [g.name, g.points.length, fmt(median(g.points.map(p => p.y)))]))}</section>${pickedPanel()}`;
+}
+
+function renderScatter() {
+  const d = S.data;
+  const x = ui("scatterX", d.numeric.includes(defaultRegionColumn()) ? defaultRegionColumn() : d.numeric[0]);
+  const y = ui("scatterY", firstOf(L().values, d.numeric.filter(c => c !== x)));
+  const colour = ui("scatterColour", firstOf(L().colourBy, d.categorical));
+  const head = `<div class="intro"><h2>${esc(tabLabel(TABS[4]))}</h2><p>One dot per ${esc(sample())}. A value that differs between images of a ${esc(sample())}, such as a region count, is the mean over its images.</p></div>`;
+  if (!x || !y) return `${head}<section class="card">${missingColumn("This file needs two numeric columns.")}</section>`;
+  const points = [];
+  d.wells.forEach(w => {
+    const a = wellValue(w, x), b = wellValue(w, y);
+    if (a === null || b === null) return;
+    points.push({ x: a, y: b, key: w.key, row: w, colour: colour ? colourOf(colour, wellText(w, colour)) : "var(--s1)", tip: `${wellName(w)}\n${x}: ${fmt(a)}\n${y}: ${fmt(b)}${colour ? `\n${colour}: ${wellText(w, colour)}` : ""}` });
+  });
+  const controls = `<div class="controls">${select("scatterX", "X", columnOptions(d.numeric), x)}${select("scatterY", "Y", columnOptions(d.numeric), y)}${select("scatterColour", "Colour", columnOptions(d.categorical, "None"), colour)}</div>`;
+  if (!points.length) return `${head}<section class="card">${controls}${missingColumn(`No ${sample()} has a value in both ${x} and ${y}.`)}</section>`;
+  return `${head}<section class="card"><h3>${esc(y)} against ${esc(x)}</h3><div class="sub">${points.length} ${esc(sample(points.length))}. Click a dot to see that ${esc(sample())}'s images.</div>${controls}${regionsNote()}
+    ${legend(colour, colour ? points.map(p => wellText(p.row, colour)) : [])}${scatterChart(points, x, y)}
+    ${dataTable([capital(sample()), x, y, colour || ""], points.map(p => [wellName(p.row), fmt(p.x), fmt(p.y), colour ? wellText(p.row, colour) : ""]))}</section>${pickedPanel()}`;
+}
+
+function renderAnnot() {
+  const d = S.data;
+  const head = `<div class="intro"><h2>Annotation status</h2><p>Per ${esc(groupWord())}: how many images have an annotation, and from whom. 0 regions still counts as annotated.</p></div>`;
+  if (!d.regionColumns.length) return `${head}<section class="card">${missingColumn("This file has no regions_ columns.")}</section>`;
+  const perLabel = d.regionColumns.filter(c => c !== "regions_total");
+  const stats = new Map();
+  d.rows.forEach(r => {
+    const e = groupOf(r) || noGroup();
+    if (!stats.has(e)) stats.set(e, { images: 0, annotated: 0, labels: {} });
+    const x = stats.get(e); x.images++;
+    if (d.regionColumns.some(c => r[c] !== "")) x.annotated++;
+    perLabel.forEach(c => {
+      if (r[c] === "") return;
+      const l = x.labels[c] || (x.labels[c] = { images: 0, regions: 0, zero: 0 });
+      l.images++; l.regions += num(r[c]) || 0; if (num(r[c]) === 0) l.zero++;
+    });
+  });
+  return `${head}<section class="card"><h3>Annotated images per ${esc(groupWord())}</h3><div class="legend"><span><i style="background:var(--s1)"></i>Annotated</span><span><i style="background:var(--none)"></i>Not annotated</span></div>
+    <table class="t"><thead><tr><th>${esc(capital(groupWord()))}</th><th style="width:30%">Share</th><th class="n">Images</th><th class="n">Annotated</th>${perLabel.map(c => `<th class="n">${esc(c.replace("regions_", ""))}: images / regions / with 0</th>`).join("")}</tr></thead><tbody>
+    ${[...stats.entries()].map(([e, x]) => {
+      const share = x.images ? x.annotated / x.images * 100 : 0;
+      const bar = `<div class="bar">${share ? `<i style="width:${share}%;background:var(--s1)"></i>` : ""}${share < 100 ? `<i style="flex:1;background:var(--none)"></i>` : ""}</div>`;
+      return `<tr><td>${esc(e)}</td><td>${bar}</td><td class="n">${x.images}</td><td class="n">${x.annotated}</td>${perLabel.map(c => { const l = x.labels[c]; return `<td class="n">${l ? `${l.images} / ${l.regions} / ${l.zero}` : ""}</td>`; }).join("")}</tr>`;
+    }).join("")}</tbody></table></section>`;
+}
+
+const RENDER = { overview: renderOverview, images: renderImages, time: renderTime, flow: renderFlow, scatter: renderScatter, annot: renderAnnot };
+const renderTab = tab => RENDER[tab]();
+
+// ── Reading a file ───────────────────────────────────────────────────────────
+function tableFromWorkbook(workbook) {
+  // The first sheet with content. Text stays as written, so a date is not reformatted.
+  const name = workbook.SheetNames.find(n => XLSX.utils.sheet_to_json(workbook.Sheets[n], { header: 1 }).length > 1) || workbook.SheetNames[0];
+  const table = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, raw: false, defval: "", blankrows: false });
+  if (table.length < 2) throw new Error("no rows");
+  const seen = {};
+  const columns = table[0].map((c, i) => {
+    let label = String(c).trim() ? String(c) : `(no header, column ${i + 1})`;
+    seen[label] = (seen[label] || 0) + 1;
+    return seen[label] > 1 ? `${label}_${seen[label]}` : label;
+  });
+  return { columns, rows: table.slice(1) };
+}
+function readBytes(name, buffer) {
+  if (/\.csv$/i.test(name)) {
+    const text = new TextDecoder("utf-8").decode(buffer).replace(/^﻿/, "");
+    return tableFromWorkbook(XLSX.read(text, { type: "string", raw: true }));
+  }
+  return tableFromWorkbook(XLSX.read(buffer, { type: "array", dateNF: "yyyy-mm-dd", cellDates: true }));
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
+function render() {
+  const main = document.getElementById("main"), tabs = document.getElementById("tabs");
+  document.getElementById("fileinfo").textContent = S.data ? `${S.data.name || ""}` : "";
+  const title = S.data ? L().title : "Imaging dashboard";
+  document.getElementById("title").textContent = title;
+  document.title = title;
+  if (!S.data) {
+    tabs.innerHTML = "";
+    main.innerHTML = `<div class="empty"><h2>Open a file to build the dashboard</h2><p>Choose a metadata.csv from an export, or an Excel file in that layout.</p>${S.error ? `<p class="bad">${esc(S.error)}</p>` : ""}<div class="drop" id="drop">Drop a file here</div></div>`;
+    return;
+  }
+  tabs.innerHTML = TABS.map(t => `<button role="tab" data-tab="${t[0]}" aria-selected="${S.tab === t[0]}">${esc(tabLabel(t))}</button>`).join("");
+  main.innerHTML = (S.error ? `<div class="warn">${esc(S.error)}</div>` : "") + renderTab(S.tab);
+}
+function openFile(file) {
+  file.arrayBuffer().then(buffer => {
+    // A file opened in a dashboard from an export keeps that dataset's layout.
+    load({ ...readBytes(file.name, buffer), name: file.name, layout: S.data ? L().raw : null });
+    S.error = null; S.tab = "overview";
+  }).catch(() => { S.error = `Could not read ${file.name}.`; }).then(render);
+}
+function boot() {
+  const embedded = JSON.parse(document.getElementById("embedded").textContent);
+  if (embedded) load(embedded);
+  document.addEventListener("click", e => {
+    const tab = e.target.closest("[data-tab]");
+    if (tab) { S.tab = tab.dataset.tab; S.picked = null; render(); return; }
+    const point = e.target.closest("[data-key]");
+    if (point) { S.picked = point.dataset.key; render(); }
+  });
+  const onUi = e => {
+    if (e.target.dataset.ui) {
+      S.ui[e.target.dataset.ui] = e.target.value;
+      if (e.target.dataset.ui === "imgExperiment") { delete S.ui.imgChannel; delete S.ui.imgTime; }
+      render();
+    } else if (e.target.dataset.annotator) {
+      const hidden = new Set(ui("hidden", []));
+      if (e.target.checked) hidden.delete(e.target.dataset.annotator); else hidden.add(e.target.dataset.annotator);
+      S.ui.hidden = [...hidden];
+      render();
+    }
+  };
+  document.addEventListener("change", onUi);
+  const tip = document.getElementById("tip");
+  document.addEventListener("mousemove", e => {
+    const hit = e.target.closest && e.target.closest("[data-tip]");
+    if (!hit) { tip.style.display = "none"; return; }
+    tip.textContent = hit.getAttribute("data-tip");
+    tip.style.display = "block";
+    tip.style.left = `${Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8)}px`;
+    tip.style.top = `${Math.min(e.clientY + 14, window.innerHeight - tip.offsetHeight - 8)}px`;
+  });
+  document.getElementById("file").addEventListener("change", e => { if (e.target.files[0]) openFile(e.target.files[0]); e.target.value = ""; });
+  document.addEventListener("dragover", e => { e.preventDefault(); const d = document.getElementById("drop"); if (d) d.classList.add("over"); });
+  document.addEventListener("drop", e => { e.preventDefault(); if (e.dataTransfer.files[0]) openFile(e.dataTransfer.files[0]); });
+  const themes = ["auto", "light", "dark"];
+  document.getElementById("theme").addEventListener("click", e => {
+    const next = themes[(themes.indexOf(e.target.dataset.theme || "auto") + 1) % 3];
+    e.target.dataset.theme = next;
+    e.target.textContent = `Theme: ${next}`;
+    if (next === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", next);
+  });
+  render();
+}
+if (typeof document !== "undefined") boot();
+if (typeof globalThis !== "undefined" && typeof document === "undefined") {
+  globalThis.ImageHubDashboard = { S, load, renderTab, TABS, readBytes, num, median, ticks, colourMap, esc, dodgeLabels, defaultRegionColumn, tabLabel, LABEL_GAP };
+}
+</script>
+</body>
+</html>
