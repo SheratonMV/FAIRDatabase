@@ -66,21 +66,12 @@ others show "disk not connected".
 `flask run` does not reload code. After changing a Python file or a config, run
 `docker compose restart flask-app`.
 
-The read-only query role needs `IMAGEHUB_RO_PASSWORD` in `backend/.env`.
-`scripts/bootstrap.sh` rewrites `.env` and drops it. To set it again:
-
-```bash
-printf 'IMAGEHUB_RO_PASSWORD=%s\n' "$(openssl rand -hex 24)" >> backend/.env
-docker compose up -d --no-deps flask-app
-docker exec fairdatabase-flask flask imagehub setup-query-role
-```
-
 ## Commands
 
 All run inside the container. In the examples, `$SP` stands for
 `docker exec fairdatabase-flask flask imagehub`, and `--as` is an admin or curator
-email. Every step can be repeated: a re-run adds no duplicates. Every command except
-`setup-query-role` takes `--dataset <id>`, and otherwise works on the active dataset.
+email. Every step can be repeated: a re-run adds no duplicates. Every command takes
+`--dataset <id>`, and otherwise works on the active dataset.
 
 ### 1. Import sample rows
 
@@ -169,18 +160,16 @@ its annotations and sample row. Thumbnails show only for images in the bucket.
 `/imagehub/api/images` takes the same filters and returns JSON, with the image and
 sample fields of each image.
 
-### Read-only SQL
+### SQL
 
-To query the tables from a terminal without being able to change anything:
+Query the tables in Supabase Studio or with `psql` in the database container; example
+queries are in `imagehub_queries.md`. Both connect with full rights, so the web routes'
+ownership rules do not apply there.
 
-```bash
-docker exec fairdatabase-flask python -m plugins.imagehub.query "SELECT count(*) FROM _fd.imagehub_wells"
-docker exec fairdatabase-flask python -m plugins.imagehub.query --format csv --limit 1000 "<SQL>"
-```
-
-It runs as the role `imagehub_ro`: `SELECT` on the five imagehub tables only, one
-statement, a read-only transaction, 200 rows and 30 seconds by default. Example queries
-are in `imagehub_queries.md`.
+Versions before this one had a read-only role, `imagehub_ro`, and
+`python -m plugins.imagehub.query`. `sql/002_drop_query_role.sql` removes that role with
+its grants and policies at the next start; no data is touched. An
+`IMAGEHUB_RO_PASSWORD` left in `backend/.env` is no longer read and can be removed.
 
 ### Tables
 
@@ -306,7 +295,6 @@ cli.py                flask imagehub <command>
 ingest.py             sample rows, catalog, upload, VIA import
 export.py             the export zip
 dashboard.py          builds dashboard.html from dashboard_assets/
-query.py              read-only SQL as imagehub_ro
 helpers.py            pure functions: parsing, filters, display
 datasets/             dataset configs; datasets/local/ is git-ignored
 sql/                  idempotent migrations, applied at boot

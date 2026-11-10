@@ -1,11 +1,14 @@
 # Example queries
 
-Run these in Supabase Studio (http://localhost:8000), in `psql` in the database
-container, or read-only through the plugin:
+Run these in Supabase Studio (http://localhost:8000) or with `psql` in the database
+container:
 
 ```bash
-docker exec fairdatabase-flask python -m plugins.imagehub.query "<SQL>"
+docker exec -it supabase-db psql -U postgres
 ```
+
+Both have full rights. To be sure a query changes nothing, start with
+`BEGIN READ ONLY;` and end with `ROLLBACK;`.
 
 The examples use the field names of `datasets/spheroid_example.yaml`; another dataset
 has the names of its own config. Useful to know:

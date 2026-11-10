@@ -8,11 +8,8 @@ import os
 
 import click
 from flask import current_app, g
-from psycopg2.extensions import encrypt_password
-from psycopg2.sql import SQL, Literal
 
 from kernel.audit import record
-from kernel.env import get as env_get
 
 from . import config
 from .export import ExportError, build_export
@@ -301,24 +298,6 @@ def register(routes):
             g.db.commit()
         for filename, status in report:
             click.echo(f"{status} | {filename}")
-
-    @routes.cli.command("setup-query-role")
-    def setup_query_role():
-        """Let imagehub_ro log in with IMAGEHUB_RO_PASSWORD. Safe to repeat."""
-        password = env_get("IMAGEHUB_RO_PASSWORD")
-        if not password:
-            raise click.ClickException("IMAGEHUB_RO_PASSWORD is not set")
-        with current_app.test_request_context("/"):
-            current_app.preprocess_request()
-            # Hashed here: the database logs DDL, so plain text would end up there.
-            hashed = encrypt_password(password, "imagehub_ro", g.db, "scram-sha-256")
-            with g.db.cursor() as cur:
-                cur.execute(SQL(
-                    "ALTER ROLE imagehub_ro LOGIN CONNECTION LIMIT 5 PASSWORD {}"
-                ).format(Literal(hashed)))
-                record("imagehub_query_role", actor=None, action="setup")
-            g.db.commit()
-        click.echo("imagehub_ro can log in.")
 
     @routes.cli.command("export", context_settings={
         "ignore_unknown_options": True, "allow_extra_args": True,

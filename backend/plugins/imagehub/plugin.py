@@ -14,7 +14,7 @@ PLUGIN = Plugin(
     url_prefix="/imagehub",
     blueprint=routes,
 
-    sql_migrations=["sql/001_schema.sql", "sql/002_query_role.sql", "sql/003_dataset.sql"],
+    sql_migrations=["sql/001_schema.sql", "sql/002_drop_query_role.sql", "sql/003_dataset.sql"],
 
     # Import names; pip names are in requirements.txt (Pillow imports as PIL,
     # PyYAML as yaml).
@@ -29,8 +29,7 @@ PLUGIN = Plugin(
     }],
 
     # Anon key, needed for browser URLs: the gateway wants an API key on storage.
-    # The second is the password of the read-only role used by query.py.
-    required_env=["SUPABASE_KEY", "IMAGEHUB_RO_PASSWORD"],
+    required_env=["SUPABASE_KEY"],
 
     # admin/curator upload and delete, accessor queries. visualizer gets 403.
     roles_required=("admin", "curator", "accessor"),

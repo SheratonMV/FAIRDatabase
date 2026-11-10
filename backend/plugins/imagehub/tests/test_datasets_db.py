@@ -4,7 +4,6 @@ Both datasets read the same workbook and disk, so every source name is shared.
 Every row is removed by owner afterwards.
 """
 import json
-import os
 import uuid
 
 import pytest
@@ -13,13 +12,7 @@ from flask import g
 from app import get_db
 from config import supabase_extension
 from plugins.imagehub import config, ingest
-from plugins.imagehub.query import connect
 from plugins.imagehub.tests import synthetic
-
-needs_role = pytest.mark.skipif(
-    not os.getenv("IMAGEHUB_RO_PASSWORD"), reason="IMAGEHUB_RO_PASSWORD is not set",
-)
-
 
 @pytest.fixture
 def two(app, tmp_path):
@@ -120,25 +113,6 @@ def test_same_sources_in_two_datasets_stay_apart(two):
     }
     for well in data["wells"]:
         assert stored[(well["source_sheet"], well["source_row"])] == json.loads(json.dumps(well["fields"]))
-
-
-@needs_role
-def test_read_only_role_reads_dataset_and_fields(two):
-    _import(two, two["datasets"][0])
-    with two["app"].app_context():
-        conn = connect()
-        try:
-            with conn.cursor() as cur:
-                for table in ("wells", "images"):
-                    cur.execute(f"SELECT dataset, fields FROM _fd.imagehub_{table} "
-                                "WHERE owner_id = %s LIMIT 1", (two["user_id"],))
-                    dataset, fields = cur.fetchone()
-                    assert dataset == "spheroid_example" and fields, table
-                cur.execute("SELECT dataset FROM _fd.imagehub_legends WHERE owner_id = %s LIMIT 1",
-                            (two["user_id"],))
-                assert cur.fetchone() == ("spheroid_example",)
-        finally:
-            conn.close()
 
 
 def _object_count(two, storage_path):

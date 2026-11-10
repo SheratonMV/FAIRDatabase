@@ -8,7 +8,6 @@ import pytest
 from app import get_db
 from config import supabase_extension
 from plugins.imagehub.plugin import PLUGIN
-from plugins.imagehub.query import main as query_main
 
 from .test_image_flow import stack  # noqa: F401 (fixture)
 
@@ -126,6 +125,43 @@ def test_migrations_can_run_twice(app):
             db.rollback()
 
 
+def test_the_old_query_role_is_removed_and_no_rows_are(app):
+    """An install from before 002_drop_query_role.sql has the role imagehub_ro, with
+    grants and policies. Run in a transaction that is rolled back."""
+    tables = ("wells", "images", "annotations", "legends", "exports")
+    with app.app_context():
+        db = get_db()
+        try:
+            with db.cursor() as cur:
+                cur.execute("SELECT 1 FROM pg_roles WHERE rolname = 'imagehub_ro'")
+                if cur.fetchone() is None:
+                    cur.execute("CREATE ROLE imagehub_ro NOLOGIN")
+                cur.execute("GRANT USAGE ON SCHEMA _fd TO imagehub_ro")
+                for t in tables:
+                    cur.execute(f"GRANT SELECT ON _fd.imagehub_{t} TO imagehub_ro")
+                    cur.execute(f"DROP POLICY IF EXISTS imagehub_{t}_ro ON _fd.imagehub_{t}")
+                    cur.execute(f"CREATE POLICY imagehub_{t}_ro ON _fd.imagehub_{t} "
+                                "FOR SELECT TO imagehub_ro USING (true)")
+                counts = []
+                for t in tables:
+                    cur.execute(f"SELECT count(*) FROM _fd.imagehub_{t}")
+                    counts.append(cur.fetchone()[0])
+                with open(os.path.join(PLUGIN_DIR, "sql/002_drop_query_role.sql"),
+                          encoding="utf-8") as fh:
+                    migration = fh.read()
+                cur.execute(migration)
+                cur.execute(migration)
+                cur.execute("SELECT 1 FROM pg_roles WHERE rolname = 'imagehub_ro'")
+                assert cur.fetchone() is None
+                cur.execute("SELECT count(*) FROM pg_policies WHERE policyname LIKE 'imagehub_%_ro'")
+                assert cur.fetchone()[0] == 0
+                for t, before in zip(tables, counts):
+                    cur.execute(f"SELECT count(*) FROM _fd.imagehub_{t}")
+                    assert cur.fetchone()[0] == before, t
+        finally:
+            db.rollback()
+
+
 def test_manifest_follows_the_contract():
     assert PLUGIN.name == "imagehub" and PLUGIN.table_prefix == "imagehub_"
     assert PLUGIN.nav["label"] == "Image hub"
@@ -189,36 +225,3 @@ def test_git_rules_block_real_data():
         rules = fh.read()
     for pattern in ("*.xlsx", "*.json", "*.jpg", "*.tif", "*.csv", "*.zip", "*.fcs"):
         assert pattern in rules
-
-
-needs_role = pytest.mark.skipif(
-    not os.getenv("IMAGEHUB_RO_PASSWORD"), reason="IMAGEHUB_RO_PASSWORD is not set",
-)
-
-
-@needs_role
-def test_query_cli_prints_a_table_and_csv(capsys):
-    assert query_main(["SELECT 1 AS a, 'x, y' AS b"]) == 0
-    out = capsys.readouterr()
-    assert "a | b" in out.out and "(1 rows)" in out.err
-    assert query_main(["--format", "csv", "SELECT 1 AS a, 'x, y' AS b"]) == 0
-    assert capsys.readouterr().out.splitlines() == ["a,b", '1,"x, y"']
-
-
-@needs_role
-def test_query_cli_applies_the_limit(capsys):
-    assert query_main(["--limit", "2", "SELECT generate_series(1, 5) AS n"]) == 0
-    out = capsys.readouterr()
-    assert "cut off at the limit" in out.err and "5" not in out.out
-
-
-@needs_role
-@pytest.mark.parametrize("sql,message", [
-    ("DELETE FROM _fd.imagehub_wells", "only SELECT"),
-    ("SELECT 1; SELECT 2", "one statement"),
-    ("SELECT * FROM auth.users", "permission denied"),
-    ("SELECT * FROM _fd.user_roles", "permission denied"),
-])
-def test_query_cli_refuses_with_a_clear_error(capsys, sql, message):
-    assert query_main([sql]) == 1
-    assert message in capsys.readouterr().err
