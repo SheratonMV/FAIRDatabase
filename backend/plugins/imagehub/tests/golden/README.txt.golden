@@ -1,0 +1,70 @@
+Spheroid imaging export
+Filter: {"channel": "golden"}
+Images selected: 13; included: 13; missing: 0
+
+Contents
+  images/        original files, unchanged, per experiment
+  annotations/   VIA json per annotator, only for the selected images.
+                 File names start with the annotator's initials, or 'unknown'.
+  metadata.csv   one row per image, with the metadata of its well
+  dashboard.html charts and thumbnails. Opens by double-click, works offline
+
+Columns in metadata.csv, in file order
+
+Identifiers
+  image_file: Path of the image in this zip; empty if it is listed in MISSING.txt
+  original_name: File name as on the disk
+  experiment: Experiment name from the metadata workbook, or else the folder name
+  vid: Video ID. For match_status 'inferred', taken from the experiment
+  well: Plate position
+  field: Field number from the file name
+
+Time and image
+  timepoint_minutes: Elapsed time from the file name, in minutes
+  day: timepoint_minutes / 1440
+  channel: Prefix in the file name (BF, Brightfield, PC, Phase), or else the file type
+  channel_norm: channel with one name per channel: Brightfield is BF, Phase is PC
+  variant: Suffix in the file name, for example masks
+  match_status: matched, inferred (VID taken from the experiment), unmatched or ambiguous
+
+Annotations
+  regions_AA: Number of regions from annotator AA; 0 means annotated, no regions found; empty means not annotated by them
+  regions_unknown: Number of regions from annotator unknown; 0 means annotated, no regions found; empty means not annotated by them
+  regions_total: Sum over annotators. Their regions can overlap, so this is not a number of distinct clusters. Empty if the image has no annotation
+
+Treatment
+  treatment_raw: Treatment as written in the workbook
+  treatment_norm: Normalised treatment; combinations separated by ';'. ABT-199 is written as venetoclax
+  concentration: As written in the workbook; combinations follow the treatment order
+  concentration_unit: Unit of the concentration; differs between sheets. Empty without a concentration
+  stimulation: Stimulation as written in the workbook
+  stimulation_norm: Normalised stimulation; combinations separated by ';'
+  tissue: Tissue
+
+Sheet-specific columns follow, as written in the workbooks. Sheets differ, so many
+are empty for part of the rows. A repeated header in a sheet has the suffix _2.
+Headers that differ only in spelling or capitals between sheets share one column
+here, for example 'Specific Lysis (%)' and 'Specific lysis (%)'.
+Descriptions come from the Legend sheet in the lab's workbooks.
+
+Flow and well results
+  proliferation index (CLL): no description in the lab sheet
+  proliferation index (CLL)_2: no description in the lab sheet
+  Specific lysis (%): no description in the lab sheet
+  Target: no description in the lab sheet
+  Viability (%): Percentage of live cells
+
+Patient and clinical
+  Sample date: no description in the lab sheet
+
+Note
+  well_note: Free text found in a cell where a value belongs, as '<column>: <text>'. The text is moved here from that column and is otherwise as written in the sheet
+
+Technical
+  file_status: included, or why the file could not be read
+  source_zip: Zip on the disk
+  source_member: Path inside that zip
+  source_workbook: Metadata workbook of the well; empty if the image has no well
+  source_sheet: Sheet in that workbook
+  source_row: Row in that sheet
+  volgnummer: Coded patient / blood-draw number

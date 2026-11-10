@@ -41,6 +41,10 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Docs
+# Docs. A pattern without a folder only matches at the root, so this keeps the
+# frontend's files. No "!" exceptions here: with one, BuildKit walks into
+# excluded folders such as backend/volumes above and fails on their permissions.
 *.md
-!frontend/**/*.md
+
+# Dataset configs of real data: local only, mounted at run time, never in an image.
+backend/plugins/*/datasets/local

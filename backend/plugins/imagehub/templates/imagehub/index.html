@@ -1,0 +1,162 @@
+{% extends "dashboard/layout.html" %}
+
+{% block title %}{{ ds.title }}{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">{{ ds.title }}</h1>
+
+{% if datasets|length > 1 %}
+  <p class="small">Dataset:
+    {% for d in datasets %}
+      {% if d.id == ds.id %}<strong>{{ d.title }}</strong>{% else %}<a href="{{ url_for('imagehub_routes.ui', dataset=d.id) }}">{{ d.title }}</a>{% endif %}{% if not loop.last %} · {% endif %}
+    {% endfor %}
+  </p>
+{% endif %}
+
+<form method="get" class="row g-2 align-items-end mb-3">
+  {% if args.get('dataset') %}<input type="hidden" name="dataset" value="{{ args.get('dataset') }}">{% endif %}
+  {% for f in filters %}
+    {% if f.type == 'range' %}
+      {% for name in f.params %}
+        <div class="col-md-1">
+          <label class="form-label" for="{{ name }}">{{ (f.labels or f.params)[loop.index0] }}</label>
+          <input class="form-control form-control-sm" id="{{ name }}" name="{{ name }}" type="number"
+                 step="any" min="0" value="{{ args.get(name, '') }}">
+        </div>
+      {% endfor %}
+    {% elif f.type == 'text' %}
+      <div class="col-md-2">
+        <label class="form-label" for="{{ f.param }}">{{ f.label or f.param }}</label>
+        <input class="form-control form-control-sm" id="{{ f.param }}" name="{{ f.param }}"
+               value="{{ args.get(f.param, '') }}" placeholder="exact value">
+      </div>
+    {% else %}
+      <div class="col-md-2">
+        <label class="form-label" for="{{ f.param }}">{{ f.label or f.param }}</label>
+        <select class="form-select form-select-sm" id="{{ f.param }}" name="{{ f.param }}">
+          <option value="">All</option>
+          {% for o in options[f.param] %}
+            <option value="{{ o }}"{% if args.get(f.param) == o|string %} selected{% endif %}>{{ o }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    {% endif %}
+  {% endfor %}
+  <div class="col-md-1">
+    <label class="form-label" for="min_regions">Min. regions</label>
+    <input class="form-control form-control-sm" id="min_regions" name="min_regions" type="number"
+           step="1" min="0" value="{{ args.get('min_regions', '') }}">
+  </div>
+  <div class="col-12 d-flex gap-3 align-items-center">
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" id="annotated" name="annotated" value="1"
+             {% if args.get('annotated') %}checked{% endif %}>
+      <label class="form-check-label" for="annotated">Annotated only</label>
+    </div>
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" id="in_bucket" name="in_bucket" value="1"
+             {% if args.get('in_bucket') %}checked{% endif %}>
+      <label class="form-check-label" for="in_bucket">In bucket</label>
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit">Search</button>
+    <a class="btn btn-link btn-sm" href="{{ url_for('imagehub_routes.ui', **({'dataset': args.get('dataset')} if args.get('dataset') else {})) }}">Clear</a>
+    {% if can_upload %}
+      <button class="btn btn-outline-secondary btn-sm ms-auto" type="button" id="imagehub-export"
+              {% if not total %}disabled{% endif %}>Export these {{ '{:,}'.format(total) }} images</button>
+    {% endif %}
+  </div>
+</form>
+
+<div id="imagehub-export-result" class="mb-3"></div>
+
+<p class="text-muted">{{ '{:,}'.format(total) }} images{% if total > page_size %}, page {{ page }} of {{ ((total - 1) // page_size) + 1 }}{% endif %}.
+  {% if ds.ui.note %}{{ ds.ui.note }} {% endif %}Regions are per annotator; min. regions needs one annotator to reach it.</p>
+
+<div class="table-responsive">
+  <table class="table table-sm align-middle">
+    <thead>
+      <tr>
+        <th>Image</th>{% for label in columns %}<th>{{ label }}</th>{% endfor %}<th>Regions</th>
+        <th>Link</th><th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for i in images %}
+        <tr>
+          <td>
+            <a href="{{ url_for('imagehub_routes.image_page', image_id=i.id) }}">
+              {% if i.thumbnail %}
+                <img src="{{ i.thumbnail }}" alt="{{ i.original_name }}" width="96" loading="lazy">
+              {% else %}
+                {{ i.original_name }}
+              {% endif %}
+            </a>
+          </td>
+          {% for cell in i.cells %}<td>{{ cell }}</td>{% endfor %}
+          <td class="text-nowrap">{{ i.regions or '' }}</td>
+          <td>{{ i.match_status }}</td>
+          <td class="text-nowrap">{{ i.status }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="{{ columns|length + 4 }}" class="text-muted">No images match these filters.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if total > page_size %}
+  <nav class="d-flex gap-2">
+    {% if page > 1 %}
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('imagehub_routes.ui', page=page - 1, **query) }}">Previous</a>
+    {% endif %}
+    {% if page * page_size < total %}
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('imagehub_routes.ui', page=page + 1, **query) }}">Next</a>
+    {% endif %}
+  </nav>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% if can_upload %}
+<script>
+  (function () {
+    var button = document.getElementById('imagehub-export');
+    var result = document.getElementById('imagehub-export-result');
+    if (!button) { return; }
+    var filters = {{ query|tojson }};
+    var show = function (kind, text) {
+      result.className = 'alert alert-' + kind + ' mb-3';
+      result.textContent = text;
+    };
+    button.addEventListener('click', function () {
+      button.disabled = true;
+      show('secondary', 'Building the zip. This can take a while for many images...');
+      fetch('{{ url_for("imagehub_routes.create_export") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({filter: filters})
+      }).then(function (response) {
+        return response.json().then(function (body) {
+          if (!response.ok) { show('danger', body.error || 'Export failed.'); return; }
+          var megabytes = (body.size_bytes / 1048576).toFixed(1);
+          show(body.n_missing ? 'warning' : 'success',
+               body.n_files + ' files, ' + megabytes + ' MB. ' +
+               (body.n_missing ? body.n_missing + ' missing (see MISSING.txt in the zip): ' +
+                 body.missing.slice(0, 5).map(function (m) { return m.original_name + ' (' + m.reason + ')'; }).join(', ') + '. ' : '') +
+               (body.dashboard_note ? body.dashboard_note + ' ' : ''));
+          var link = document.createElement('a');
+          link.href = body.download_url;
+          link.textContent = 'Download zip';
+          result.appendChild(link);
+        });
+      }).catch(function () {
+        show('danger', 'Export failed.');
+      }).finally(function () {
+        button.disabled = false;
+      });
+    });
+  })();
+</script>
+{% endif %}
+{% endblock %}

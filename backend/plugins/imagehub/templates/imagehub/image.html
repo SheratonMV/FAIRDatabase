@@ -1,0 +1,103 @@
+{% extends "dashboard/layout.html" %}
+
+{% block title %}{{ image.original_name }}{% endblock %}
+
+{% block content %}
+<p><a href="{{ url_for('imagehub_routes.ui', dataset=image.dataset) }}">Back to search</a> <span class="text-muted small">{{ title }}</span></p>
+<h1 class="h4 mb-3">{{ image.original_name }}</h1>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    {% if display_url %}
+      <div style="position: relative; line-height: 0;">
+        <img id="imagehub-image" src="{{ display_url }}" alt="{{ image.original_name }}" style="width: 100%;">
+        <svg id="imagehub-overlay" style="position: absolute; inset: 0; width: 100%; height: 100%;">
+          {% for overlay in overlays %}
+            <g data-overlay="{{ overlay.index }}" fill="none" stroke="{{ overlay.colour }}" stroke-width="2">
+              {% for tag, attrs in overlay.shapes %}
+                <{{ tag }} vector-effect="non-scaling-stroke"{% for k, v in attrs.items() %} {{ k }}="{{ v }}"{% endfor %}></{{ tag }}>
+              {% endfor %}
+            </g>
+          {% endfor %}
+        </svg>
+      </div>
+    {% else %}
+      <div class="alert alert-secondary">
+        {% if status == 'in bucket' %}
+          This file has no browser preview.
+        {% elif status == 'disk not connected' %}
+          Not in the bucket, and the disk is not connected.
+        {% else %}
+          Not in the bucket yet; the file is on the disk.
+        {% endif %}
+      </div>
+    {% endif %}
+
+    {% for overlay in overlays %}
+      <div class="form-check mt-2">
+        <input class="form-check-input" type="checkbox" checked id="overlay-{{ overlay.index }}" data-toggle-overlay="{{ overlay.index }}">
+        <label class="form-check-label" for="overlay-{{ overlay.index }}">
+          <span style="display: inline-block; width: .8em; height: .8em; background: {{ overlay.colour }};"></span>
+          {{ overlay.label }}: {{ overlay.shapes|length }} regions
+          {% if overlay.not_drawn %}({{ overlay.not_drawn }} could not be drawn){% endif %}
+        </label>
+        <div class="small text-muted">{{ overlay.source_file }}</div>
+      </div>
+    {% else %}
+      <p class="text-muted mt-2">No annotations.</p>
+    {% endfor %}
+  </div>
+
+  <div class="col-lg-5">
+    <h2 class="h5">Image</h2>
+    <table class="table table-sm small">
+      <tr><th>Status</th><td>{{ status }}</td></tr>
+      <tr><th>Link to {{ sample_name }}</th><td>{{ image.match_status }}</td></tr>
+      {% for row in image_rows %}<tr><th>{{ row.label }}</th><td>{{ row.text }}</td></tr>{% endfor %}
+      <tr><th>Source</th><td class="text-break">{{ image.source_zip }}: {{ image.source_member }}</td></tr>
+    </table>
+
+    <h2 class="h5">{{ sample_name|capitalize }}</h2>
+    {% if well %}
+      <table class="table table-sm small">
+        <tr><th>Sheet</th><td>{{ well.source_workbook }}, {{ well.source_sheet }}, row {{ well.source_row }}</td></tr>
+        {% for row in sample_rows %}
+          <tr><th>{{ row.label }}</th><td>{{ row.text }}{% if row.raw %} <span class="text-muted">(raw: {{ row.raw }})</span>{% endif %}</td></tr>
+        {% endfor %}
+        {% for key, value in well.props.items() %}
+          {% if value is not none %}
+            <tr><th>{{ key }}</th><td>{{ value }}</td></tr>
+          {% endif %}
+        {% endfor %}
+      </table>
+    {% elif well_hidden %}
+      <p class="text-muted">This image is linked to a {{ sample_name }} that someone else imported. Its data is not shown.</p>
+    {% else %}
+      <p class="text-muted">This image is not linked to a {{ sample_name }}.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  // VIA regions are in image pixels, so the overlay uses the image's own size.
+  (function () {
+    var image = document.getElementById('imagehub-image');
+    var overlay = document.getElementById('imagehub-overlay');
+    if (image && overlay) {
+      var fit = function () {
+        overlay.setAttribute('viewBox', '0 0 ' + image.naturalWidth + ' ' + image.naturalHeight);
+      };
+      if (image.complete && image.naturalWidth) { fit(); } else { image.addEventListener('load', fit); }
+    }
+    document.querySelectorAll('[data-toggle-overlay]').forEach(function (box) {
+      box.addEventListener('change', function () {
+        var group = document.querySelector('[data-overlay="' + box.dataset.toggleOverlay + '"]');
+        if (group) { group.style.display = box.checked ? '' : 'none'; }
+      });
+    });
+  })();
+</script>
+{% endblock %}

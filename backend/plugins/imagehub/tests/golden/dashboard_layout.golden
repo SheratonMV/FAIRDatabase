@@ -1,0 +1,80 @@
+{
+ "annotator": "AA",
+ "caption": {
+  "text": [
+   "treatment_norm",
+   "concentration"
+  ],
+  "title": "well"
+ },
+ "channel": [
+  "channel_norm",
+  "channel"
+ ],
+ "colour_by": [
+  "treatment_norm",
+  "experiment"
+ ],
+ "compare_by": [
+  "treatment_norm",
+  "concentration"
+ ],
+ "expected": [
+  "experiment",
+  "vid",
+  "well",
+  "treatment_norm",
+  "concentration",
+  "tissue"
+ ],
+ "group": "experiment",
+ "key": [
+  "experiment",
+  "vid",
+  "well"
+ ],
+ "label": "{experiment} · VID {vid} · {well}",
+ "not_grouped": [
+  "image_file",
+  "original_name",
+  "source_member",
+  "source_zip",
+  "file_status",
+  "well_note",
+  "day",
+  "timepoint_minutes"
+ ],
+ "not_measured": [
+  "vid",
+  "well",
+  "field",
+  "source_row",
+  "volgnummer",
+  "image_file"
+ ],
+ "sample_fields": {
+  "experiment": "sample.experiment",
+  "vid": "sample.vid",
+  "well": "sample.well"
+ },
+ "tabs": {
+  "flow": "Flow endpoints",
+  "scatter": "Image vs flow"
+ },
+ "time": [
+  "timepoint_minutes",
+  "day"
+ ],
+ "title": "Spheroid imaging dashboard",
+ "units": {
+  "concentration": "concentration_unit"
+ },
+ "values": [
+  "Viability (%)",
+  "Specific lysis (%)"
+ ],
+ "words": {
+  "group": "experiment",
+  "sample": "well"
+ }
+}
