@@ -251,8 +251,15 @@ def image_page(image_id):
         except PermissionError:
             abort(403)
         image = _load_image(cur, image_id)
-        # The linked sample row is shown even when someone else imported it.
-        well = _load_well(cur, image["well_id"]) if image["well_id"] else None
+        # Matching links across owners; the linked row's data is shown to its
+        # owner and to admins only.
+        well, well_hidden = None, False
+        if image["well_id"]:
+            try:
+                assert_owns(cur, "_fd.imagehub_wells", "id", image["well_id"])
+                well = _load_well(cur, image["well_id"])
+            except PermissionError:
+                well_hidden = True
     # The image's own dataset; without its config only the fixed rows are shown.
     ds = config.datasets().get(image["dataset"])
     ui = ds.ui if ds else {}
@@ -272,7 +279,7 @@ def image_page(image_id):
         })
     return render_template(
         "imagehub/image.html",
-        image=image, well=well, overlays=overlays,
+        image=image, well=well, well_hidden=well_hidden, overlays=overlays,
         title=ds.title if ds else image["dataset"],
         sample_name=ui.get("sample_name", "sample"),
         image_rows=display_rows(ui.get("image_details"), record),

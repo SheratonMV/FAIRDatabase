@@ -119,6 +119,29 @@ def test_a_user_does_not_see_another_users_images(users):
     assert b.get(f"/imagehub/api/images/{uuid.uuid4()}").status_code == 404
 
 
+def test_the_image_page_hides_a_linked_well_someone_else_owns(app, users):
+    """Matching links across owners: B's image may point to A's well. B sees that
+    it is linked, not its data; admin sees the data."""
+    token = users["token"]
+    with app.app_context():
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute("UPDATE _fd.imagehub_images SET well_id = %s WHERE id = %s",
+                        (users["a_well"], users["b_image"]))
+        db.commit()
+    a_data = (f"tissue-own-a-{token}", f"own-a-{token}.xlsx")
+
+    page = users["b"].get(f"/imagehub/ui/images/{users['b_image']}")
+    assert page.status_code == 200
+    html = page.get_data(as_text=True)
+    assert "someone else imported" in html
+    assert not any(value in html for value in a_data)
+
+    html = users["admin"].get(f"/imagehub/ui/images/{users['b_image']}").get_data(as_text=True)
+    assert "someone else imported" not in html
+    assert all(value in html for value in a_data)
+
+
 def test_a_user_cannot_upload_another_users_images(users):
     b = users["b"]
     response = b.post("/imagehub/api/upload",

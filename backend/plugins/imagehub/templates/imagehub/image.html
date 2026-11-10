@@ -70,6 +70,8 @@
           {% endif %}
         {% endfor %}
       </table>
+    {% elif well_hidden %}
+      <p class="text-muted">This image is linked to a {{ sample_name }} that someone else imported. Its data is not shown.</p>
     {% else %}
       <p class="text-muted">This image is not linked to a {{ sample_name }}.</p>
     {% endif %}
