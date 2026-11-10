@@ -4,6 +4,7 @@ import re
 
 import pytest
 
+from plugins.imagehub import ingest
 from plugins.imagehub.helpers import (
     annotator_label,
     browser_url,
@@ -223,3 +224,12 @@ def test_image_order_binds_field_names():
     assert order == "i.experiment, i.fields -> %s, i.fields -> %s, i.fields -> %s, i.source_member"
     assert params == ["vid", "well", "timepoint_minutes"]
 
+
+
+def test_disk_root_comes_from_the_environment(monkeypatch):
+    monkeypatch.delenv("IMAGEHUB_DISK_ROOT", raising=False)
+    assert ingest.disk_root_from_env() == "/mnt/d"
+    monkeypatch.setenv("IMAGEHUB_DISK_ROOT", "  ")
+    assert ingest.disk_root_from_env() == "/mnt/d"
+    monkeypatch.setenv("IMAGEHUB_DISK_ROOT", "/data/microscope")
+    assert ingest.disk_root_from_env() == "/data/microscope"

@@ -17,6 +17,7 @@ from PIL import Image, UnidentifiedImageError
 from psycopg2.extras import execute_values
 
 from kernel.audit import record
+from kernel.env import get as env_get
 from kernel.storage import delete_object, upload_stream
 
 from . import config
@@ -34,7 +35,16 @@ from .helpers import (
 )
 from .rules import apply_steps, parse_filename, value_mapping
 
-DISK_ROOT = "/mnt/d"
+DEFAULT_DISK_ROOT = "/mnt/d"
+
+
+def disk_root_from_env():
+    """Where the disk with the zips is mounted: IMAGEHUB_DISK_ROOT, else /mnt/d."""
+    return (env_get("IMAGEHUB_DISK_ROOT") or "").strip() or DEFAULT_DISK_ROOT
+
+
+# Read once at start; restart the app after changing it.
+DISK_ROOT = disk_root_from_env()
 BUCKET = "imagehub-images"
 # A member inside a nested zip is stored as "<nested zip>!/<member>". Only nested
 # zips under the dataset's nested_prefix are opened; every other nested archive is

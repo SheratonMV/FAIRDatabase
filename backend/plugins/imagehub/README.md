@@ -58,10 +58,23 @@ In `ui` and `export` a field is named `group` (the image's experiment, or its fo
 ## Start the server
 
 The plugin runs in the FAIRDatabase stack (`backend/docker-compose.yml`). The disk with
-the zips is mounted read-only at `/mnt/d` in the Flask container (`DISK_ROOT` in
-`ingest.py`); a local `docker-compose.override.yml` can add that mount, which is not in
-git. Without the disk the app still works: images in the bucket stay available, the
-others show "disk not connected".
+the zips is mounted read-only in the Flask container, at `/mnt/d` unless
+`IMAGEHUB_DISK_ROOT` says otherwise; a local `docker-compose.override.yml` can add that
+mount, which is not in git. Without the disk the app still works: images in the bucket
+stay available, the others show "disk not connected".
+
+### Environment variables
+
+The Flask container only gets the variables listed for it in the compose files, so set
+these under `flask-app: environment:` in your `docker-compose.override.yml`, then
+`docker compose up -d flask-app`. The plugin reads them through `kernel.env.get`.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `IMAGEHUB_DISK_ROOT` | `/mnt/d` | Folder inside the container where the disk with the zips is mounted. Must match the mount's target. |
+| `IMAGEHUB_DATASET` | the one config that is not an example | Active dataset, used when a command or page has no `--dataset` / `?dataset=`. |
+| `IMAGEHUB_PUBLIC_STORAGE_URL` | `http://localhost:8000` | Where the browser reaches the storage gateway, for image URLs. |
+| `SUPABASE_KEY` | set by `docker-compose.yml` | Anon key, added to browser image URLs; the gateway wants an API key on storage. |
 
 `flask run` does not reload code. After changing a Python file or a config, run
 `docker compose restart flask-app`.
