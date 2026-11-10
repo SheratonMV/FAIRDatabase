@@ -173,14 +173,16 @@ def _filter_options(cur, ds, owner_id):
 
 _SEARCH_COLUMNS = (
     "id", "experiment", "match_status", "source_zip", "storage_path", "preview_path", "mime",
-    "original_name", "image", "sample", "regions",
+    "original_name", "image", "sample", "regions", "well_owner",
 )
 
 
 def _search_images(cur, args, page, ds):
     """Filtered images of one dataset for one page, and the total count. Only the
-    user's own images, unless the user is an admin."""
-    clauses, params = image_filter(args, ds, owner_id=_owner_scope())
+    user's own images, unless the user is an admin; the linked sample row's fields
+    only when the user owns that row too."""
+    owner_id = _owner_scope()
+    clauses, params = image_filter(args, ds, owner_id=owner_id)
     where = f"WHERE {' AND '.join(clauses)}"
     joins = (
         "FROM _fd.imagehub_images i "
@@ -194,7 +196,7 @@ def _search_images(cur, args, page, ds):
         "i.preview_path, i.mime, i.original_name, i.fields, w.fields, "
         "(SELECT string_agg(a.annotator_label || ' ' || jsonb_array_length(a.regions), "
         "', ' ORDER BY a.annotator_label) "
-        "FROM _fd.imagehub_annotations a WHERE a.image_id = i.id) "
+        "FROM _fd.imagehub_annotations a WHERE a.image_id = i.id), w.owner_id "
         f"{joins}{where} ORDER BY {order} LIMIT %s OFFSET %s",
         (*params, *order_params, PAGE_SIZE, (page - 1) * PAGE_SIZE),
     )
@@ -203,6 +205,9 @@ def _search_images(cur, args, page, ds):
     columns = ds.ui.get("columns") or ()
     for image in images:
         image["id"] = str(image["id"])
+        well_owner = image.pop("well_owner")
+        if owner_id and well_owner and str(well_owner) != owner_id:
+            image["sample"] = None
         source_zip = image["source_zip"]
         if source_zip not in connected:
             connected[source_zip] = _disk_connected(source_zip)

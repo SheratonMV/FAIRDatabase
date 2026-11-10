@@ -64,10 +64,12 @@ def export_path(export_id):
 
 def select_export_images(cur, filters, dataset, owner_id=None):
     """All images of one dataset for a filter, with their wells; with ``owner_id``
-    only that user's images."""
+    only that user's images, and a linked well only when that user owns it (the
+    image's match_status still says it is linked)."""
     clauses, params = image_filter(filters, dataset, owner_id)
     order, order_params = image_order(dataset)
-    columns = [f"i.{c}" for c in _IMAGE_COLUMNS] + [f"w.{c}" for c in _WELL_COLUMNS]
+    columns = ([f"i.{c}" for c in _IMAGE_COLUMNS] + [f"w.{c}" for c in _WELL_COLUMNS]
+               + ["w.owner_id"])
     cur.execute(
         f"SELECT {', '.join(columns)} FROM _fd.imagehub_images i "
         f"LEFT JOIN _fd.imagehub_wells w ON w.id = i.well_id WHERE {' AND '.join(clauses)} "
@@ -77,7 +79,9 @@ def select_export_images(cur, filters, dataset, owner_id=None):
     rows = []
     for row in cur.fetchall():
         image = dict(zip(_IMAGE_COLUMNS, row[:len(_IMAGE_COLUMNS)]))
-        well = dict(zip(_WELL_COLUMNS, row[len(_IMAGE_COLUMNS):]))
+        well = dict(zip(_WELL_COLUMNS, row[len(_IMAGE_COLUMNS):-1]))
+        if owner_id and row[-1] and str(row[-1]) != owner_id:
+            well = {}
         rows.append(export_row(image, well))
     return rows
 

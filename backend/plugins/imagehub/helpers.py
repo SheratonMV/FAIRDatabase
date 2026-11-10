@@ -217,7 +217,9 @@ def image_filter(args, dataset, owner_id=None):
     Values are always bound, field names too.
 
     Expects ``i`` = images and ``w`` = wells (left joined). Only the dataset's own
-    images match, and with ``owner_id`` only that user's images. Blank values and range values that are not numbers are ignored;
+    images match, and with ``owner_id`` only that user's images; sample fields then
+    match only on sample rows that user owns, so a filter cannot reveal the values of
+    someone else's row. Blank values and range values that are not numbers are ignored;
     a whole-number field asked for text matches nothing.
     """
     clauses, params = ["i.dataset = %s"], [dataset.id]
@@ -262,7 +264,10 @@ def image_filter(args, dataset, owner_id=None):
                 continue
         if kind == "sample" and name in dataset.sample_lists:
             value = [value]
-        add(f"{'i' if kind == 'image' else 'w'}.fields @> %s::jsonb", json.dumps({name: value}))
+        if kind == "sample" and owner_id:
+            add("(w.owner_id = %s AND w.fields @> %s::jsonb)", owner_id, json.dumps({name: value}))
+        else:
+            add(f"{'i' if kind == 'image' else 'w'}.fields @> %s::jsonb", json.dumps({name: value}))
     try:
         min_regions = int(args.get("min_regions", ""))
     except (TypeError, ValueError):
