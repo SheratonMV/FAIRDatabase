@@ -82,6 +82,11 @@ def _disk_connected(source_zip):
     return os.path.exists(os.path.join(DISK_ROOT, source_zip))
 
 
+def _owner_scope():
+    """The owner whose rows this request may see: None for admin (all rows)."""
+    return None if g.role == "admin" else str(g.user)
+
+
 def _check_owner(cur, table, row_id):
     """Ownership check as a JSON response; None when allowed."""
     try:
@@ -137,27 +142,31 @@ def _load_well(cur, well_id):
     return well
 
 
-def _filter_options(cur, ds):
-    """Choices per select filter, from what is in the database for this dataset."""
+def _filter_options(cur, ds, owner_id):
+    """Choices per select filter, from the rows of this dataset the user may see."""
     options = {}
+    # Every query below has one table, so the bare column name is unambiguous.
+    mine, mine_params = ("AND owner_id = %s", (owner_id,)) if owner_id else ("", ())
     for f in ds.ui.get("filters") or ():
         if f["type"] != "select":
             continue
         ref = f["field"]
         if ref == "group":
             cur.execute("SELECT DISTINCT experiment FROM _fd.imagehub_images "
-                        "WHERE dataset = %s AND experiment IS NOT NULL ORDER BY 1", (ds.id,))
+                        f"WHERE dataset = %s AND experiment IS NOT NULL {mine} ORDER BY 1",
+                        (ds.id, *mine_params))
         else:
             kind, name = ref.split(".", 1)
             table = "images" if kind == "image" else "wells"
             if kind == "sample" and name in ds.sample_lists:
                 cur.execute(f"SELECT DISTINCT v FROM _fd.imagehub_{table}, "
                             "jsonb_array_elements_text(fields -> %s) v "
-                            "WHERE dataset = %s AND jsonb_typeof(fields -> %s) = 'array' ORDER BY 1",
-                            (name, ds.id, name))
+                            f"WHERE dataset = %s AND jsonb_typeof(fields -> %s) = 'array' {mine} "
+                            "ORDER BY 1", (name, ds.id, name, *mine_params))
             else:
                 cur.execute(f"SELECT DISTINCT fields ->> %s FROM _fd.imagehub_{table} "
-                            "WHERE dataset = %s AND fields ? %s ORDER BY 1", (name, ds.id, name))
+                            f"WHERE dataset = %s AND fields ? %s {mine} ORDER BY 1",
+                            (name, ds.id, name, *mine_params))
         options[f["param"]] = [r[0] for r in cur.fetchall()]
     return options
 
@@ -169,8 +178,9 @@ _SEARCH_COLUMNS = (
 
 
 def _search_images(cur, args, page, ds):
-    """Filtered images of one dataset for one page, and the total count."""
-    clauses, params = image_filter(args, ds)
+    """Filtered images of one dataset for one page, and the total count. Only the
+    user's own images, unless the user is an admin."""
+    clauses, params = image_filter(args, ds, owner_id=_owner_scope())
     where = f"WHERE {' AND '.join(clauses)}"
     joins = (
         "FROM _fd.imagehub_images i "
@@ -216,7 +226,7 @@ def ui():
     page = _page_number()
     ds = _request_dataset()
     with g.db.cursor() as cur:
-        options = _filter_options(cur, ds)
+        options = _filter_options(cur, ds, _owner_scope())
         images, total = _search_images(cur, request.args, page, ds)
     query = {k: v for k, v in request.args.items() if k != "page" and v}
     return render_template(
@@ -234,9 +244,14 @@ def ui():
 def image_page(image_id):
     """One image with its annotations drawn over it, and the well metadata."""
     with g.db.cursor() as cur:
-        image = _load_image(cur, image_id)
-        if image is None:
+        try:
+            assert_owns(cur, "_fd.imagehub_images", "id", str(image_id))
+        except FileNotFoundError:
             abort(404)
+        except PermissionError:
+            abort(403)
+        image = _load_image(cur, image_id)
+        # The linked sample row is shown even when someone else imported it.
         well = _load_well(cur, image["well_id"]) if image["well_id"] else None
     # The image's own dataset; without its config only the fixed rows are shown.
     ds = config.datasets().get(image["dataset"])
@@ -285,9 +300,10 @@ def list_images():
 def get_image(image_id):
     """One image: catalog fields, signed URLs, annotations."""
     with g.db.cursor() as cur:
+        denied = _check_owner(cur, "images", image_id)
+        if denied:
+            return denied
         image = _load_image(cur, image_id)
-    if image is None:
-        return jsonify({"error": "not found"}), 404
     image["url"] = _image_url(image["storage_path"])
     image["display_url"] = _display_url(image)
     image["status"] = image_status(image["storage_path"], _disk_connected(image["source_zip"]))
@@ -298,9 +314,10 @@ def get_image(image_id):
 @login_required(*READ_ROLES)
 def get_well(well_id):
     with g.db.cursor() as cur:
+        denied = _check_owner(cur, "wells", well_id)
+        if denied:
+            return denied
         well = _load_well(cur, well_id)
-    if well is None:
-        return jsonify({"error": "not found"}), 404
     return jsonify(well)
 
 
@@ -312,6 +329,16 @@ def upload_selection():
     if not image_ids or len(image_ids) > MAX_UPLOAD_PER_REQUEST:
         return jsonify({"error": f"give 1 to {MAX_UPLOAD_PER_REQUEST} image_ids"}), 400
     with g.db.cursor() as cur:
+        owner_id = _owner_scope()
+        if owner_id:
+            cur.execute(
+                "SELECT id FROM _fd.imagehub_images "
+                "WHERE id = ANY(%s::uuid[]) AND owner_id <> %s",
+                (image_ids, owner_id),
+            )
+            others = [str(row[0]) for row in cur.fetchall()]
+            if others:
+                return jsonify({"error": "forbidden", "image_ids": others}), 403
         images = select_images(cur, image_ids=image_ids, limit=MAX_UPLOAD_PER_REQUEST)
         results = []
         for image in images:
@@ -408,11 +435,13 @@ def delete_well(well_id):
 @routes.post("/api/export")
 @login_required(*WRITE_ROLES)
 def create_export():
-    """Build one zip from a filter. Missing files are listed, not fatal."""
+    """Build one zip from a filter. Missing files are listed, not fatal. Only the
+    user's own images, unless the user is an admin."""
     filters = (request.get_json(silent=True) or {}).get("filter") or {}
     with g.db.cursor() as cur:
         try:
-            result = build_export(cur, filters, g.user, max_images=MAX_IMAGES_REQUEST)
+            result = build_export(cur, filters, g.user, max_images=MAX_IMAGES_REQUEST,
+                                  only_owner=_owner_scope())
         except ExportError as exc:
             g.db.rollback()
             return jsonify({"error": str(exc)}), 400

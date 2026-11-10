@@ -78,8 +78,9 @@ def test_curator_cannot_delete_what_someone_else_owns(stack):  # noqa: F811
     try:
         stack["set_role"]("curator")
         assert client.delete(f"/imagehub/api/images/{image_id}", json={}).status_code == 403
-        assert client.get(f"/imagehub/api/images/{image_id}").status_code == 200
+        assert client.get(f"/imagehub/api/images/{image_id}").status_code == 403
         stack["set_role"]("admin")
+        assert client.get(f"/imagehub/api/images/{image_id}").status_code == 200
         assert client.delete(f"/imagehub/api/images/{image_id}", json={}).status_code == 200
     finally:
         with app.app_context():

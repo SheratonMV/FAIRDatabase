@@ -62,9 +62,10 @@ def export_path(export_id):
     return os.path.join(EXPORT_DIR, f"{export_id}.zip")
 
 
-def select_export_images(cur, filters, dataset):
-    """All images of one dataset for a filter, with their wells."""
-    clauses, params = image_filter(filters, dataset)
+def select_export_images(cur, filters, dataset, owner_id=None):
+    """All images of one dataset for a filter, with their wells; with ``owner_id``
+    only that user's images."""
+    clauses, params = image_filter(filters, dataset, owner_id)
     order, order_params = image_order(dataset)
     columns = [f"i.{c}" for c in _IMAGE_COLUMNS] + [f"w.{c}" for c in _WELL_COLUMNS]
     cur.execute(
@@ -184,20 +185,22 @@ def _via_files(cur, images):
     return files, counts, shapes
 
 
-def _wells_without_images(cur, images, dataset):
+def _wells_without_images(cur, images, dataset, owner_id=None):
     """Sample rows of the selected groups that no image in the catalog links to, by
-    the dashboard's key columns. None when the config cannot say which rows those are."""
+    the dashboard's key columns; with ``owner_id`` only that user's rows. None when
+    the config cannot say which rows those are."""
     board = dataset.dashboard
     group_field = (dataset.images.get("match") or {}).get("group_field")
     sources = board.get("sample_fields") or {}
     if not group_field or not sources or set(sources) != set(board.get("key") or ()):
         return None
     groups = sorted({i["experiment"] for i in images if i["experiment"]})
+    mine, mine_params = ("AND w.owner_id = %s ", (owner_id,)) if owner_id else ("", ())
     cur.execute(
         "SELECT w.fields FROM _fd.imagehub_wells w "
-        "WHERE w.dataset = %s AND w.fields ->> %s = ANY(%s) AND NOT EXISTS "
+        f"WHERE w.dataset = %s AND w.fields ->> %s = ANY(%s) {mine}AND NOT EXISTS "
         "(SELECT 1 FROM _fd.imagehub_images i WHERE i.well_id = w.id)",
-        (dataset.id, group_field, groups),
+        (dataset.id, group_field, groups, *mine_params),
     )
     rows = []
     for (fields,) in cur.fetchall():
@@ -434,8 +437,11 @@ def _missing_text(missing):
     return "\n".join(lines) + "\n"
 
 
-def build_export(cur, filters, owner_id, *, max_images):
+def build_export(cur, filters, owner_id, *, max_images, only_owner=None):
     """Write the zip and its record, with one audit row. Caller commits.
+
+    ``owner_id`` owns the export record. With ``only_owner`` only that user's images
+    (and sample rows) are exported; the web route passes it for every role but admin.
 
     Raises ExportError for an empty selection, one over ``max_images``, or too
     little free space. Images are written one at a time, so memory stays small.
@@ -444,7 +450,7 @@ def build_export(cur, filters, owner_id, *, max_images):
         dataset = config.get(filters.get("dataset") or None)
     except config.ConfigError as exc:
         raise ExportError(str(exc)) from None
-    images = select_export_images(cur, filters, dataset)
+    images = select_export_images(cur, filters, dataset, only_owner)
     if not images:
         raise ExportError("no images match this filter")
     total = sum(image["size_bytes"] or 0 for image in images)
@@ -508,7 +514,7 @@ def build_export(cur, filters, owner_id, *, max_images):
             html, dashboard_note = build_dashboard(
                 metadata, thumbnails,
                 {paths[i]: value for i, value in shapes.items() if i in paths},
-                _wells_without_images(cur, images, dataset),
+                _wells_without_images(cur, images, dataset, only_owner),
                 {
                     "created": f"{datetime.datetime.now(datetime.timezone.utc):%Y-%m-%d %H:%M} UTC",
                     "filter": json.dumps(filters, ensure_ascii=False, sort_keys=True),

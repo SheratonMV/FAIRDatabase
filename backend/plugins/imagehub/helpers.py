@@ -212,15 +212,18 @@ def _ref_sql(ref):
     return f"{'i' if kind == 'image' else 'w'}.fields -> %s", name
 
 
-def image_filter(args, dataset):
+def image_filter(args, dataset, owner_id=None):
     """Filter values -> ``(WHERE clauses, params)``, by the dataset's ``ui.filters``.
     Values are always bound, field names too.
 
     Expects ``i`` = images and ``w`` = wells (left joined). Only the dataset's own
-    images match. Blank values and range values that are not numbers are ignored;
+    images match, and with ``owner_id`` only that user's images. Blank values and range values that are not numbers are ignored;
     a whole-number field asked for text matches nothing.
     """
     clauses, params = ["i.dataset = %s"], [dataset.id]
+    if owner_id:
+        clauses.append("i.owner_id = %s")
+        params.append(owner_id)
 
     def add(clause, *values):
         clauses.append(clause)
