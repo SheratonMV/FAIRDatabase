@@ -1,6 +1,7 @@
 """Ownership on the web routes: a user sees, uploads and exports only their own
 images; an admin sees all of them. Synthetic rows only, removed by owner."""
 import io
+import json
 import uuid
 import zipfile
 
@@ -9,6 +10,7 @@ import pytest
 from app import get_db
 from config import supabase_extension
 from plugins.imagehub import export, ingest, routes as routes_module
+from plugins.imagehub.helpers import NO_DESCRIPTION
 
 DATASET = "spheroid_example"
 
@@ -83,7 +85,7 @@ def users(app, tmp_path, monkeypatch):
     with app.app_context():
         db = get_db()
         with db.cursor() as cur:
-            for table in ("exports", "images", "wells"):
+            for table in ("exports", "images", "wells", "legends"):
                 cur.execute(f"DELETE FROM _fd.imagehub_{table} WHERE owner_id = ANY(%s::uuid[])",
                             (list(ids),))
             cur.execute("DELETE FROM _fd.plugin_audit WHERE actor = ANY(%s::uuid[])", (list(ids),))
@@ -246,3 +248,74 @@ def test_the_api_and_export_hide_a_linked_well_someone_else_owns(app, users):
     assert image["sample"]["tissue"] == a_data[0]
     assert _listed(users["a"], f"{a_group}&tissue={a_data[0]}") == [users["a_image"]]
     assert all(value in _export_text(users["a"], a_group) for value in a_data)
+
+
+def _add_legend(app, well_id, header, text):
+    """A Legend sheet of the well's workbook, owned by the well's owner, that
+    describes ``header`` with ``text``."""
+    with app.app_context():
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute("SELECT owner_id, source_workbook FROM _fd.imagehub_wells WHERE id = %s",
+                        (well_id,))
+            owner_id, workbook = cur.fetchone()
+            cur.execute(
+                "INSERT INTO _fd.imagehub_legends (owner_id, dataset, source_workbook, "
+                "source_sheet, rows) VALUES (%s, %s, %s, 'Legend', %s::jsonb)",
+                (owner_id, DATASET, workbook, json.dumps([[header, text]])),
+            )
+        db.commit()
+
+
+def _set_props(app, well_id, headers):
+    with app.app_context():
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute("UPDATE _fd.imagehub_wells SET props = %s::jsonb WHERE id = %s",
+                        (json.dumps({h: "1" for h in headers}), well_id))
+        db.commit()
+
+
+def _legend_setup(app, users, *, legend_a):
+    """Both wells have the columns col-a and col-b. B's legend describes col-b;
+    A's (when ``legend_a``) describes col-a. Returns headers and legend texts."""
+    token = users["token"]
+    headers = {"a": f"col-a-{token}", "b": f"col-b-{token}"}
+    texts = {"a": f"legend-text-a-{token}", "b": f"legend-text-b-{token}"}
+    for owner in ("a", "b"):
+        _set_props(app, users[f"{owner}_well"], headers.values())
+    _add_legend(app, users["b_well"], headers["b"], texts["b"])
+    if legend_a:
+        _add_legend(app, users["a_well"], headers["a"], texts["a"])
+    return headers, texts
+
+
+def test_an_export_uses_only_the_callers_own_legends(app, users):
+    """A legend can hold sensitive text: a user's export describes columns with
+    their own legends only, an admin's with all of them."""
+    token = users["token"]
+    headers, texts = _legend_setup(app, users, legend_a=True)
+
+    a_text = _export_text(users["a"], f"own-a-{token}")
+    assert f"  {headers['a']}: {texts['a']}" in a_text
+    assert f"  {headers['b']}: {NO_DESCRIPTION}" in a_text
+    assert texts["b"] not in a_text
+
+    b_text = _export_text(users["b"], f"own-b-{token}")
+    assert f"  {headers['b']}: {texts['b']}" in b_text
+    assert f"  {headers['a']}: {NO_DESCRIPTION}" in b_text
+    assert texts["a"] not in b_text
+
+    admin_text = _export_text(users["admin"], f"own-a-{token}")
+    assert f"  {headers['a']}: {texts['a']}" in admin_text
+    assert f"  {headers['b']}: {texts['b']}" in admin_text
+
+
+def test_an_export_without_own_legend_says_there_is_no_description(app, users):
+    token = users["token"]
+    headers, texts = _legend_setup(app, users, legend_a=False)
+
+    a_text = _export_text(users["a"], f"own-a-{token}")
+    for header in headers.values():
+        assert f"  {header}: {NO_DESCRIPTION}" in a_text
+    assert texts["b"] not in a_text

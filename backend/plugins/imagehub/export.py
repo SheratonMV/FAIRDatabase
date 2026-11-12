@@ -370,11 +370,12 @@ def _metadata_csv(images, statuses, paths, counts, dataset):
     return out.getvalue(), groups, list(region_columns)
 
 
-def _descriptions(cur, dataset):
+def _descriptions(cur, dataset, owner_id=None):
     """Column descriptions from every Legend sheet of the dataset: sheets share
-    their headers."""
-    cur.execute("SELECT rows FROM _fd.imagehub_legends WHERE dataset = %s ORDER BY source_workbook",
-                (dataset.id,))
+    their headers. With ``owner_id`` only that user's Legend sheets."""
+    mine, mine_params = ("AND owner_id = %s ", (owner_id,)) if owner_id else ("", ())
+    cur.execute(f"SELECT rows FROM _fd.imagehub_legends WHERE dataset = %s {mine}"
+                "ORDER BY source_workbook", (dataset.id, *mine_params))
     descriptions = {}
     for (rows,) in cur.fetchall():
         for key, text in legend_descriptions(rows).items():
@@ -445,7 +446,8 @@ def build_export(cur, filters, owner_id, *, max_images, only_owner=None):
     """Write the zip and its record, with one audit row. Caller commits.
 
     ``owner_id`` owns the export record. With ``only_owner`` only that user's images
-    (and sample rows) are exported; the web route passes it for every role but admin.
+    (and sample rows and legends) are exported; the web route passes it for every
+    role but admin.
 
     Raises ExportError for an empty selection, one over ``max_images``, or too
     little free space. Images are written one at a time, so memory stays small.
@@ -513,7 +515,7 @@ def build_export(cur, filters, owner_id, *, max_images, only_owner=None):
             archive.writestr("metadata.csv", metadata)
             archive.writestr("README.txt", _readme(
                 filters, images, len(paths), missing, groups, region_columns,
-                _descriptions(cur, dataset), dataset,
+                _descriptions(cur, dataset, only_owner), dataset,
             ))
             html, dashboard_note = build_dashboard(
                 metadata, thumbnails,
