@@ -214,7 +214,7 @@ def _search_images(cur, args, page, ds):
         image["status"] = image_status(image["storage_path"], connected[source_zip])
         image["thumbnail"] = _display_url(image)
         record = {"group": image["experiment"], "image": image["image"], "sample": image["sample"]}
-        image["cells"] = [row["text"] for row in display_rows(columns, record)]
+        image["cells"] = [row["text"] for row in display_rows(columns, record, ds.extra_fields)]
     return images, total
 
 
@@ -287,7 +287,7 @@ def image_page(image_id):
         image=image, well=well, well_hidden=well_hidden, overlays=overlays,
         title=ds.title if ds else image["dataset"],
         sample_name=ui.get("sample_name", "sample"),
-        image_rows=display_rows(ui.get("image_details"), record),
+        image_rows=display_rows(ui.get("image_details"), record, ds.extra_fields if ds else None),
         sample_rows=display_rows(ui.get("sample_details"), record),
         display_url=_display_url(image),
         status=image_status(image["storage_path"], _disk_connected(image["source_zip"])),

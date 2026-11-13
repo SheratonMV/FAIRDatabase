@@ -231,9 +231,12 @@ def image_filter(args, dataset, owner_id=None):
         clauses.append(clause)
         params.extend(values)
 
-    def number(name, scale):
+    def number(name, scale, whole):
         try:
-            return int(float(args.get(name, "")) * scale)
+            value = float(args.get(name, "")) * scale
+            if not math.isfinite(value):
+                return None
+            return int(value) if whole else value
         except (ValueError, OverflowError):
             return None
 
@@ -241,7 +244,8 @@ def image_filter(args, dataset, owner_id=None):
         ref = f["field"]
         if f["type"] == "range":
             name = ref.split(".", 1)[1]
-            low, high = (number(p, f.get("scale", 1)) for p in f["params"])
+            whole = name not in dataset.float_fields
+            low, high = (number(p, f.get("scale", 1), whole) for p in f["params"])
             if low is not None:
                 add("(i.fields ->> %s)::numeric >= %s", name, low)
             if high is not None:
@@ -259,6 +263,14 @@ def image_filter(args, dataset, owner_id=None):
         if kind == "image" and name in dataset.int_fields:
             try:
                 value = int(value)
+            except (TypeError, ValueError):
+                add("false")
+                continue
+        if kind == "image" and name in dataset.float_fields:
+            try:
+                value = float(value)
+                if not math.isfinite(value):
+                    raise ValueError(value)
             except (TypeError, ValueError):
                 add("false")
                 continue
@@ -292,9 +304,11 @@ def ref_value(ref, record):
     return (record.get(kind) or {}).get(name)
 
 
-def _text(value, fmt=None):
+def _text(value, fmt=None, decimals=None):
     if value is None:
         return ""
+    if decimals is not None and isinstance(value, (int, float)) and not isinstance(value, bool):
+        return f"{value:.{decimals}f}"
     if fmt == "minutes":
         return format_minutes(value) if isinstance(value, int) else str(value)
     if isinstance(value, list):
@@ -302,18 +316,34 @@ def _text(value, fmt=None):
     return str(value)
 
 
-def display_rows(specs, record):
+def _extra_spec(ref, extra):
+    kind, _, name = ref.partition(".")
+    return (extra or {}).get(name) if kind == "image" else None
+
+
+def display_rows(specs, record, extra=None):
     """Rows for a page, by ``ui.columns`` / ``ui.*_details``:
-    ``[{"label", "text", "raw"}]``. ``optional`` rows without a value are left out."""
+    ``[{"label", "text", "raw"}]``. ``optional`` rows without a value are left out.
+
+    ``extra``: the dataset's extra fields. Their ``decimals`` round the shown value
+    (stored values and the export are not rounded); their ``unit`` is shown after
+    the value when the row names no ``unit`` of its own."""
     out = []
     for spec in specs or ():
         refs = spec.get("fields") or [spec["field"]]
         values = [ref_value(ref, record) for ref in refs]
         if spec.get("optional") and not any(v not in (None, "", []) for v in values):
             continue
-        text = " / ".join(_text(v, spec.get("format")) for v in values)
+        texts = []
+        for ref, value in zip(refs, values):
+            declared = _extra_spec(ref, extra) or {}
+            texts.append(_text(value, spec.get("format"), declared.get("decimals")))
+        text = " / ".join(texts)
         if "unit" in spec and values[0] not in (None, ""):
             unit = ref_value(spec["unit"], record)
+            text = f"{text} {unit}" if unit else text
+        elif values[0] not in (None, ""):
+            unit = (_extra_spec(refs[0], extra) or {}).get("unit")
             text = f"{text} {unit}" if unit else text
         raw = _text(ref_value(spec["raw"], record)) if "raw" in spec else ""
         out.append({"label": spec["label"], "text": text, "raw": raw})

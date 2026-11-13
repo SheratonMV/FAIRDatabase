@@ -1,10 +1,11 @@
 """Pure helper tests. Synthetic values only."""
+import copy
 import datetime
 import re
 
 import pytest
 
-from plugins.imagehub import ingest
+from plugins.imagehub import config, ingest
 from plugins.imagehub.helpers import (
     annotator_label,
     browser_url,
@@ -26,7 +27,7 @@ from plugins.imagehub.helpers import (
     treatment_flags,
 )
 from plugins.imagehub.rules import apply_steps
-from plugins.imagehub.tests import synthetic
+from plugins.imagehub.tests import leaf, synthetic
 
 EXAMPLE = synthetic.dataset()
 
@@ -233,3 +234,58 @@ def test_disk_root_comes_from_the_environment(monkeypatch):
     assert ingest.disk_root_from_env() == "/mnt/d"
     monkeypatch.setenv("IMAGEHUB_DISK_ROOT", "/data/microscope")
     assert ingest.disk_root_from_env() == "/data/microscope"
+
+
+# ── extra image fields ─────────────────────────────────────────────────────────
+
+def _leaf_with_extra():
+    raw = copy.deepcopy(leaf.dataset().raw)
+    raw["images"]["extra_fields"] = {
+        "disc_area": {"type": "float", "unit": "mm2", "decimals": 1},
+        "lesions": {"type": "int"},
+    }
+    raw["ui"]["filters"] += [
+        {"field": "image.disc_area", "type": "range", "params": ["area_from", "area_to"]},
+        {"param": "area", "field": "image.disc_area", "type": "select"},
+        {"param": "lesions", "field": "image.lesions", "type": "select"},
+    ]
+    return config.Dataset(raw, "leaf with extra")
+
+
+def test_float_range_keeps_decimals_and_int_range_stays_whole():
+    ds = _leaf_with_extra()
+    _, params = image_filter({"area_from": "1.25", "area_to": "2", "from_day": "1.5"}, ds)
+    assert params[-4:] == ["disc_area", 1.25, "disc_area", 2.0]
+    assert isinstance(params[-1], float)
+    assert 2160 in params and isinstance(params[params.index(2160)], int)
+
+
+def test_float_range_ignores_values_that_are_not_finite():
+    ds = _leaf_with_extra()
+    clauses, params = image_filter({"area_from": "inf", "area_to": "nan"}, ds)
+    assert "disc_area" not in params and len(clauses) == 1
+
+
+def test_select_on_extra_fields_uses_the_declared_type():
+    ds = _leaf_with_extra()
+    _, params = image_filter({"area": "2.50", "lesions": "3"}, ds)
+    assert '{"disc_area": 2.5}' in params and '{"lesions": 3}' in params
+    clauses, _ = image_filter({"area": "a lot"}, ds)
+    assert "false" in clauses
+
+
+def test_extra_fields_show_rounded_with_their_unit_on_pages_only():
+    ds = _leaf_with_extra()
+    specs = [{"label": "Area", "field": "image.disc_area"},
+             {"label": "Lesions", "field": "image.lesions"},
+             {"label": "Area, own unit", "field": "image.disc_area", "unit": "sample.unit"},
+             {"label": "Missing", "field": "image.disc_area", "optional": True}]
+    record = {"image": {"disc_area": 1234.567, "lesions": 3}, "sample": {"unit": "cm2"}}
+    shown = {r["label"]: r["text"] for r in display_rows(specs, record, ds.extra_fields)}
+    assert shown == {"Area": "1234.6 mm2", "Lesions": "3",
+                     "Area, own unit": "1234.6 cm2", "Missing": "1234.6 mm2"}
+    # Without the extra field specs (as before): the stored value, unrounded.
+    assert display_rows(specs[:1], record)[0]["text"] == "1234.567"
+    # No value: no unit either, and an optional row is left out.
+    empty = display_rows(specs, {"image": {}, "sample": {}}, ds.extra_fields)
+    assert [r["text"] for r in empty] == ["", "", ""]
