@@ -35,6 +35,7 @@ from .ingest import (
     write_wells,
 )
 from .rules import apply_steps
+from . import values as extra_values
 
 REPORT_DIR = "uploads/imagehub-reports"
 # Filters of the export command that every dataset has; the others come from ui.filters.
@@ -227,6 +228,71 @@ def register(routes):
                    else "DRY RUN: nothing written to the database.")
         click.echo("Reports: " + ", ".join(paths.values()))
 
+    @routes.cli.command("import-values")
+    @dataset_option
+    @click.option("--source", required=True, type=click.Path(dir_okay=False),
+                  help="csv: source_zip, source_member and one column per extra field.")
+    @click.option("--as", "email", help="Admin or curator email: whose images; needed with --apply.")
+    @click.option("--apply", is_flag=True,
+                  help="Write to the database. Without it nothing is written.")
+    @click.option("--backup-done", is_flag=True,
+                  help="Confirms a database backup was made; needed with --apply.")
+    def import_values(dataset_id, source, email, apply, backup_done):
+        """Set extra image fields (images.extra_fields) from a csv. Prints counts only."""
+        ds = _dataset(dataset_id)
+        if apply and not email:
+            raise click.UsageError("--apply needs --as <email>")
+        if apply and not backup_done:
+            raise click.UsageError("--apply needs --backup-done: make a database backup first")
+        if not os.path.isfile(source):
+            raise click.ClickException(f"no file {source}")
+        with open(source, encoding="utf-8-sig", newline="") as fh:
+            try:
+                values, columns, problems = extra_values.read_values(fh, ds.extra_fields)
+            except extra_values.ValuesError as exc:
+                raise click.ClickException(f"{os.path.basename(source)}: {exc}")
+        click.echo(f"dataset={ds.id}  source={os.path.basename(source)}  fields={', '.join(columns)}")
+        click.echo(f"csv rows usable={len(values)}  rows with a problem={len(problems)}")
+        for line, reason in problems[:20]:
+            click.echo(f"  line {line}: {reason}")
+        if not email:
+            click.echo("DRY RUN: give --as <email> to compare with that user's images.")
+            return
+        with current_app.test_request_context("/"):
+            current_app.preprocess_request()
+            with g.db.cursor() as cur:
+                try:
+                    owner = actor_id(cur, email)
+                except ValueError as exc:
+                    raise click.ClickException(str(exc))
+                images = extra_values.own_images(cur, owner, ds.id, columns)
+                plan = extra_values.plan_values(values, images, columns)
+                counts = plan["counts"]
+                other = extra_values.other_owner_count(
+                    cur, owner, ds.id, [k for k in values if k not in images])
+                click.echo(f"joined to your images={counts['joined']}  "
+                           f"not in your catalog={counts['not_in_own_catalog']} "
+                           f"(of which another owner's image={other})")
+                for name, c in counts["fields"].items():
+                    click.echo(f"  {name}: set={c['set']} changed={c['changed']} "
+                               f"removed={c['removed']} unchanged={c['unchanged']}")
+                click.echo(f"images to write={counts['images_to_write']}")
+                if not apply:
+                    g.db.rollback()
+                    click.echo("DRY RUN: nothing written to the database.")
+                    return
+                if problems:
+                    raise click.ClickException("rows with a problem: fix the csv first")
+                written = extra_values.write_values(cur, owner, ds.id, plan["updates"])
+                record("imagehub_images", actor=owner, action="import_values", after={
+                    "dataset": ds.id, "source": os.path.basename(source), "fields": columns,
+                    "written": written, "joined": counts["joined"],
+                    "not_in_own_catalog": counts["not_in_own_catalog"],
+                    "per_field": counts["fields"],
+                })
+            g.db.commit()
+        click.echo(f"APPLIED: images written={written}")
+
     @routes.cli.command("upload")
     @dataset_option
     @click.option("--as", "email", required=True)
@@ -390,5 +456,10 @@ def _image_fields(pairs, ds):
                 value = int(value)
             except ValueError:
                 raise click.UsageError(f"--field {pair}: {name} is a whole number")
+        elif name in ds.float_fields:
+            try:
+                value = float(value)
+            except ValueError:
+                raise click.UsageError(f"--field {pair}: {name} is a number")
         fields[name] = value
     return fields
