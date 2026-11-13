@@ -668,11 +668,25 @@ def match_image(image, index, dataset=None):
     }
 
 
-def write_images(cur, images, owner_id):
+def _sql_names(names):
+    """A SQL text[] literal of config field names (checked: ``[a-z][a-z0-9_]*``)."""
+    checked = sorted(names)
+    for name in checked:
+        if not config._FIELD_RE.match(name):
+            raise ValueError(f"not a field name: {name!r}")
+    return "ARRAY[" + ", ".join(f"'{n}'" for n in checked) + "]::text[]"
+
+
+def write_images(cur, images, owner_id, keep=()):
     """Upsert catalog rows, with one audit row. Caller commits.
 
     Natural key is (dataset, source_zip, source_member). ``storage_path`` and
     ``preview_path`` are not in the update, so a re-run keeps uploads.
+
+    ``keep``: the dataset's extra field names. Their values in ``fields`` are not
+    from the file name, so a re-run carries them over, and a row that differs only
+    in them is not updated (it counts as unchanged). Every other key of ``fields``
+    is replaced by the parsed file name, as before.
     """
     casts = {
         "dataset": "text", "source_zip": "text", "source_member": "text",
@@ -687,12 +701,21 @@ def write_images(cur, images, owner_id):
             return json.dumps(image["fields"])
         return image[column]
 
+    kept = _sql_names(keep)
+    current = {c: f"_fd.imagehub_images.{c}" for c in compared}
+    current["fields"] = f"(_fd.imagehub_images.fields - {kept})"
+    assign = {c: f"EXCLUDED.{c}" for c in compared}
+    assign["fields"] = (
+        "EXCLUDED.fields || (SELECT COALESCE(jsonb_object_agg(e.key, e.value), '{}'::jsonb) "
+        "FROM jsonb_each(_fd.imagehub_images.fields) AS e "
+        f"WHERE e.key = ANY({kept}))"
+    )
     returned = execute_values(
         cur,
         f"INSERT INTO _fd.imagehub_images (owner_id, {', '.join(columns)}) "
         "VALUES %s ON CONFLICT (dataset, source_zip, source_member) DO UPDATE SET "
-        f"{', '.join(f'{c} = EXCLUDED.{c}' for c in compared)}, updated_at = now() WHERE "
-        f"({', '.join('_fd.imagehub_images.' + c for c in compared)}) IS DISTINCT FROM "
+        f"{', '.join(f'{c} = {assign[c]}' for c in compared)}, updated_at = now() WHERE "
+        f"({', '.join(current[c] for c in compared)}) IS DISTINCT FROM "
         f"({', '.join('EXCLUDED.' + c for c in compared)}) "
         "RETURNING source_zip, source_member, (xmax = 0)",
         [(owner_id, *[value(i, c) for c in columns]) for i in images],

@@ -157,3 +157,86 @@ def test_active_dataset(monkeypatch):
     second = Dataset({**_minimal(), "id": "leaf_two"}, "two.yaml")
     with pytest.raises(ConfigError, match="set IMAGEHUB_DATASET"):
         config.get(available={"leaf_discs": own, "leaf_two": second})
+
+
+# ── extra image fields ─────────────────────────────────────────────────────────
+
+EXTRA = {
+    "disc_area": {"type": "float", "label": "Disc area", "unit": "mm2", "decimals": 1},
+    "lesions": {"type": "int"},
+    "rater_note": {"type": "text"},
+}
+
+
+def _with_extra():
+    raw = _minimal()
+    raw["metadata"]["fields"]["plot"] = {"header": "Plot"}
+    raw["images"]["extra_fields"] = copy.deepcopy(EXTRA)
+    return raw
+
+
+def test_configs_without_extra_fields_are_unchanged():
+    for ds in config.load_dir(config.DATASET_DIRS[0]).values():
+        assert ds.extra_fields == {} and ds.float_fields == set()
+    assert Dataset(_minimal(), "minimal").int_fields == {"day"}
+
+
+def test_extra_fields_are_image_fields_of_their_type():
+    raw = _with_extra()
+    raw["ui"] = {
+        "filters": [
+            {"field": "image.disc_area", "type": "range", "params": ["area_from", "area_to"]},
+            {"field": "image.lesions", "type": "range", "params": ["lesions_from", "lesions_to"]},
+            {"param": "note", "field": "image.rater_note", "type": "select"},
+        ],
+        "sort": ["image.disc_area", "image.lesions"],
+        "columns": [{"label": "Area", "field": "image.disc_area"}],
+        "image_details": [{"label": "Area / lesions", "fields": ["image.disc_area", "image.lesions"]}],
+    }
+    ds = Dataset(raw, "with extra")
+    assert ds.extra_fields == EXTRA
+    assert ds.float_fields == {"disc_area"} and ds.int_fields == {"day", "lesions"}
+    assert {"sample_id", "day", "disc_area", "lesions", "rater_note"} <= ds.image_fields
+
+
+def test_extra_fields_can_be_exported():
+    raw = _example()
+    raw["images"]["extra_fields"] = {"disc_area": {"type": "float"}}
+    raw["export"]["sections"][0]["columns"].append(
+        {"name": "disc_area", "from": "image.disc_area", "description": "Area"})
+    Dataset(raw, "export with extra")
+
+
+@pytest.mark.parametrize("change, part", [
+    (lambda e: e["disc_area"].pop("type"), "missing key type"),
+    (lambda e: e["disc_area"].update(type="bool"), "must be int, float or text"),
+    (lambda e: e["disc_area"].update(colour="red"), "unknown key(s) colour"),
+    (lambda e: e.update(Area={"type": "int"}), "must be a field name"),
+    (lambda e: e.update(day={"type": "int"}), "also a field in images.filename.fields"),
+    (lambda e: e.update(plot={"type": "text"}), "also a sample field"),
+    (lambda e: e.update(source_zip={"type": "text"}), "built-in column"),
+    (lambda e: e["lesions"].update(decimals=1), "only goes with type float"),
+    (lambda e: e["disc_area"].update(decimals=-1), "whole number >= 0"),
+    (lambda e: e["disc_area"].update(label=""), "non-empty text"),
+])
+def test_bad_extra_fields_are_refused(change, part):
+    raw = _with_extra()
+    change(raw["images"]["extra_fields"])
+    with pytest.raises(ConfigError) as caught:
+        Dataset(raw, "bad extra")
+    assert part in str(caught.value) and "images.extra_fields" in str(caught.value)
+
+
+def test_a_range_on_a_text_extra_field_is_refused():
+    raw = _with_extra()
+    raw["ui"] = {"filters": [{"field": "image.rater_note", "type": "range", "params": ["a", "b"]}]}
+    with pytest.raises(ConfigError, match="a range needs an image field of numbers"):
+        Dataset(raw, "text range")
+
+
+def test_an_extra_field_cannot_be_a_match_key():
+    raw = _example()
+    raw["images"]["extra_fields"] = {"disc_area": {"type": "float"}}
+    raw["images"]["match"]["keys"][0]["image"] = "disc_area"
+    with pytest.raises(ConfigError, match="no field 'disc_area' in images.filename"):
+        Dataset(raw, "extra as key")

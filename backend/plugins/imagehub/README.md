@@ -35,14 +35,45 @@ not compile or a field that does not exist stops the app with the file and key n
 |---|---|
 | `metadata` | Which sheet headers become which fields (`header`, or `header_regex` with a unit), which fields a row needs, the columns of `metadata_long.csv` (`long_report`), and `derived` fields made with steps: `split`, `strip`, `lower`, `upper`, `synonyms`, `synonyms_any_case`, `split_off_prefix`, `replace`, `lower_capitalised`, `drop_empty`, `dedupe`. All other columns are kept in `props` under their own header |
 | `images` | Which zips to read, at which folder level the experiment is, which copies to skip, and how a file name becomes fields (one regex with named groups, then per field: groups, a sum, a copy, upper case, synonyms, whole numbers) |
+| `images.extra_fields` | Image values that do not come from the file name, such as a measurement made elsewhere: per field a `type` (`int`, `float` or `text`) and optionally a `label`, a `unit` and, for `float`, `decimals` for the pages. Set by `import-values`; kept by the catalog |
 | `images.match` | Which image field must equal which sample field (`keys`; a list field matches on any of its values), which sample field a folder names (`group_field`), aliases, and groups where a missing key takes the group's only value (`infer_single`) |
 | `annotations` | VIA files: the annotator's label from the file name, and labels for nested zips |
-| `ui` | The query page: filters (select, exact text, or a range with a scale), sort order, result columns, and the rows of the image page |
+| `ui` | The query page: filters (select, exact text, or a range with a scale over a whole-number field or a `float` extra field), sort order, result columns, and the rows of the image page |
 | `export` | The export zip: the columns of `metadata.csv` in sections, each with a description for `README.txt`, the sheet column groups, header merges, free-text notes, and `exclude`: columns that never go in an export |
 | `dashboard` | The dashboard in the export, by `metadata.csv` column: which columns name a sample row and its label, the group, time and channel columns, units, the thumbnail caption, expected columns, default groups and values, the annotator shown first, and tab names |
 
 In `ui` and `export` a field is named `group` (the image's experiment, or its folder),
-`image.<field>` (from the file name) or `sample.<field>` (from the sheet).
+`image.<field>` (from the file name, or an extra field) or `sample.<field>` (from the
+sheet).
+
+### Extra image fields
+
+Some values belong to an image but are not in its file name, for example an area
+measured by another program. Declare them under `images.extra_fields`; the names below
+are invented:
+
+```yaml
+images:
+  extra_fields:
+    disc_area:
+      type: float          # int, float or text
+      label: Disc area     # optional
+      unit: mm2            # optional: shown after the value on the pages
+      decimals: 1          # optional, float only: rounds on the pages, not in the
+                           # database or the export
+    lesions:
+      type: int
+```
+
+They are stored in `imagehub_images.fields` next to the file-name fields and can be used
+as `image.disc_area` in `ui` (columns, filters, sort, image details) and in `export`.
+A `range` filter works on a `float` field as on a whole-number one.
+
+`import-values` (below) sets them. The catalog keeps them: a re-run replaces the
+file-name fields as before but carries the declared extra fields over, and an image
+that differs only in them is counted as unchanged. A key that is not declared is not
+kept, so after a field is removed from the config, the next `catalog --apply` removes
+its values; until then they are stored but not shown.
 
 ### Adding a dataset
 
@@ -126,7 +157,7 @@ the path as `<zip>!/<member>`. Entries that cannot be linked are listed, not fat
 ### 4. Upload a selection
 
 Needs at least one filter: `--name`, `--group` (or `--experiment`), `--field NAME=VALUE`
-for an image field from the file name (repeat it for more), `--source-zip` or
+for an image field from the file name or an extra field (repeat it for more), `--source-zip` or
 `--annotated`. Already uploaded files are skipped. TIFF files also get a JPEG
 preview, because browsers cannot show TIFF. Bucket keys start with the dataset id:
 `<dataset>/<experiment>/<image id>_<file name>`.
@@ -149,6 +180,30 @@ Besides `--min-regions`, `--annotated` and `--in-bucket`, the options are the da
 The **Export** button on the search page does the same for the current filters, up to
 500 images. Zips stay in `backend/uploads/imagehub-exports/` until deleted with
 `DELETE /imagehub/api/exports/<id>`; there is no delete button yet.
+
+### 6. Import extra image values
+
+Sets `images.extra_fields` from a csv with the columns `source_zip`, `source_member`
+(the image's place on the disk, as in `catalog_report.csv`) and one column per extra
+field; a csv may set some of the fields. An empty cell removes that value. Other keys
+are never touched. Only the `--as` user's own images are written.
+
+```csv
+source_zip,source_member,disc_area,lesions
+leaves.zip,Trial 2026/LEAF-0001_day01_top.png,12.345,2
+leaves.zip,Trial 2026/LEAF-0002_day01_top.png,3.5,
+```
+
+```bash
+$SP import-values --source values.csv --as you@example.org
+$SP import-values --source values.csv --as you@example.org --apply --backup-done
+```
+
+Without `--apply` nothing is written; it prints counts per field (set, changed,
+removed, unchanged) and how many rows are not in your catalog, never the values.
+`--apply` needs `--backup-done`, to confirm a database backup was made, and is refused
+while any csv row has a problem. A re-run with the same csv writes nothing. Each
+`--apply` writes one audit row.
 
 ### Reports
 
@@ -293,7 +348,10 @@ afterwards; run them on a separate test stack, not on a database with real data.
 `tests/golden/`, so a change in output is always visible. `tests/leaf_discs.yaml` is a
 second, invented dataset with nothing in common with spheroids (no wells, VIDs or
 annotations; one key column); `test_leaf_db.py` runs it next to the spheroid example
-in one database and checks that pages, filters, uploads and exports never mix them. `test_end_to_end.py` runs the
+in one database and checks that pages, filters, uploads and exports never mix them.
+`test_extra_values.py`, `test_extra_catalog_db.py` and `test_extra_values_db.py` cover
+extra image fields: the csv check, the import, the catalog keeping them, and the
+pages, filters, sort and export showing them. `test_end_to_end.py` runs the
 whole flow through the real commands. `dashboard_smoke.js` renders every tab without a
 browser, so charts still need a look by eye.
 
@@ -306,6 +364,7 @@ rules.py              runs a config: value steps, file name parsing
 routes.py             pages and API
 cli.py                flask imagehub <command>
 ingest.py             sample rows, catalog, upload, VIA import
+values.py             extra image values from a csv (import-values)
 export.py             the export zip
 dashboard.py          builds dashboard.html from dashboard_assets/
 helpers.py            pure functions: parsing, filters, display
