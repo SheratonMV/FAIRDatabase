@@ -232,7 +232,7 @@ def _check_metadata(c, raw):
 
 def _check_images(c, raw, sample_fields):
     im = c.mapping(raw, "images", {
-        "extensions", "archives", "skip", "annotation_archive", "filename", "match",
+        "extensions", "archives", "skip", "annotation_archive", "filename", "match", "extra_fields",
     }, required=("extensions", "archives", "filename"))
     for i, ext in enumerate(c.text_list(im["extensions"], "images.extensions")):
         if not re.match(r"^\.[a-z0-9]+$", ext):
@@ -299,7 +299,39 @@ def _check_images(c, raw, sample_fields):
 
     if "match" in im:
         _check_match(c, im["match"], seen, sample_fields)
-    return seen
+    extra = _check_extra_fields(c, im.get("extra_fields"), seen, sample_fields)
+    return seen | set(extra)
+
+
+EXTRA_TYPES = ("int", "float", "text")
+
+
+def _check_extra_fields(c, raw, filename_fields, sample_fields):
+    """``images.extra_fields``: image values that do not come from the file name, set
+    by ``flask imagehub import-values``. The catalog keeps them on a re-run."""
+    if raw is None:
+        return {}
+    out = c.mapping(raw, "images.extra_fields", _keys(raw))
+    for name, spec in out.items():
+        path = f"images.extra_fields.{name}"
+        c.field(name, path)
+        c.mapping(spec, path, {"type", "label", "unit", "decimals"}, required=("type",))
+        if spec["type"] not in EXTRA_TYPES:
+            c.fail(f"{path}.type", "must be int, float or text")
+        if name in filename_fields:
+            c.fail(path, "is also a field in images.filename.fields")
+        if name in sample_fields:
+            c.fail(path, "is also a sample field in metadata")
+        if name in BUILTIN_COLUMNS:
+            c.fail(path, "is the name of a built-in column")
+        for key in ("label", "unit"):
+            if key in spec:
+                c.text(spec[key], f"{path}.{key}")
+        if "decimals" in spec:
+            if spec["type"] != "float":
+                c.fail(f"{path}.decimals", "only goes with type float")
+            c.integer(spec["decimals"], f"{path}.decimals")
+    return out
 
 
 def _check_match(c, raw, image_fields, sample_fields):
@@ -364,16 +396,28 @@ BUILTIN_COLUMNS = (
 
 
 def _int_fields(images):
-    """Image fields that hold whole numbers: ``type: int`` or a ``sum``."""
+    """Image fields that hold whole numbers: ``type: int`` or a ``sum``, and extra
+    fields of type int."""
     return {
         name for name, spec in images["filename"]["fields"].items()
         if spec.get("type") == "int" or "sum" in spec
-    }
+    } | _extra_of_type(images, "int")
+
+
+def _float_fields(images):
+    """Extra image fields that hold decimal numbers."""
+    return _extra_of_type(images, "float")
+
+
+def _extra_of_type(images, kind):
+    return {name for name, spec in (images.get("extra_fields") or {}).items()
+            if spec["type"] == kind}
 
 
 class _Refs:
     """Checks a field reference: ``group`` (the image's experiment or folder),
-    ``image.<field>`` (from the file name) or ``sample.<field>`` (from the sheet)."""
+    ``image.<field>`` (from the file name, or an extra field) or ``sample.<field>``
+    (from the sheet)."""
 
     def __init__(self, image_fields, sample_fields):
         self.image, self.sample = set(image_fields), set(sample_fields)
@@ -395,7 +439,7 @@ class _Refs:
         return value
 
 
-def _check_ui(c, raw, refs, int_fields):
+def _check_ui(c, raw, refs, number_fields):
     ui = c.mapping(raw, "ui", {
         "group_name", "sample_name", "note", "filters", "sort", "columns",
         "image_details", "sample_details",
@@ -412,8 +456,9 @@ def _check_ui(c, raw, refs, int_fields):
             c.fail(f"{path}.type", "must be select, text or range")
         field = refs.check(c, f["field"], f"{path}.field")
         if f["type"] == "range":
-            if not field.startswith("image.") or field[6:] not in int_fields:
-                c.fail(f"{path}.field", "a range needs an image field of whole numbers")
+            if not field.startswith("image.") or field[6:] not in number_fields:
+                c.fail(f"{path}.field", "a range needs an image field of numbers "
+                                        "(whole numbers, or an extra field of type float)")
             names = f.get("params")
             if not isinstance(names, list) or len(names) != 2:
                 c.fail(f"{path}.params", "a range needs two params: from and to")
@@ -653,7 +698,8 @@ class Dataset:
         image_fields = _check_images(c, raw["images"], sample_fields)
         refs = _Refs(image_fields, sample_fields)
         if "ui" in raw:
-            _check_ui(c, raw["ui"], refs, _int_fields(raw["images"]))
+            _check_ui(c, raw["ui"], refs,
+                      _int_fields(raw["images"]) | _float_fields(raw["images"]))
         if "export" in raw:
             _check_export(c, raw["export"], refs)
             _check_exclude_filters(c, raw)
@@ -679,6 +725,9 @@ class Dataset:
         # Derived sample fields hold lists; image fields of whole numbers are numbers.
         self.sample_lists = set(self.metadata.get("derived") or {})
         self.int_fields = _int_fields(self.images)
+        self.float_fields = _float_fields(self.images)
+        # Extra fields: set by import-values, kept by the catalog. {name: spec}.
+        self.extra_fields = dict(self.images.get("extra_fields") or {})
         self.image_fields = set(image_fields)
 
         fn = self.images["filename"]
