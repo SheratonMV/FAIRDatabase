@@ -216,7 +216,8 @@ def register(routes):
                 )
                 status, counts = {}, {}
                 if apply:
-                    status, counts = write_images(cur, images, actor_id(cur, email))
+                    status, counts = write_images(cur, images, actor_id(cur, email),
+                                                  keep=ds.extra_fields)
                 paths, without = write_catalog_reports(REPORT_DIR, walked, images, status, cur, dataset=ds)
             g.db.commit()
         click.echo(f"sample rows without images={len(without)} " + repr(dict(
