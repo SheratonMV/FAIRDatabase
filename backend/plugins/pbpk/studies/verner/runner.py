@@ -16,7 +16,7 @@ from collections import deque
 
 import libsbml
 import numpy as np
-from scipy.integrate import solve_ivp
+from plugins.pbpk.studies.solver import solve_ivp  # one LSODA solve at a time (see solver.py)
 from scipy.stats import truncnorm
 
 _HERE     = os.path.dirname(os.path.abspath(__file__))

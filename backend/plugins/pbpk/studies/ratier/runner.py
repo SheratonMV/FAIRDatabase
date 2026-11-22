@@ -22,7 +22,7 @@ from typing import Any
 import libsbml
 import numpy as np
 import pandas as pd
-from scipy.integrate import solve_ivp
+from plugins.pbpk.studies.solver import solve_ivp  # one LSODA solve at a time (see solver.py)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SBML path — relative to this file so it works wherever the package is placed.
