@@ -175,15 +175,17 @@ class TestLayer3Load:
     N_WORKERS = 10
     SCENARIOS = ["no_bf", "bf_6mo", "bf_1yr", "bf_3yr"]
 
-    def _make_client_with_session(self, app, email):
+    def _make_client_with_session(self, app, user_id, email):
+        # login_required reads the user's id (not the email) from
+        # session["user"] to look up the role.
         client = app.test_client()
         with client.session_transaction() as sess:
-            sess["user"] = email
+            sess["user"] = user_id
             sess["email"] = email
         return client
 
-    def _fire_one_run(self, app, email, ps_id, scenario):
-        client = self._make_client_with_session(app, email)
+    def _fire_one_run(self, app, user_id, email, ps_id, scenario):
+        client = self._make_client_with_session(app, user_id, email)
         t0 = time.monotonic()
         resp = client.post(
             "/model/runs",
@@ -197,6 +199,8 @@ class TestLayer3Load:
     def test_50_concurrent_runs(self, app, pbpk_client, pbpk_cleanup):
         import os
         client, email = pbpk_client
+        with client.session_transaction() as sess:
+            user_id = sess["user"]
         ps_ids, run_ids = pbpk_cleanup
         p95_threshold = float(os.environ.get("PBPK_STRESS_LATENCY_P95", "10"))
 
@@ -210,7 +214,7 @@ class TestLayer3Load:
         ps_ids.append(ps_id)
 
         # Pre-warm SBML singleton to avoid race on first initialization
-        warmup = self._make_client_with_session(app, email)
+        warmup = self._make_client_with_session(app, user_id, email)
         warmup.post(
             "/model/runs",
             json={"param_set_id": ps_id, "scenario": "no_bf"},
@@ -219,7 +223,7 @@ class TestLayer3Load:
 
         rng = random.Random(42)
         jobs = [
-            (app, email, ps_id, rng.choice(self.SCENARIOS))
+            (app, user_id, email, ps_id, rng.choice(self.SCENARIOS))
             for _ in range(self.N_RUNS)
         ]
 
