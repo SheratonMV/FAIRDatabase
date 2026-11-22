@@ -215,3 +215,76 @@ class TestSimulationRunRoutes:
             cur.execute("DELETE FROM _fd.pbpk_parameter_sets WHERE id = %s", (ps_id,))
             db.commit()
             cur.close()
+
+
+def _delete_runs(app, *run_ids):
+    with app.app_context():
+        from app import get_db
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "DELETE FROM _fd.pbpk_simulation_runs WHERE id = ANY(%s)",
+            ([r for r in run_ids if r is not None],),
+        )
+        db.commit()
+        cur.close()
+
+
+class TestCachedRunMatchesFreshRun:
+    """A cache hit must give the study page the same numbers as a fresh run."""
+
+    @pytest.mark.parametrize(
+        "slug, payload, keys",
+        [
+            (
+                "ratier",
+                {"scenario": "no_bf", "HalfLife": 3.1, "RateInj": 0.451695, "BirthYear": 2007},
+                ("peak_C_ven", "peak_Age_yr", "final_C_ven", "final_Age_yr"),
+            ),
+            (
+                "generic",
+                {"compound": "PFOA", "scenario": "no_bf", "n_pts": 50},
+                ("peak_CA_maternal_mgL", "peak_age_yr", "peak_CA_fetal_mgL",
+                 "final_CA_maternal_mgL", "final_age_yr"),
+            ),
+        ],
+    )
+    def test_cache_hit_returns_the_same_results(self, curator_user, app, slug, payload, keys):
+        client, _ = curator_user
+        url = f"/model/studies/{slug}/run"
+        fresh = client.post(url, json=payload).get_json()
+        cached = client.post(url, json=payload).get_json()
+        try:
+            assert cached.get("cache_hit") is True
+            for key in keys:
+                assert fresh.get(key) is not None, f"fresh run has no {key}"
+                assert cached.get(key) == pytest.approx(fresh[key]), key
+            assert len(cached["timeseries"]) == len(fresh["timeseries"])
+        finally:
+            _delete_runs(app, fresh.get("run_id"))
+
+
+class TestStudyRunAccess:
+    def test_visualizer_cannot_run_a_study(self, logged_in_user, app):
+        """Visualizers cannot open results, so they must not be able to start a run."""
+        client, _ = logged_in_user
+        resp = client.post(
+            "/model/studies/ratier/run",
+            json={"scenario": "no_bf", "HalfLife": 3.2, "RateInj": 0.451695, "BirthYear": 2007},
+        )
+        assert resp.status_code == 403
+
+
+class TestResultsPage:
+    def test_results_page_names_the_model_used(self, curator_user, app):
+        client, _ = curator_user
+        run = client.post(
+            "/model/studies/ratier/run",
+            json={"scenario": "no_bf", "HalfLife": 3.3, "RateInj": 0.451695, "BirthYear": 2007},
+        ).get_json()
+        try:
+            resp = client.get(f"/model/results/{run['run_id']}")
+            assert resp.status_code == 200
+            assert b"This simulation used the" in resp.data
+        finally:
+            _delete_runs(app, run.get("run_id"))

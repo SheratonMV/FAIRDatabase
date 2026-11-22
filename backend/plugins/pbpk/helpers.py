@@ -334,8 +334,9 @@ def fetch_run_checked(run_id: int, user_id: str, role: str) -> dict:
     cur = g.db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute(
         """
-        SELECT id, param_set_id, scenario, status, started_at, finished_at,
-               error_message, summary, timeseries, created_by, created_at, owner_id
+        SELECT id, param_set_id, study_slug, compound, scenario, status,
+               started_at, finished_at, error_message, summary, timeseries,
+               created_by, created_at, owner_id
         FROM _fd.pbpk_simulation_runs
         WHERE id = %s
         """,

@@ -210,3 +210,23 @@ class TestFetchRunChecked:
             cur.execute("DELETE FROM _fd.pbpk_parameter_sets WHERE id = %s", (ps_id,))
             db.commit()
             cur.close()
+
+    def test_returns_study_slug_and_compound(self, app):
+        """The results page needs both to name the model and filter thresholds."""
+        from plugins.pbpk.catalogue import create_study_run
+        from plugins.pbpk.helpers import fetch_run_checked
+        with app.app_context():
+            db = get_db()
+            run_id = create_study_run(
+                study_slug="generic", scenario="no_bf", compound="PFOS",
+                created_by="u@test.com",
+            )
+            try:
+                run = fetch_run_checked(run_id, user_id="some-uuid", role="admin")
+                assert run["study_slug"] == "generic"
+                assert run["compound"] == "PFOS"
+            finally:
+                cur = db.cursor()
+                cur.execute("DELETE FROM _fd.pbpk_simulation_runs WHERE id = %s", (run_id,))
+                db.commit()
+                cur.close()

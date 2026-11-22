@@ -28,8 +28,9 @@ PLUGIN = Plugin(
         # included in the migration and applied idempotently.
         "sql/002_catalogue.sql",
         # 003_ontology.sql creates _fd.pbpk_iri_labels (OLS4 label cache) and
-        # _fd.pbpk_cv_terms (per-study SBML CV-term inventory). Populated by
-        # ontology.seed_ontology_terms() at first ensure_seeded() call.
+        # _fd.pbpk_cv_terms (per-study SBML CV-term inventory). Populated out
+        # of band by `python -m plugins.pbpk.scripts.seed_ontology`, not on a
+        # request (see the plugin README).
         "sql/003_ontology.sql",
     ],
 

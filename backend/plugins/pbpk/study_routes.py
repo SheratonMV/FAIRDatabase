@@ -82,7 +82,7 @@ def register(routes):
         )
 
     @routes.route("/studies/<slug>/run", methods=["POST"])
-    @login_required()
+    @login_required("admin", "curator", "accessor")  # same roles as /results/<id>
     def study_run(slug):
         _meta(slug)
         try:
@@ -111,6 +111,11 @@ def register(routes):
             except (FileNotFoundError, PermissionError):
                 cached_run = None
             if cached_run is not None:
+                # A fresh run returns the peak/final values at the top level;
+                # a stored run keeps them in ``summary``. Lift them up so the
+                # study pages read a cache hit the same way.
+                for key, value in (cached_run.get("summary") or {}).items():
+                    cached_run.setdefault(key, value)
                 cached_run["run_id"] = cached_id
                 cached_run["cache_hit"] = True
                 return jsonify(cached_run), 200
@@ -173,8 +178,8 @@ def _extract_summary(result: dict) -> dict:
     summary = {}
     # Ratier / generic runner keys
     for key in ("peak_C_ven", "peak_Age_yr", "final_C_ven", "final_Age_yr",
-                "peak_CA_maternal_mgL", "peak_age_yr", "final_CA_maternal_mgL",
-                "final_age_yr", "n_rows", "n_iter"):
+                "peak_CA_maternal_mgL", "peak_age_yr", "peak_CA_fetal_mgL",
+                "final_CA_maternal_mgL", "final_age_yr", "n_rows", "n_iter"):
         if key in result:
             summary[key] = result[key]
     # Rovira runner keys
