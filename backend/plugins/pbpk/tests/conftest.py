@@ -119,6 +119,13 @@ def pbpk_cleanup(app):
                 "DELETE FROM _fd.pbpk_simulation_runs WHERE id = ANY(%s)", (run_ids,)
             )
         if ps_ids:
+            # Also remove runs the test did not get to record (it failed
+            # before appending them, or they were warm-up runs); otherwise
+            # they block the parameter-set delete below.
+            cur.execute(
+                "DELETE FROM _fd.pbpk_simulation_runs WHERE param_set_id = ANY(%s)",
+                (ps_ids,),
+            )
             cur.execute(
                 "DELETE FROM _fd.pbpk_parameter_sets WHERE id = ANY(%s)", (ps_ids,)
             )
