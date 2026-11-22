@@ -2,8 +2,8 @@ import pytest
 
 
 class TestParameterSetRoutes:
-    def test_create_parameter_set_returns_201(self, logged_in_user, app):
-        client, _ = logged_in_user
+    def test_create_parameter_set_returns_201(self, curator_user, app):
+        client, _ = curator_user
         resp = client.post(
             "/model/parameter-sets",
             json={"name": "PFOA Default", "description": "Standard PFOA", "params": {"HalfLife": 2.5}},
@@ -23,8 +23,8 @@ class TestParameterSetRoutes:
             db.commit()
             cur.close()
 
-    def test_create_parameter_set_missing_name_returns_400(self, logged_in_user):
-        client, _ = logged_in_user
+    def test_create_parameter_set_missing_name_returns_400(self, curator_user):
+        client, _ = curator_user
         resp = client.post(
             "/model/parameter-sets",
             json={"params": {"HalfLife": 2.5}},
@@ -33,8 +33,8 @@ class TestParameterSetRoutes:
         assert resp.status_code == 400
         assert "name" in resp.get_json()["error"]
 
-    def test_list_parameter_sets_returns_200(self, logged_in_user, app):
-        client, _ = logged_in_user
+    def test_list_parameter_sets_returns_200(self, curator_user, app):
+        client, _ = curator_user
         # Create one first
         resp = client.post(
             "/model/parameter-sets",
@@ -60,8 +60,8 @@ class TestParameterSetRoutes:
             db.commit()
             cur.close()
 
-    def test_get_single_parameter_set_returns_200(self, logged_in_user, app):
-        client, _ = logged_in_user
+    def test_get_single_parameter_set_returns_200(self, curator_user, app):
+        client, _ = curator_user
         resp = client.post(
             "/model/parameter-sets",
             json={"name": "Single Get Test", "params": {"HalfLife": 7.0, "RateInj": 0.2}},
@@ -83,7 +83,7 @@ class TestParameterSetRoutes:
             db.commit()
             cur.close()
 
-    def test_get_nonexistent_parameter_set_returns_404(self, logged_in_user):
-        client, _ = logged_in_user
+    def test_get_nonexistent_parameter_set_returns_404(self, curator_user):
+        client, _ = curator_user
         resp = client.get("/model/parameter-sets/999999999")
         assert resp.status_code == 404

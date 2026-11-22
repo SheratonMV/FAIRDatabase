@@ -2,6 +2,7 @@
 {% block title %}Upload Metadata | FAIRMicrobiome{% endblock %}
 
 {% block content %}
+<div class="container mt-4">
 <div class="row justify-content-center">
    {% with messages = get_flashed_messages(with_categories=true) %}
    {% if messages %}
@@ -66,5 +67,6 @@ Sample2,Drug_A,Day7</pre>
          </div>
       </div>
    </div>
+</div>
 </div>
 {% endblock %}
